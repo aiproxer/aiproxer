@@ -182,6 +182,88 @@ async def test_acp_quota_error_code_is_forwarded(connector: DummyAcpConnector) -
 
 
 @pytest.mark.asyncio
+async def test_acp_error_after_partial_output_yields_notice_and_completes(
+    connector: DummyAcpConnector,
+) -> None:
+    runtime = connector._create_runtime(Path("/tmp/ws"), "dummy/model")
+    runtime.session_id = "dummy-session"
+    update = ACPNotification(
+        method="session/update",
+        params={
+            "sessionId": "dummy-session",
+            "update": {
+                "sessionUpdate": "agent_message_chunk",
+                "content": {"type": "text", "text": "partial output "},
+            },
+        },
+    )
+    error_response = ACPNotification(
+        id=7,
+        error=ACPError(
+            code=-32603,
+            message="Internal error",
+            data={"error": "boom after partial"},
+        ),
+    )
+
+    with patch.object(
+        connector,
+        "_read_jsonrpc_message",
+        AsyncMock(side_effect=[update, error_response]),
+    ):
+        gen = connector._iter_acp_stream_pieces(runtime, 7, "dummy/model")
+        first = await gen.__anext__()
+        assert first.content == "partial output "
+        second = await gen.__anext__()
+        assert second.content is not None
+        assert "ACP backend turn failed after partial output" in second.content
+        assert "Internal error" in second.content
+        with pytest.raises(StopAsyncIteration):
+            await gen.__anext__()
+
+
+@pytest.mark.asyncio
+async def test_acp_error_after_partial_output_flushes_pending_tool_summary(
+    connector: DummyAcpConnector,
+) -> None:
+    runtime = connector._create_runtime(Path("/tmp/ws"), "dummy/model")
+    runtime.session_id = "dummy-session"
+    tool_update = ACPNotification(
+        method="session/update",
+        params={
+            "sessionId": "dummy-session",
+            "update": {
+                "sessionUpdate": "tool_call",
+                "toolCallId": "tool-1",
+                "title": "read_file",
+                "rawInput": {"path": "README.md"},
+            },
+        },
+    )
+    error_response = ACPNotification(
+        id=7,
+        error=ACPError(code=-32603, message="failed after tool output"),
+    )
+
+    with patch.object(
+        connector,
+        "_read_jsonrpc_message",
+        AsyncMock(side_effect=[tool_update, error_response]),
+    ):
+        pieces = [
+            piece
+            async for piece in connector._iter_acp_stream_pieces(
+                runtime, 7, "dummy/model"
+            )
+        ]
+
+    content = "".join(piece.content or "" for piece in pieces)
+    assert "read_file" in content
+    assert "ACP backend turn failed after partial output" in content
+    assert content.index("read_file") < content.index("ACP backend turn failed")
+
+
+@pytest.mark.asyncio
 async def test_windows_terminate_kills_tree_before_root_process(
     connector: DummyAcpConnector,
 ) -> None:
@@ -803,6 +885,28 @@ def test_resolve_client_session_id_from_extra_body(
 ) -> None:
     req = _make_request(extra_body={"session_id": "eb-sess-456"})
     assert connector._resolve_client_session_id(req) == "eb-sess-456"
+
+
+def test_resolve_client_session_id_normalizes_b2bua_attempt_suffix(
+    connector: DummyAcpConnector,
+) -> None:
+    req1 = _make_request(
+        session_id="llm-b2bua-b-350a2b91-7ee4-4b99-8419-979b44c0dab5-1"
+    )
+    req2 = _make_request(
+        session_id="llm-b2bua-b-350a2b91-7ee4-4b99-8419-979b44c0dab5-2"
+    )
+    assert (
+        connector._resolve_client_session_id(req1)
+        == "llm-b2bua-b-350a2b91-7ee4-4b99-8419-979b44c0dab5"
+    )
+    assert (
+        connector._resolve_client_session_id(req2)
+        == "llm-b2bua-b-350a2b91-7ee4-4b99-8419-979b44c0dab5"
+    )
+    assert connector._resolve_client_session_id(
+        req1
+    ) == connector._resolve_client_session_id(req2)
 
 
 @pytest.mark.asyncio

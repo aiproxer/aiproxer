@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import subprocess
 import threading
 import time
@@ -476,7 +477,12 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
                         sid = raw_eb
                         break
         if isinstance(sid, str) and sid.strip():
-            return sid.strip()
+            normalized = sid.strip()
+            # If this is a B2BUA B-leg attempt ID (e.g., llm-b2bua-b-<uuid>-<seq>),
+            # strip the per-attempt sequence suffix so that all attempts and turns
+            # for the same conversation share the same pooled ACP runtime.
+            normalized = re.sub(r"^(llm-b2bua-b-[0-9a-fA-F-]+)-\d+$", r"\1", normalized)
+            return normalized
         return "default"
 
     @staticmethod
@@ -1622,9 +1628,58 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
                             deadline = time.monotonic() + self._process_timeout
                             continue
 
+                        is_turn_or_client_error = (
+                            response.error.code in (-32600, -32602)
+                            or "status error" in err_msg.lower()
+                            or "invalid" in err_msg.lower()
+                            or "tool" in err_msg.lower()
+                            or "prompt" in err_msg.lower()
+                            or "schedule" in err_msg.lower()
+                            or "permission" in err_msg.lower()
+                        )
+                        if piece_count > 0:
+                            if runtime.acp_thinking_block_open:
+                                runtime.acp_thinking_block_open = False
+                                yield AcpStreamPiece(
+                                    content=self._close_thinking_block()
+                                )
+                            for flush_piece in self._flush_incomplete_acp_tool_streams(
+                                runtime
+                            ):
+                                if flush_piece.content or flush_piece.reasoning_content:
+                                    piece_count += 1
+                                    yield flush_piece
+                            notice = (
+                                "\n\n[ACP backend turn failed after partial output: "
+                                f"{err_msg}. The response above may be incomplete.]\n"
+                            )
+                            yield AcpStreamPiece(content=notice)
+                            piece_count += 1
+                            if logger.isEnabledFor(logging.WARNING):
+                                logger.warning(
+                                    "ACP turn failed after %d partial pieces; "
+                                    "preserving output and completing with notice "
+                                    "(model=%s session_id=%s error=%s)",
+                                    piece_count - 1,
+                                    runtime.model,
+                                    runtime.session_id,
+                                    err_msg,
+                                )
+                            if logger.isEnabledFor(logging.INFO):
+                                logger.info(
+                                    "ACP prompt turn completed with partial-output "
+                                    "error notice: model=%s, session_id=%s, "
+                                    "total_pieces=%d, duration=%.2fs",
+                                    runtime.model,
+                                    runtime.session_id,
+                                    piece_count,
+                                    time.monotonic() - turn_start_time,
+                                )
+                            break
                         raise BackendError(
                             message=f"ACP process error: {err_msg}",
                             details=response.error.model_dump(),
+                            status_code=400 if is_turn_or_client_error else 500,
                         )
                     if runtime.acp_thinking_block_open:
                         runtime.acp_thinking_block_open = False
