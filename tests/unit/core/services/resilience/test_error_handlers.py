@@ -2,10 +2,21 @@
 
 from unittest.mock import patch
 
-from src.core.common.exceptions import AuthenticationError, RateLimitExceededError
+from src.core.common.exceptions import (
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    BackendError,
+    RateLimitExceededError,
+    SessionCancelledError,
+)
 from src.core.interfaces.resilience_interface import ActionType, ErrorContext
+from src.core.services.resilience.circuit_breaker_state import (
+    CircuitBreakerStateManager,
+)
 from src.core.services.resilience.handlers import (
     AuthErrorHandler,
+    CircuitBreakerErrorHandler,
     RateLimitErrorHandler,
 )
 from src.core.services.resilience.rate_limit_state import (
@@ -409,3 +420,50 @@ class TestHandlerChaining:
 
         assert action.type == ActionType.COOLDOWN
         assert manager.is_instance_available("backend.1") is True  # Not disabled
+
+
+class TestCircuitBreakerErrorHandler:
+    """Tests for CircuitBreakerErrorHandler."""
+
+    def test_can_handle_transient_5xx_errors(self) -> None:
+        manager = CircuitBreakerStateManager()
+        handler = CircuitBreakerErrorHandler(manager)
+
+        assert handler.can_handle(BackendError("Server error", status_code=500)) is True
+        assert handler.can_handle(BackendError("Bad Gateway", status_code=502)) is True
+        assert handler.can_handle(BackendError("Unavailable", status_code=503)) is True
+        assert (
+            handler.can_handle(BackendError("Gateway Timeout", status_code=504)) is True
+        )
+
+    def test_cannot_handle_client_4xx_errors(self) -> None:
+        manager = CircuitBreakerStateManager()
+        handler = CircuitBreakerErrorHandler(manager)
+
+        assert handler.can_handle(BackendError("Bad Request", status_code=400)) is False
+        assert handler.can_handle(BackendError("Not Found", status_code=404)) is False
+        assert (
+            handler.can_handle(BackendError("Unprocessable", status_code=422)) is False
+        )
+        assert handler.can_handle(RateLimitExceededError("Rate limit")) is False
+        assert handler.can_handle(AuthenticationError("Auth failed")) is False
+
+    def test_cannot_handle_cancellations(self) -> None:
+        import asyncio
+        from typing import cast
+
+        manager = CircuitBreakerStateManager()
+        handler = CircuitBreakerErrorHandler(manager)
+
+        assert handler.can_handle(cast(Exception, asyncio.CancelledError())) is False
+        assert handler.can_handle(cast(Exception, GeneratorExit())) is False
+        assert handler.can_handle(SessionCancelledError(message="Cancelled")) is False
+
+    def test_can_handle_timeout_and_connection_errors(self) -> None:
+        manager = CircuitBreakerStateManager()
+        handler = CircuitBreakerErrorHandler(manager)
+
+        assert handler.can_handle(APITimeoutError("Timeout")) is True
+        assert handler.can_handle(APIConnectionError("Conn error")) is True
+        assert handler.can_handle(TimeoutError()) is True
+        assert handler.can_handle(ConnectionError()) is True

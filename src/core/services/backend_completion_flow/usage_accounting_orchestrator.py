@@ -74,7 +74,7 @@ def _record_streaming_resilience_outcome(
     instance_id: str | None,
     effective_model: str,
     completion_outcome: UsageCompletionOutcome | None,
-    stream_error: Exception | None,
+    stream_error: BaseException | None,
     error_classification: str | None,
     context: RequestContext | None,
     backend_type: str,
@@ -91,6 +91,14 @@ def _record_streaming_resilience_outcome(
         resilience.record_success(instance_id, effective_model)
         return
 
+    # Check if this was a cancellation or client disconnect
+    if isinstance(stream_error, asyncio.CancelledError | GeneratorExit) or (
+        stream_error is not None
+        and type(stream_error).__name__ in ("SessionCancelledError", "CancelledError")
+    ):
+        resilience.release_circuit_breaker_probe(instance_id)
+        return
+
     # Incomplete / disconnect with no explicit stream error: do not penalize.
     if stream_error is None and error_classification is None:
         if _stream_emitted_meaningful_output(context):
@@ -99,8 +107,8 @@ def _record_streaming_resilience_outcome(
         resilience.release_circuit_breaker_probe(instance_id)
         return
 
-    failure_error = stream_error
-    if failure_error is None:
+    failure_error: Exception
+    if stream_error is None:
         failure_error = BackendError(
             message=(
                 "Streaming terminated with error chunk"
@@ -109,6 +117,11 @@ def _record_streaming_resilience_outcome(
             ),
             backend_name=backend_type,
         )
+    elif isinstance(stream_error, Exception):
+        failure_error = stream_error
+    else:
+        # BaseException that is not an Exception (e.g. KeyboardInterrupt, SystemExit)
+        return
     resilience.record_failure(instance_id, effective_model, failure_error)
 
 
@@ -593,7 +606,7 @@ class UsageAccountingOrchestrator(IUsageAccountingOrchestrator):
             accumulated_usage = None
             completion_outcome: UsageCompletionOutcome | None = None
             error_classification: str | None = None
-            stream_error: Exception | None = None
+            stream_error: BaseException | None = None
 
             try:
                 if original_content:

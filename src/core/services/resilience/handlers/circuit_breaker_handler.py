@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from src.core.common.exceptions import (
     APIConnectionError,
     APITimeoutError,
@@ -19,7 +21,7 @@ from src.core.services.resilience.circuit_breaker_state import (
 )
 
 _TRANSIENT_STATUS_CODES = frozenset([500, 502, 503, 504])
-_NON_TRANSIENT_STATUS_CODES = frozenset([401, 403, 429])
+_NON_TRANSIENT_STATUS_CODES = frozenset([400, 401, 403, 404, 422, 429])
 
 
 class CircuitBreakerErrorHandler:
@@ -38,17 +40,25 @@ class CircuitBreakerErrorHandler:
         return handler
 
     def can_handle(self, error: Exception) -> bool:
-        if isinstance(error, RateLimitExceededError | AuthenticationError):
+        if isinstance(
+            error,
+            RateLimitExceededError
+            | AuthenticationError
+            | asyncio.CancelledError
+            | GeneratorExit,
+        ):
+            return False
+
+        if type(error).__name__ in ("SessionCancelledError", "CancelledError"):
             return False
 
         status_code = _extract_status_code(error)
-        if status_code in _NON_TRANSIENT_STATUS_CODES:
-            return False
+        if status_code is not None:
+            if 400 <= status_code < 500 or status_code in _NON_TRANSIENT_STATUS_CODES:
+                return False
+            return status_code in _TRANSIENT_STATUS_CODES
 
-        if _is_timeout_or_transport_error(error):
-            return True
-
-        return status_code in _TRANSIENT_STATUS_CODES
+        return bool(_is_timeout_or_transport_error(error))
 
     def handle(self, context: ErrorContext) -> ResilienceAction:
         recorded = False

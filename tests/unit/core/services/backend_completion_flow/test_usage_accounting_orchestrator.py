@@ -712,3 +712,68 @@ class TestRecordStreamingResilienceOutcome:
         decision = coordinator.check_availability(instance_id, "gpt-5.6-sol")
         assert decision.should_proceed() is True
         assert coordinator.try_acquire_circuit_breaker_probe(instance_id) is True
+
+    def test_cancellation_does_not_trip_circuit_breaker(self) -> None:
+        import asyncio
+
+        from src.core.common.exceptions import SessionCancelledError
+        from src.core.config.models.misc import CircuitBreakerConfig
+        from src.core.domain.usage_canonical_record import UsageCompletionOutcome
+        from src.core.services.backend_completion_flow.usage_accounting_orchestrator import (
+            _record_streaming_resilience_outcome,
+        )
+        from src.core.services.provider_error_classifier import ProviderErrorClassifier
+        from src.core.services.resilience.circuit_breaker_state import (
+            CircuitBreakerStateManager,
+        )
+        from src.core.services.resilience.coordinator import ResilienceCoordinator
+        from src.core.services.resilience.handlers import CircuitBreakerErrorHandler
+        from src.core.services.resilience.rate_limit_state import RateLimitStateManager
+
+        circuit_state = CircuitBreakerStateManager(
+            CircuitBreakerConfig(
+                failure_threshold=1,
+                open_cooldown_seconds=5.0,
+            )
+        )
+        coordinator = ResilienceCoordinator(
+            state_manager=RateLimitStateManager(),
+            provider_error_classifier=ProviderErrorClassifier(),
+            error_handler_chain=CircuitBreakerErrorHandler(circuit_state),
+            circuit_breaker_state=circuit_state,
+        )
+        instance_id = "agy-cli-acp.default"
+
+        # Stream cancelled via asyncio.CancelledError
+        _record_streaming_resilience_outcome(
+            coordinator,
+            instance_id=instance_id,
+            effective_model="google/gemini-3.7-flash",
+            completion_outcome=UsageCompletionOutcome.incomplete,
+            stream_error=asyncio.CancelledError(),
+            error_classification=None,
+            context=None,
+            backend_type="agy-cli-acp",
+        )
+
+        decision = coordinator.check_availability(
+            instance_id, "google/gemini-3.7-flash"
+        )
+        assert decision.should_proceed() is True
+
+        # Stream cancelled via SessionCancelledError
+        _record_streaming_resilience_outcome(
+            coordinator,
+            instance_id=instance_id,
+            effective_model="google/gemini-3.7-flash",
+            completion_outcome=UsageCompletionOutcome.incomplete,
+            stream_error=SessionCancelledError(message="client disconnect"),
+            error_classification=None,
+            context=None,
+            backend_type="agy-cli-acp",
+        )
+
+        decision = coordinator.check_availability(
+            instance_id, "google/gemini-3.7-flash"
+        )
+        assert decision.should_proceed() is True
