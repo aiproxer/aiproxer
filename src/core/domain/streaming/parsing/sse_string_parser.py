@@ -102,5 +102,4 @@ class SSEStringParser(IParserStrategy):
                 return StreamingContent(content=text_content, raw_data=raw_data)
 
 
-
 __all__ = ["SSEStringParser"]

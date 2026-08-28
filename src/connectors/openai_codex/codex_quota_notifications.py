@@ -203,7 +203,7 @@ def codex_remaining_percent_from_used(used_percent: float) -> float:
 
 
 def collect_codex_remaining_pairs(
-    headers: Mapping[str, Any]
+    headers: Mapping[str, Any],
 ) -> list[tuple[str, float]]:
     """Build (limit_kind, remaining_percent) pairs from Codex quota headers."""
     pairs: list[tuple[str, float]] = []

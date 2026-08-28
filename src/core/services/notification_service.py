@@ -46,7 +46,7 @@ class NotificationService(INotificationService):
         self._config = config
         self._host = host
         self._enabled = config.is_enabled(host)
-        
+
         # Use provided provider or default to DesktopNotifierProvider
         self._provider = provider or DesktopNotifierProvider()
 

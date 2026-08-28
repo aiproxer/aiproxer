@@ -8,6 +8,7 @@ startup (``codex debug models``) with a shipped fallback snapshot — see
 
 from src.connectors._openai_codex_connector import (
     OPENAI_VENDOR_PREFIX,
+    OpenAICodexConfiguredModelEnumerator,
     OpenAICodexConnector,
 )
 from src.connectors.openai_codex.catalog import (
@@ -21,6 +22,7 @@ from src.connectors.openai_codex.catalog import (
 __all__ = [
     "OPENAI_VENDOR_PREFIX",
     "OpenAICodexConnector",
+    "OpenAICodexConfiguredModelEnumerator",
     "CodexModelCatalog",
     "CodexModelCatalogConfig",
     "CodexModelCatalogProvider",

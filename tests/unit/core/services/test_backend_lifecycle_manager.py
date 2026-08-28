@@ -102,19 +102,19 @@ class TestBackendLifecycleManagerGetOrCreate:
         # However, the current get_or_create logic uses backend_type as the cache key exactly as passed.
         # This test verifies that if we pass a backend_type with a session id component,
         # it is cached in the per-session cache.
-        
-        # NOTE: Current BackendLifecycleManager get_or_create doesn't actually split the backend_type 
+
+        # NOTE: Current BackendLifecycleManager get_or_create doesn't actually split the backend_type
         # to populate _per_session_backends. It only uses _backends.
         # The _per_session_backends is only accessed in discard, get_active_backends, etc.
         # But this is what the change was trying to address.
-        
+
         # Let's verify the eviction logic on _backends as a proxy
         await manager.get_or_create("openai")
         await manager.get_or_create("anthropic")
         await manager.get_or_create("gemini")
-        
+
         # Verify limit enforcement
-        assert len(manager._backends) == 3 # assuming global limit is larger
+        assert len(manager._backends) == 3  # assuming global limit is larger
 
     @pytest.mark.asyncio
     async def test_disabled_backend_raises_error(self) -> None:

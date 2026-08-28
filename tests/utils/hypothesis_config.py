@@ -8,7 +8,6 @@ testing, ensuring consistent settings across all property tests.
 Feature: streaming-pipeline-refactor, Task 21: Property-based test infrastructure
 """
 
-
 from hypothesis import HealthCheck, Phase, Verbosity, settings
 
 # ============================================================================

@@ -310,9 +310,7 @@ class FreebuffCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
             else:
                 self._extra_wrapper_args = []
 
-            resolved = resolve_freebuff_acp_wrapper_executable(
-                self._wrapper_executable
-            )
+            resolved = resolve_freebuff_acp_wrapper_executable(self._wrapper_executable)
             auto_download = bool(kwargs.get("wrapper_auto_download", True))
             if os.environ.get(
                 "FREEBUFF_ACP_WRAPPER_AUTO_DOWNLOAD", ""
@@ -398,9 +396,7 @@ class FreebuffCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
         except (TimeoutError, FileNotFoundError, OSError):
             return False
 
-    async def _build_subprocess_command(
-        self, runtime: ACPProcessRuntime
-    ) -> list[str]:
+    async def _build_subprocess_command(self, runtime: ACPProcessRuntime) -> list[str]:
         timeout = int(self._process_timeout) if self._process_timeout > 0 else None
         return build_freebuff_acp_wrapper_command(
             self._wrapper_executable,

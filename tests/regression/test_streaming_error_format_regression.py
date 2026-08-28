@@ -92,6 +92,7 @@ async def test_http_exception_returns_sse_for_streaming_request(
         # If line starts with "data: {", parse the JSON
         if line.startswith("data: {"):
             import json
+
             error_obj = json.loads(line[6:])
             # The error message must not contain "data: [DONE]"
             if "error" in error_obj and "message" in error_obj["error"]:
@@ -103,9 +104,7 @@ async def test_proxy_exception_returns_sse_for_streaming_request(
     mock_streaming_request: Request,
 ) -> None:
     """LLMProxyError for streaming requests returns SSE format."""
-    exc = AuthenticationError(
-        "Failed to refresh OAuth token for streaming API call"
-    )
+    exc = AuthenticationError("Failed to refresh OAuth token for streaming API call")
 
     response = await proxy_exception_handler(mock_streaming_request, exc)
 
@@ -157,7 +156,7 @@ async def test_non_streaming_request_still_returns_json(
     # Make sure it's clearly NOT a streaming request
     mock_non_streaming_request.url.path = "/v1/embeddings"  # Non-streaming endpoint
     mock_non_streaming_request.headers.get.return_value = "application/json"
-    
+
     exc = HTTPException(status_code=401, detail="Unauthorized")
 
     response = await http_exception_handler(mock_non_streaming_request, exc)
@@ -175,7 +174,7 @@ async def test_sse_done_marker_is_proper_bytes_not_string(
     """
     Critical: data: [DONE] must be sent as actual SSE event bytes,
     not embedded in error message string.
-    
+
     This is the exact bug that was causing client confusion.
     """
     exc = AuthenticationError("OAuth token unavailable")
@@ -247,7 +246,7 @@ async def test_concurrent_streaming_errors_are_independent(
 ) -> None:
     """
     Each streaming error response must be independent.
-    
+
     This tests the scenario where 3 concurrent clients all hit rate limits.
     Each should get their own properly formatted SSE error stream.
     """

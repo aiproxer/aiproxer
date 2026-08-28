@@ -74,7 +74,6 @@ class ApiModelDiscovery:
         self._cached_models = self.get_fallback_models()
         return self._cached_models.copy()
 
-
     def _extract_models_from_response(self, data: dict[str, Any]) -> list[str]:
         """Extract model names from the API response.
 

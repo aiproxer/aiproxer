@@ -124,11 +124,7 @@ class AnthropicController:
 
         # Drop upstream content-type (e.g. SSE from canonical coordinator) so the
         # explicit JSON media_type below wins for non-streaming Anthropic payloads.
-        headers = {
-            k: v
-            for k, v in headers.items()
-            if str(k).lower() != "content-type"
-        }
+        headers = {k: v for k, v in headers.items() if str(k).lower() != "content-type"}
 
         if self._wire_capture and self._wire_capture.enabled():
             session_id = ctx.session_id or ""

@@ -24,5 +24,3 @@ class IQualityVerifierServiceFactory(ABC):
     ) -> QualityVerifierService:
         """Create a QualityVerifierService for the provided model specification."""
         raise NotImplementedError
-
-

@@ -1,7 +1,7 @@
 """Initial schema for unified database
 
 Revision ID: 7aeeb5420f00
-Revises: 
+Revises:
 Create Date: 2025-12-07 16:16:05.733967
 
 """

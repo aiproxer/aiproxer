@@ -145,9 +145,7 @@ except ValueError as e:
 """
 
 
-def _run_subprocess_cached(
-    script: str, cache_label: str
-) -> tuple[int, int, list[str]]:
+def _run_subprocess_cached(script: str, cache_label: str) -> tuple[int, int, list[str]]:
     key = _cache_key(cache_label, script)
     cached = _load_cached(key)
     if cached is not None:
@@ -271,9 +269,7 @@ def _run_multi_subprocess_cached(script: str, cache_label: str) -> _MultiUserDat
 @pytest.fixture(scope="module")
 def single_user_data() -> _SingleUserData:
     total, oauth, found = _run_subprocess_cached(_SINGLE_SCRIPT, "single")
-    return _SingleUserData(
-        total_backends=total, oauth_count=oauth, found_oauth=found
-    )
+    return _SingleUserData(total_backends=total, oauth_count=oauth, found_oauth=found)
 
 
 @pytest.fixture(scope="module")

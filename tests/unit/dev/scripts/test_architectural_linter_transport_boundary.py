@@ -147,9 +147,7 @@ def test_plugin_discovery_entry_points_call_within_boundary_is_allowed(
 ) -> None:
     """Canonical plugin discovery service may enumerate entry points."""
     linter_module = _load_architectural_linter_module()
-    sample_file = (
-        tmp_path / "src" / "core" / "services" / "backend_plugin_discovery.py"
-    )
+    sample_file = tmp_path / "src" / "core" / "services" / "backend_plugin_discovery.py"
     sample_file.parent.mkdir(parents=True, exist_ok=True)
     sample_file.write_text(
         "from importlib import metadata\n"
@@ -161,5 +159,6 @@ def test_plugin_discovery_entry_points_call_within_boundary_is_allowed(
     violations = linter_module.lint_file(str(sample_file))
 
     assert not any(
-        "Plugin discovery DRY violation" in violation.message for violation in violations
+        "Plugin discovery DRY violation" in violation.message
+        for violation in violations
     )

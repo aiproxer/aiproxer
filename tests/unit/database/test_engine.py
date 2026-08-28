@@ -151,9 +151,7 @@ class TestDatabaseEngine:
         assert db_engine._session_factory is None
         assert db_engine._initialized is False
 
-    async def test_dispose_calls_close(
-        self, in_memory_config: DatabaseConfig
-    ) -> None:
+    async def test_dispose_calls_close(self, in_memory_config: DatabaseConfig) -> None:
         """Test that dispose() properly closes the engine.
 
         This ensures that the DI container can call dispose() during shutdown

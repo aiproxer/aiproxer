@@ -72,9 +72,7 @@ async def test_cat_without_redirection_no_steering(
 
 @pytest.mark.asyncio
 async def test_custom_message_override(shell_context: ToolCallContext) -> None:
-    policy = CatFileEditsSteeringPolicy(
-        enabled=True, message="Use write_file instead."
-    )
+    policy = CatFileEditsSteeringPolicy(enabled=True, message="Use write_file instead.")
     r = await policy.evaluate(shell_context, "cat > out.txt")
     assert r is not None
     assert r.message == "Use write_file instead."

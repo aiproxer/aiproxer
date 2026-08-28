@@ -55,13 +55,13 @@ class TestEndpointRegistry:
         backends = registry.get_backends_for_url("https://api.openai.com/v1")
         assert "openai.1" not in backends
         assert "openai.2" in backends
-        
+
         # Verify the URL state wasn't deleted since another backend uses it
         assert "https://api.openai.com/v1" in registry._health_states
-        
+
         # Unregister the second backend
         registry.unregister_backend("openai.2")
-        
+
         # Verify the URL state is deleted when no backends use it
         assert "https://api.openai.com/v1" not in registry._health_states
 

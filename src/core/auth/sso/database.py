@@ -375,15 +375,13 @@ class TokenRepository:
         try:
             async with aiosqlite.connect(self.database_path) as db:
                 db.row_factory = aiosqlite.Row
-                cursor = await db.execute(
-                    """
+                cursor = await db.execute("""
                     SELECT id, token_hash, user_id, user_email, provider,
                            is_authenticated, is_active, created_at,
                            last_authenticated_at, auth_expires_at
                     FROM agent_tokens
                     WHERE is_active = 1
-                    """
-                )
+                    """)
                 rows = await cursor.fetchall()
 
                 # Perform constant-time comparison
@@ -496,13 +494,11 @@ class TokenRepository:
         """
         try:
             async with aiosqlite.connect(self.database_path) as db:
-                cursor = await db.execute(
-                    """
+                cursor = await db.execute("""
                     SELECT token_hash
                     FROM agent_tokens
                     WHERE is_active = 1
-                    """
-                )
+                    """)
                 rows = await cursor.fetchall()
                 return [row[0] for row in rows]
         except Exception as e:

@@ -222,9 +222,7 @@ async def test_streaming_handshake_auth_failure_retry_success(
                 side_effect=mock_streaming_response,
             ):
                 result = await codex_connector.chat_completions(
-                    _codex_conn_req(
-                        request, effective_model="openai-codex:gpt-5.5"
-                    )
+                    _codex_conn_req(request, effective_model="openai-codex:gpt-5.5")
                 )
 
                 assert isinstance(result, StreamingResponseEnvelope)
@@ -314,9 +312,7 @@ async def test_streaming_handshake_auth_failure_retry_exhausted(
             ):
                 with pytest.raises(HTTPException) as exc_info:
                     result = await codex_connector.chat_completions(
-                        _codex_conn_req(
-                            request, effective_model="openai-codex:gpt-5.5"
-                        )
+                        _codex_conn_req(request, effective_model="openai-codex:gpt-5.5")
                     )
                     # If we get here, consume the stream to trigger the error
                     if isinstance(result, StreamingResponseEnvelope):
@@ -446,9 +442,7 @@ async def test_streaming_chunk_level_auth_failure_retry(
                 side_effect=mock_streaming_response,
             ):
                 result = await codex_connector.chat_completions(
-                    _codex_conn_req(
-                        request, effective_model="openai-codex:gpt-5.5"
-                    )
+                    _codex_conn_req(request, effective_model="openai-codex:gpt-5.5")
                 )
 
                 assert isinstance(result, StreamingResponseEnvelope)
@@ -571,9 +565,7 @@ async def test_streaming_retry_backoff_behavior(
             ):
                 start_time = time.time()
                 result = await codex_connector.chat_completions(
-                    _codex_conn_req(
-                        request, effective_model="openai-codex:gpt-5.5"
-                    )
+                    _codex_conn_req(request, effective_model="openai-codex:gpt-5.5")
                 )
 
                 # Consume stream to trigger retry and backoff

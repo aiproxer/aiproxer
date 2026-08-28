@@ -186,15 +186,13 @@ def test_something():
 
             # Create a test file with issues
             test_file = temp_path / "test_problematic.py"
-            test_file.write_text(
-                """
+            test_file.write_text("""
 from unittest.mock import AsyncMock
 from src.core.interfaces.session_service_interface import ISessionService
 
 def test_problem():
     mock = AsyncMock(spec=ISessionService)
-"""
-            )
+""")
 
             # Create a regular Python file (should be ignored)
             regular_file = temp_path / "regular.py"
@@ -465,34 +463,28 @@ def test_broken(
 
             # Test file with issues
             test_file = temp_path / "test_with_issues.py"
-            test_file.write_text(
-                """
+            test_file.write_text("""
 from unittest.mock import AsyncMock
 
 def test_problem():
     mock = AsyncMock()
-"""
-            )
+""")
 
             # Test file without issues
             clean_test_file = temp_path / "test_clean.py"
-            clean_test_file.write_text(
-                """
+            clean_test_file.write_text("""
 def test_clean():
     assert True
-"""
-            )
+""")
 
             # Non-test file (should be ignored)
             non_test_file = temp_path / "utils.py"
-            non_test_file.write_text(
-                """
+            non_test_file.write_text("""
 from unittest.mock import AsyncMock
 
 def helper():
     mock = AsyncMock()
-"""
-            )
+""")
 
             results = checker.check_directory(temp_path, "test_*.py")
 

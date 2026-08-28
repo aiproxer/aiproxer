@@ -76,7 +76,10 @@ class GeminiHealthCheckService(IHealthCheckService):
         Raises:
             BackendError: If health check fails critically (e.g., auth failure).
         """
-        if self._health_checked or self._backend_name in self._successfully_checked_backends:
+        if (
+            self._health_checked
+            or self._backend_name in self._successfully_checked_backends
+        ):
             self._health_checked = True
             return
 
@@ -89,7 +92,10 @@ class GeminiHealthCheckService(IHealthCheckService):
         lock = self._get_check_lock()
         async with lock:
             # Re-check inside lock
-            if self._health_checked or self._backend_name in self._successfully_checked_backends:
+            if (
+                self._health_checked
+                or self._backend_name in self._successfully_checked_backends
+            ):
                 self._health_checked = True
                 return
 
@@ -124,7 +130,6 @@ class GeminiHealthCheckService(IHealthCheckService):
                     "Backend health check completed for %s - ready for use",
                     self._backend_name,
                 )
-
 
     async def _perform_health_check(self) -> bool:
         """Perform a health check by testing API connectivity.

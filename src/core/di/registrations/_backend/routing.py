@@ -29,6 +29,12 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             from src.connectors.agy_cli_acp import (
                 AgyCliConfiguredModelEnumerator,
             )
+            from src.connectors.commandcode_anthropic import (
+                CommandCodeAnthropicConfiguredModelEnumerator,
+            )
+            from src.connectors.commandcode_openai import (
+                CommandCodeOpenAIConfiguredModelEnumerator,
+            )
             from src.connectors.cursor_cli_acp import (
                 CursorCliConfiguredModelEnumerator,
             )
@@ -38,8 +44,14 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             from src.connectors.freebuff_cli_acp import (
                 FreebuffCliConfiguredModelEnumerator,
             )
+            from src.connectors.nvidia import (
+                NvidiaConfiguredModelEnumerator,
+            )
             from src.connectors.openai_codex.catalog.provider import (
                 CodexModelCatalogProvider,
+            )
+            from src.connectors.opencode_go import (
+                OpencodeGoConfiguredModelEnumerator,
             )
             from src.core.config.models import RoutingConfig
             from src.core.interfaces.backend_config_provider_interface import (
@@ -52,6 +64,8 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             from src.core.services.configured_backend_model_enumerators import (
                 CodexAppServerConfiguredModelEnumerator,
                 ExplicitConfiguredModelEnumerator,
+                OpenAICodexConfiguredModelEnumerator,
+                OpencodeZenConfiguredModelEnumerator,
             )
             from src.core.services.model_capability_index import (
                 BackendModelEnumeratorRegistry,
@@ -94,15 +108,63 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
                 FreebuffCliConfiguredModelEnumerator(),
                 timeout_seconds=None,
             )
+            enumerators.register(
+                "opencode-go",
+                OpencodeGoConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "opencode-zen",
+                OpencodeZenConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "commandcode-openai",
+                CommandCodeOpenAIConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "commandcode",
+                CommandCodeOpenAIConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "commandcode-anthropic",
+                CommandCodeAnthropicConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "nvidia",
+                NvidiaConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
             codex_catalog_provider = provider.get_service(CodexModelCatalogProvider)
             if codex_catalog_provider is not None:
+                catalog = codex_catalog_provider.get_catalog()
+                catalog_source = codex_catalog_provider.get_catalog_source()
                 enumerators.register(
                     "openai-codex-app-server",
                     CodexAppServerConfiguredModelEnumerator(
-                        catalog=codex_catalog_provider.get_catalog(),
-                        catalog_source=codex_catalog_provider.get_catalog_source(),
+                        catalog=catalog,
+                        catalog_source=catalog_source,
                     ),
                 )
+            else:
+                catalog = None
+                catalog_source = None
+
+            codex_enumerator = OpenAICodexConfiguredModelEnumerator(
+                catalog=catalog,
+                catalog_source=catalog_source,
+            )
+            enumerators.register("openai-codex", codex_enumerator, timeout_seconds=None)
+            enumerators.register("openai_codex", codex_enumerator, timeout_seconds=None)
+            enumerators.register(
+                "openai-codex-v2", codex_enumerator, timeout_seconds=None
+            )
+            enumerators.register(
+                "openai_codex_v2", codex_enumerator, timeout_seconds=None
+            )
             discoverer = ModelCapabilityDiscoverer(
                 config_provider=backend_cfg_provider,
                 backend_lifecycle_manager=lifecycle_manager,

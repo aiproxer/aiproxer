@@ -994,7 +994,9 @@ class TestMcpXmlRejected:
     async def test_use_mcp_tool_always_unsupported(self, translator, xml):
         with pytest.raises(TranslationError) as exc_info:
             await translator.translate_tool_invocation(xml)
-        assert exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        assert (
+            exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        )
         assert exc_info.value.tool_name == "use_mcp_tool"
 
     @pytest.mark.asyncio
@@ -1002,7 +1004,9 @@ class TestMcpXmlRejected:
         xml = '<access_mcp_resource uri="file://test/resource.txt" />'
         with pytest.raises(TranslationError) as exc_info:
             await translator.translate_tool_invocation(xml)
-        assert exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        assert (
+            exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        )
         assert exc_info.value.tool_name == "access_mcp_resource"
 
 
@@ -1106,7 +1110,9 @@ class TestTranslateWriteToFile:
         with pytest.raises(TranslationError) as exc_info:
             await translator.translate_tool_invocation(xml)
 
-        assert exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        assert (
+            exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        )
         assert exc_info.value.tool_name == "write_to_file"
 
     @pytest.mark.asyncio
@@ -1120,10 +1126,14 @@ line2</content>
         with pytest.raises(TranslationError) as exc_info:
             await translator.translate_tool_invocation(xml)
 
-        assert exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        assert (
+            exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        )
 
     @pytest.mark.asyncio
-    async def test_translate_write_to_file_missing_path_still_rejected(self, translator):
+    async def test_translate_write_to_file_missing_path_still_rejected(
+        self, translator
+    ):
         xml = """<write_to_file>
             <content>content</content>
         </write_to_file>"""

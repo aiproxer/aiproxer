@@ -350,9 +350,7 @@ class TestSessionKeyMapping:
         assert http_call.session_id == "trace-abc123"
 
         # Execute: WebSocket session
-        await initializer.ensure_session_metrics(
-            ws_key, observed_at=sample_observed_at
-        )
+        await initializer.ensure_session_metrics(ws_key, observed_at=sample_observed_at)
         ws_call = mock_repo.upsert.call_args_list[1][0][0]
         assert ws_call.session_id == "ws:conn-456"
 

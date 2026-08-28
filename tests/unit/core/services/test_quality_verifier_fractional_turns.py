@@ -65,7 +65,9 @@ def test_mixed_turn_increments(request_processor):
     session_key = "test-session"
     tool_step = int(round(QV_ELIGIBLE_TURN_SCALE * 0.1))
 
-    request_processor._set_quality_verifier_turn_count(session_key, QV_ELIGIBLE_TURN_SCALE)
+    request_processor._set_quality_verifier_turn_count(
+        session_key, QV_ELIGIBLE_TURN_SCALE
+    )
     current = request_processor._get_quality_verifier_turn_count(session_key)
     request_processor._set_quality_verifier_turn_count(
         session_key, current + QV_ELIGIBLE_TURN_SCALE
@@ -73,7 +75,9 @@ def test_mixed_turn_increments(request_processor):
 
     for _ in range(5):
         current = request_processor._get_quality_verifier_turn_count(session_key)
-        request_processor._set_quality_verifier_turn_count(session_key, current + tool_step)
+        request_processor._set_quality_verifier_turn_count(
+            session_key, current + tool_step
+        )
 
     final_count = request_processor._get_quality_verifier_turn_count(session_key)
 

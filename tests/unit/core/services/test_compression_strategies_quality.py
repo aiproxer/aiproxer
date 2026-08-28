@@ -1006,9 +1006,7 @@ def test_stats_extraction_summary_git_status_groups_staged_unstaged_untracked() 
         "MM src/both.py\n"
         "A  src/new_staged.py\n"
         "?? notes/scratch.md\n"
-        "!! build/tmp.bin\n"
-        + "\n".join(extra)
-        + "\n"
+        "!! build/tmp.bin\n" + "\n".join(extra) + "\n"
     )
     ctx = _context_for(
         content,

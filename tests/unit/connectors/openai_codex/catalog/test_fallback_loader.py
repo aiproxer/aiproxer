@@ -47,9 +47,7 @@ class TestFallbackLoaderOverridePath:
     def test_load_override_path_invalid_json_raises(self, tmp_path: Path) -> None:
         bad = tmp_path / "bad.json"
         bad.write_text("not json {", encoding="utf-8")
-        loader = CodexCatalogFallbackLoader(
-            fallback_path=str(bad), parser=FakeParser()
-        )
+        loader = CodexCatalogFallbackLoader(fallback_path=str(bad), parser=FakeParser())
         with pytest.raises(json.JSONDecodeError):
             loader.load()
 

@@ -89,7 +89,7 @@ def stringify_tool_calls_and_results(
 
             # If we kept some tool calls, we must yield a message with THEM.
             # If we also have descriptions, we should ideally put them in content.
-            
+
             content_text = ""
             if isinstance(msg.content, str):
                 content_text = msg.content
@@ -168,7 +168,7 @@ def stringify_tool_calls_and_results(
             tool_text = extract_prompt_text([msg])
             if tool_text.startswith("tool:"):
                 tool_text = tool_text[len("tool:") :].lstrip()
-            
+
             if len(tool_text) > max_tool_result_chars:
                 tool_text = tool_text[:max_tool_result_chars] + "... (truncated)"
 

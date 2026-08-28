@@ -1,7 +1,7 @@
 """
 Regression tests for Request ID and SessionKey resolution.
 
-This test verifies that every request handled by the proxy is assigned a unique 
+This test verifies that every request handled by the proxy is assigned a unique
 request_id, which is essential for SessionKey resolution and session-scoped features.
 """
 

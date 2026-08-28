@@ -770,3 +770,93 @@ async def test_list_models_returns_models_listing_response() -> None:
     expected_ids = CURATED_MODELS
     assert [m.id for m in result1.data] == expected_ids
     assert result1.object == "list"
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_configured_models_when_specified() -> None:
+    enumerator = opencode_go_module.OpencodeGoConfiguredModelEnumerator()
+    config = opencode_go_module.BackendConfig(
+        connector="opencode-go",
+        api_key="test-key",
+        models=["glm-5.1", "opencode-go/custom-model"],
+    )
+
+    result = await enumerator.enumerate("opencode-go", config)
+
+    assert result.status == "available"
+    assert result.source == "opencode_go_configured"
+    assert result.models == ("opencode-go/glm-5.1", "opencode-go/custom-model")
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_falls_back_to_curated_models_on_live_probe_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enumerator = opencode_go_module.OpencodeGoConfiguredModelEnumerator()
+    config = opencode_go_module.BackendConfig(
+        connector="opencode-go",
+        api_key="test-key",
+        api_url="http://127.0.0.1:1/invalid",
+        extra={"model_discovery_timeout_seconds": 0.1},
+    )
+
+    result = await enumerator.enumerate("opencode-go", config)
+
+    assert result.status == "available"
+    assert result.source == "opencode_go_curated"
+    assert "opencode-go/glm-5.1" in result.models
+    assert "opencode-go/minimax-m2.7" in result.models
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_live_upstream_models_when_probe_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enumerator = opencode_go_module.OpencodeGoConfiguredModelEnumerator()
+    config = opencode_go_module.BackendConfig(
+        connector="opencode-go",
+        api_key="test-key",
+        extra={"model_protocol_overrides": {"custom-extra": "anthropic"}},
+    )
+
+    recorder = RequestRecorder(
+        models_payload={"data": [{"id": "glm-5.1"}, {"id": "upstream-new-model"}]}
+    )
+    transport = httpx.MockTransport(recorder)
+
+    real_async_client = httpx.AsyncClient
+
+    def _mock_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _mock_client)
+
+    result = await enumerator.enumerate("opencode-go", config)
+
+    assert result.status == "available"
+    assert result.source == "opencode_go_upstream"
+    assert result.models == (
+        "opencode-go/glm-5.1",
+        "opencode-go/upstream-new-model",
+        "opencode-go/custom-extra",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_unavailable_when_api_key_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENCODE_GO_API_KEY", raising=False)
+    monkeypatch.delenv("OPENCODE_GO_API_KEY_1", raising=False)
+    enumerator = opencode_go_module.OpencodeGoConfiguredModelEnumerator()
+    config = opencode_go_module.BackendConfig(connector="opencode-go")
+
+    result = await enumerator.enumerate("opencode-go", config)
+
+    assert result.status == "unavailable"
+    assert result.error_code == "missing_api_key"
+    assert result.models == ()

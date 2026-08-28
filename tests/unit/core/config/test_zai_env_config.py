@@ -9,9 +9,7 @@ def test_zai_api_key_applies_only_to_zai_backend() -> None:
     with patch(
         "src.core.config.env.from_env_part3.get_env_value_with_windows_persistent_fallback",
         side_effect=lambda key, **kwargs: (
-            ("val-zai", "process")
-            if key == "ZAI_API_KEY"
-            else (None, "missing")
+            ("val-zai", "process") if key == "ZAI_API_KEY" else (None, "missing")
         ),
     ):
         config = AppConfig.from_env(environ={"ZAI_API_KEY": "val-zai"})
@@ -53,9 +51,11 @@ def test_zai_and_coding_plan_use_separate_keys() -> None:
         side_effect=lambda key, **kwargs: (
             ("val-zai", "process")
             if key == "ZAI_API_KEY"
-            else ("val-coding-plan", "process")
-            if key == "ZAI_CODING_PLAN_API_KEY"
-            else (None, "missing")
+            else (
+                ("val-coding-plan", "process")
+                if key == "ZAI_CODING_PLAN_API_KEY"
+                else (None, "missing")
+            )
         ),
     ):
         config = AppConfig.from_env(
@@ -116,9 +116,7 @@ def test_zai_env_config_preserves_base_url_and_timeout_overrides() -> None:
     with patch(
         "src.core.config.env.from_env_part3.get_env_value_with_windows_persistent_fallback",
         side_effect=lambda key, **kwargs: (
-            ("val-zai", "process")
-            if key == "ZAI_API_KEY"
-            else (None, "missing")
+            ("val-zai", "process") if key == "ZAI_API_KEY" else (None, "missing")
         ),
     ):
         config = AppConfig.from_env(

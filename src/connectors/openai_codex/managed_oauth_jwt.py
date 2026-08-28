@@ -63,4 +63,3 @@ def extract_expiry_ms_from_token(token: str) -> int | None:
         if exp_ms > 0:
             return exp_ms
     return None
-

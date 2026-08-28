@@ -19,7 +19,9 @@ from tests.unit.connectors.openai_codex.catalog.conftest import (
 )
 
 
-def _completed(*, returncode: int = 0, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
+def _completed(
+    *, returncode: int = 0, stdout: str = "", stderr: str = ""
+) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(
         args=["codex", "debug", "models"],
         returncode=returncode,
@@ -43,7 +45,9 @@ class _RecordingRun:
         self.last_cmd: list[str] | None = None
         self.calls = 0
 
-    def __call__(self, cmd: list[str], *args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    def __call__(
+        self, cmd: list[str], *args: Any, **kwargs: Any
+    ) -> subprocess.CompletedProcess:
         self.calls += 1
         self.last_cmd = list(cmd)
         self.last_kwargs = dict(kwargs)
@@ -106,9 +110,7 @@ class TestDiscoverySuccess:
         )
         monkeypatch.setattr(subprocess, "run", run)
 
-        service = CodexCatalogDiscoveryService(
-            timeout_seconds=5.0, parser=fake_parser
-        )
+        service = CodexCatalogDiscoveryService(timeout_seconds=5.0, parser=fake_parser)
         await service.discover()
 
         assert run.last_kwargs is not None
@@ -163,7 +165,9 @@ class TestDiscoveryFailuresReturnNone:
         assert fake_parser.calls == 0
 
     @pytest.mark.asyncio
-    async def test_timeout_returns_none(self, monkeypatch, patch_bin, fake_parser) -> None:
+    async def test_timeout_returns_none(
+        self, monkeypatch, patch_bin, fake_parser
+    ) -> None:
         patch_bin(["/fake/codex"])
         monkeypatch.setattr(
             subprocess,

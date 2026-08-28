@@ -16,10 +16,10 @@ def test_timestamp_suffix_applied_once() -> None:
     # which triggers backend connector imports that can cause isolation issues
     configurator = LoggingConfigurator()
     updated = configurator.apply_pid_suffixes(cfg)
-    
+
     log_file = updated.logging.log_file
     capture_file = updated.logging.capture_file
-    
+
     assert log_file is not None
     assert capture_file is not None
     assert timestamp_pattern.search(log_file)

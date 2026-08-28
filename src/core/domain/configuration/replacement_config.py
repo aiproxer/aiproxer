@@ -27,7 +27,6 @@ class ReplacementConfig(ValueObject):
     turn_count: int = 1
     allow_oauth_auto_replacement: bool = False
 
-
     def model_post_init(self, __context: Any) -> None:  # type: ignore[override]
         """Run post-initialization validation."""
         super().model_post_init(__context)

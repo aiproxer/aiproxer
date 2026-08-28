@@ -67,6 +67,12 @@ class BackendInstanceEnvSource:
             "zenmux": "ZENMUX_API_KEY",
             "kimi-code": "KIMI_API_KEY",
             "opencode-go": "OPENCODE_GO_API_KEY",
+            "opencode-zen": "OPENCODE_ZEN_API_KEY",
+            "commandcode-openai": "COMMANDCODE_API_KEY",
+            "commandcode-anthropic": "COMMANDCODE_API_KEY",
+            "nvidia": "NVIDIA_API_KEY",
+            "openai-codex": "OPENAI_CODEX_API_KEY",
+            "openai-codex-v2": "OPENAI_CODEX_API_KEY",
         }
 
         discovered: dict[str, dict[str, Any]] = {}

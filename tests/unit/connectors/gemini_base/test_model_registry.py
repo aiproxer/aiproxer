@@ -27,7 +27,6 @@ def clear_global_cache():
 
 @pytest.fixture
 def mock_model_discovery():
-
     """Create a mock IModelDiscoveryStrategy."""
     discovery = Mock(spec=IModelDiscoveryStrategy)
     discovery.discover = AsyncMock(return_value=["gemini-2.5-pro", "gemini-2.5-flash"])

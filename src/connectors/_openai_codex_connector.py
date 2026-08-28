@@ -22,8 +22,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
+import json
 import logging
 import os
+import sys
 import threading
 import time
 import uuid
@@ -94,7 +96,8 @@ from src.core.common.exceptions import (
     InvalidRequestError,
     ServiceResolutionError,
 )
-from src.core.config.app_config import AppConfig
+from src.core.common.model_catalog import BackendModelEnumeration
+from src.core.config.app_config import AppConfig, BackendConfig
 from src.core.domain.model_utils import (
     RESOLVED_URI_PARAMS_EXTRA_BODY_KEY,
     parse_model_with_params,
@@ -2576,3 +2579,218 @@ class OpenAICodexConnector(OpenAIConnector):
 
 
 backend_registry.register_backend("openai-codex", OpenAICodexConnector)
+
+
+_OPENAI_CODEX_FALLBACK_MODELS: tuple[str, ...] = (
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.2-codex",
+    "gpt-5.1-codex",
+    "gpt-5-codex",
+    "gpt-5.1-codex-mini",
+    "gpt-5.1-codex-max",
+    "gpt-5.3-codex-spark",
+    "gpt-5",
+    "gpt-5-nano",
+)
+
+
+def _normalize_codex_model_name(name: str) -> str:
+    cleaned = name.strip()
+    for prefix in ("openai-codex-v2", "openai-codex", "openai"):
+        if cleaned.startswith(f"{prefix}/"):
+            cleaned = cleaned[len(prefix) + 1 :]
+            break
+    return add_vendor_prefix(cleaned, "openai")
+
+
+class OpenAICodexConfiguredModelEnumerator:
+    """Enumerate canonical OpenAI Codex routes for configured backend instances."""
+
+    def __init__(
+        self,
+        *,
+        catalog: Any = None,
+        catalog_source: str | None = None,
+    ) -> None:
+        self._catalog = catalog
+        self._catalog_source = catalog_source
+
+    def _has_credentials(self, instance_name: str, config: BackendConfig) -> bool:
+        extra = config.extra or {}
+        # 1. Direct API key
+        if config.api_key or extra.get("api_key"):
+            return True
+        if os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_CODEX_API_KEY"):
+            return True
+        suffix = instance_name.split(".", 1)[-1] if "." in instance_name else None
+        if suffix and (
+            os.environ.get(f"OPENAI_API_KEY_{suffix}")
+            or os.environ.get(f"OPENAI_CODEX_API_KEY_{suffix}")
+        ):
+            return True
+
+        # 2. Managed OAuth accounts storage
+        managed_cfg = (
+            extra.get("managed_oauth")
+            if isinstance(extra.get("managed_oauth"), dict)
+            else {}
+        )
+        storage_path_val = (
+            managed_cfg.get("storage_path") if isinstance(managed_cfg, dict) else None
+        )
+        storage_path_str = (
+            storage_path_val
+            or extra.get("storage_path")
+            or "var/openai_codex_oauth_accounts"
+        )
+        storage_path = Path(storage_path_str)
+        try:
+            if (
+                storage_path.exists()
+                and storage_path.is_dir()
+                and any(
+                    p.is_file() and p.suffix == ".json" for p in storage_path.iterdir()
+                )
+            ):
+                return True
+        except Exception:
+            pass
+
+        # 3. Legacy auth.json files
+        custom_path = (
+            getattr(config, "credentials_path", None)
+            or extra.get("openai_codex_path")
+            or extra.get("auth_path")
+            or os.environ.get("OPENAI_CODEX_AUTH_PATH")
+            or os.environ.get("OPENAI_AUTH_PATH")
+        )
+        candidates: list[Path] = []
+        if custom_path:
+            p = Path(custom_path).expanduser()
+            if p.is_dir():
+                candidates.append(p / "auth.json")
+            else:
+                candidates.append(p)
+        else:
+            if sys.platform == "win32" or os.name == "nt":
+                userprofile = os.environ.get("USERPROFILE")
+                if userprofile:
+                    candidates.append(Path(userprofile) / ".codex" / "auth.json")
+                localappdata = os.environ.get("LOCALAPPDATA")
+                if localappdata:
+                    candidates.append(Path(localappdata) / "codex" / "auth.json")
+            candidates.append(Path.home() / ".codex" / "auth.json")
+            candidates.append(Path.home() / ".local" / "share" / "codex" / "auth.json")
+
+        for path in candidates:
+            try:
+                if path.exists() and path.is_file():
+                    with open(path, encoding="utf-8") as f:
+                        data = json.load(f)
+                    if isinstance(data, dict) and (
+                        data.get("tokens")
+                        or data.get("access_token")
+                        or data.get("token")
+                        or data.get("refresh_token")
+                        or data.get("user")
+                        or data.get("OPENAI_API_KEY")
+                    ):
+                        return True
+            except Exception:
+                pass
+
+        return False
+
+    def _resolve_catalog(self) -> tuple[Any, str]:
+        if self._catalog is not None:
+            source = self._catalog_source or "catalog"
+            return self._catalog, source
+        try:
+            from typing import cast
+
+            from src.connectors.openai_codex.catalog.interfaces import (
+                ICodexModelCatalog,
+            )
+            from src.connectors.openai_codex.catalog.provider import (
+                CodexModelCatalogProvider,
+            )
+            from src.core.di.services import get_or_build_service_provider
+
+            provider = get_or_build_service_provider()
+            catalog_provider = provider.get_service(CodexModelCatalogProvider)
+            if catalog_provider is not None:
+                return (
+                    catalog_provider.get_catalog(),
+                    catalog_provider.get_catalog_source(),
+                )
+            catalog = provider.get_service(cast(type[Any], ICodexModelCatalog))
+            if catalog is not None and "mock" not in type(catalog).__name__.lower():
+                return catalog, "discovery"
+        except Exception:
+            pass
+        try:
+            from src.connectors.openai_codex.catalog.fallback_loader import (
+                CodexCatalogFallbackLoader,
+            )
+
+            return CodexCatalogFallbackLoader().load(), "fallback"
+        except Exception:
+            return None, "fallback"
+
+    async def enumerate(
+        self, instance_name: str, config: BackendConfig
+    ) -> BackendModelEnumeration:
+        extra = config.extra or {}
+        connector = (
+            str(getattr(config, "connector", "") or "").strip()
+            or instance_name.split(".", 1)[0]
+        )
+        configured_models = config.models or extra.get("models")
+        if isinstance(configured_models, list | tuple) and configured_models:
+            models = [
+                _normalize_codex_model_name(str(m))
+                for m in configured_models
+                if str(m).strip()
+            ]
+            return BackendModelEnumeration.available(
+                instance_name=instance_name,
+                connector=connector,
+                models=models,
+                source=f"{connector}_configured",
+                instance_pinned=False,
+            )
+
+        if not self._has_credentials(instance_name, config):
+            return BackendModelEnumeration.unavailable(
+                instance_name=instance_name,
+                connector=connector,
+                source=f"{connector}_discovery",
+                error_code="missing_credentials",
+                instance_pinned=False,
+            )
+
+        catalog, source = self._resolve_catalog()
+        if catalog is not None:
+            routable = catalog.routable_slugs()
+            if routable:
+                models = [add_vendor_prefix(str(slug), "openai") for slug in routable]
+                return BackendModelEnumeration.available(
+                    instance_name=instance_name,
+                    connector=connector,
+                    models=models,
+                    source=f"codex_{source}",
+                    instance_pinned=False,
+                )
+
+        models = [
+            add_vendor_prefix(slug, "openai") for slug in _OPENAI_CODEX_FALLBACK_MODELS
+        ]
+        return BackendModelEnumeration.available(
+            instance_name=instance_name,
+            connector=connector,
+            models=models,
+            source=f"{connector}_curated",
+            instance_pinned=False,
+        )

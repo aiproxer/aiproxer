@@ -21,6 +21,7 @@ def test_thought_signature_persists_across_restarts(tmp_path, monkeypatch) -> No
 
     # Give the background persistence thread time to write the file.
     import time
+
     for _ in range(50):
         if persist_path.exists():
             break
@@ -63,6 +64,7 @@ def test_namespaced_signature_persists_with_colon_namespace(
 
     # Give the background persistence thread time to write the file.
     import time
+
     for _ in range(50):
         # For namespaced persistence, we don't know the exact filename easily here,
         # but we can check if any json file exists in the directory.

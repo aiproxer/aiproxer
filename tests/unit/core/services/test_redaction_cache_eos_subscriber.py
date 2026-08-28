@@ -55,13 +55,13 @@ class TestRedactionCacheEosSubscriber:
                 signal_type=EndOfSessionSignalType.DONE_SENTINEL,
                 reason="test-reason",
             )
-            
+
             # Use event bus to publish and await completion
             await event_bus.publish(event)
-            
+
             # The cache should be cleared for this session
             assert redaction_cache.is_processed(session_id, "test message") is False
-            
+
             # Verify internal state is cleaned up
             assert session_id not in redaction_cache._states
         finally:
@@ -77,7 +77,7 @@ class TestRedactionCacheEosSubscriber:
         """Test that clearing one session doesn't affect others."""
         session_id_1 = "test-session-1"
         session_id_2 = "test-session-2"
-        
+
         redaction_cache.mark_processed(session_id_1, "msg1")
         redaction_cache.mark_processed(session_id_2, "msg2")
 
@@ -92,7 +92,7 @@ class TestRedactionCacheEosSubscriber:
                 reason="test-reason",
             )
             await event_bus.publish(event)
-            
+
             # Session 1 cleared, Session 2 intact
             assert redaction_cache.is_processed(session_id_1, "msg1") is False
             assert redaction_cache.is_processed(session_id_2, "msg2") is True
@@ -121,6 +121,6 @@ class TestRedactionCacheEosSubscriber:
             reason="test-reason",
         )
         await event_bus.publish(event)
-        
+
         # Cache should not be cleared
         assert redaction_cache.is_processed(session_id, "test") is True

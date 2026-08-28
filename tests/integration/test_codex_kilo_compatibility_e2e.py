@@ -396,8 +396,12 @@ class TestMcpXmlRejectedAtProxy:
         </use_mcp_tool>"""
 
         with pytest.raises(TranslationError) as exc_info:
-            await translator.translate_tool_invocation(mcp_xml, session_id="test_session")
-        assert exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+            await translator.translate_tool_invocation(
+                mcp_xml, session_id="test_session"
+            )
+        assert (
+            exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        )
 
     @pytest.mark.asyncio
     async def test_access_mcp_resource_raises_unsupported(self, codex_connector):
@@ -416,7 +420,9 @@ class TestMcpXmlRejectedAtProxy:
             await translator.translate_tool_invocation(
                 resource_xml, session_id="test_session"
             )
-        assert exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        assert (
+            exc_info.value.error_code == CompatibilityErrorCode.UNSUPPORTED_TOOL.value
+        )
 
 
 class TestNonKiloCodeClientCompatibility:

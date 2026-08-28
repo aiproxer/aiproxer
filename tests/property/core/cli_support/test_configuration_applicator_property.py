@@ -3,14 +3,14 @@
 **Feature: cli-god-object-refactoring, Task 5: ConfigurationApplicator (TDD)**
 
 Property 1: Argument Parsing Round-Trip Consistency
-*For any* valid combination of CLI arguments, parsing with ArgumentParserBuilder 
-and applying with ConfigurationApplicator SHALL produce an AppConfig equivalent 
+*For any* valid combination of CLI arguments, parsing with ArgumentParserBuilder
+and applying with ConfigurationApplicator SHALL produce an AppConfig equivalent
 to the original apply_cli_args function.
 
 **Validates: Requirements 1.1, 1.2, 7.1**
 
 Property 2: Parameter Source Recording Completeness
-*For any* CLI argument that modifies AppConfig, the ParameterResolution SHALL 
+*For any* CLI argument that modifies AppConfig, the ParameterResolution SHALL
 contain an entry recording the parameter path, value, and CLI flag origin.
 
 **Validates: Requirements 1.3**

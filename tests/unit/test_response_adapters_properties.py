@@ -1,8 +1,8 @@
-""" 
-Property-based tests for response adapters. 
- 
-This module contains property-based tests for the response adapter functions, 
-focusing on event loop yielding and async path purity. 
+"""
+Property-based tests for response adapters.
+
+This module contains property-based tests for the response adapter functions,
+focusing on event loop yielding and async path purity.
 """
 
 import asyncio

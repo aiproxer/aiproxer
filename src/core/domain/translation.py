@@ -143,13 +143,13 @@ class Translation(BaseTranslator):
 
     @staticmethod
     def _normalize_responses_content_part(
-        content: dict[str, Any]
+        content: dict[str, Any],
     ) -> list[dict[str, Any]]:
         return Translation.normalize_responses_content_part(content)
 
     @staticmethod
     def normalize_responses_content_part(
-        content: dict[str, Any]
+        content: dict[str, Any],
     ) -> list[dict[str, Any]]:
         from src.core.domain.translators.responses.request import (
             normalize_responses_content_part,

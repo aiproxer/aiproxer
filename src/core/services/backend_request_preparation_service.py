@@ -228,9 +228,9 @@ class BackendRequestPreparationService(IBackendRequestPreparation):
 
             config: CompactionConfig = compaction_config
             try:
-                compaction_feature_enabled = bool(
-                    compaction_config.enabled
-                ) and bool(history_compaction_session_allowed)
+                compaction_feature_enabled = bool(compaction_config.enabled) and bool(
+                    history_compaction_session_allowed
+                )
 
                 if compaction_config.enabled:
                     if token_estimate < compaction_config.token_threshold:

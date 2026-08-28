@@ -65,7 +65,7 @@ def _format_account_label(account: ManagedOAuthAccount) -> str:
 
 
 def _oauth_error_from_payload(
-    payload: Mapping[str, Any]
+    payload: Mapping[str, Any],
 ) -> tuple[str | None, str | None]:
     """Extract best-effort OAuth error code/message from token endpoint JSON."""
     code: str | None = None

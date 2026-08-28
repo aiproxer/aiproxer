@@ -2,8 +2,8 @@
 
 **Feature: cli-god-object-refactoring, Task 5: ConfigurationApplicator (TDD)**
 
-This module implements the ConfigurationApplicator class which coordinates 
-domain-specific applicators to transform parsed CLI arguments into a complete 
+This module implements the ConfigurationApplicator class which coordinates
+domain-specific applicators to transform parsed CLI arguments into a complete
 AppConfig instance.
 
 Requirements satisfied:

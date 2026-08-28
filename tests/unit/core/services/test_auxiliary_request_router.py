@@ -219,7 +219,9 @@ class TestAuxiliaryRequestDetector:
             model="qwen-oauth:qwen/coder-model",
             messages=[
                 ChatMessage(role="system", content="You are a title generator."),
-                ChatMessage(role="user", content="Generate a title for this conversation:"),
+                ChatMessage(
+                    role="user", content="Generate a title for this conversation:"
+                ),
                 ChatMessage(role="user", content="Topic one"),
                 ChatMessage(role="assistant", content="Interim response"),
                 ChatMessage(role="user", content="Topic two"),

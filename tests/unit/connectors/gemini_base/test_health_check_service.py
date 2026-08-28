@@ -23,7 +23,6 @@ def clear_health_check_cache():
 
 @pytest.fixture
 def mock_credential_coordinator():
-
     """Create a mock ICredentialCoordinator."""
     coordinator = Mock()
     coordinator.refresh_if_needed = AsyncMock(return_value=True)
@@ -103,7 +102,6 @@ class TestEnsureHealthy:
 
         # Verify second call didn't make additional HTTP requests
         assert mock_http_client.post.call_count == first_call_count
-
 
     @pytest.mark.asyncio
     async def test_refresh_failure_raises_backend_error(
@@ -262,4 +260,3 @@ class TestPerformHealthCheck:
 
         # Verify
         assert result is False
-

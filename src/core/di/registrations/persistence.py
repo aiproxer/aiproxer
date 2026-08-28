@@ -115,7 +115,6 @@ def _register_repositories(services: ServiceCollection) -> None:
         engine = provider.get_required_service(DatabaseEngine)
         return BackendQuotaRepository(engine)
 
-
     def session_metrics_repository_factory(
         provider: IServiceProvider,
     ) -> SessionMetricsRepository:

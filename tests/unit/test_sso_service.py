@@ -27,7 +27,9 @@ def mock_sso_discovery_api(respx_mock):
         return_value=httpx.Response(200, json={"keys": []})
     )
     respx_mock.get("https://openidconnect.googleapis.com/v1/userinfo").mock(
-        return_value=httpx.Response(200, json={"sub": "user123", "email": "user@example.com"})
+        return_value=httpx.Response(
+            200, json={"sub": "user123", "email": "user@example.com"}
+        )
     )
     return respx_mock
 
@@ -110,7 +112,9 @@ class TestOAuth2AuthorizationURL:
     @pytest.mark.asyncio
     async def test_create_authorization_url_with_discovery(self, sso_service):
         """Test creating authorization URL with OIDC discovery."""
-        with patch("src.core.auth.sso.sso_service.AsyncOAuth2Client") as mock_client_class:
+        with patch(
+            "src.core.auth.sso.sso_service.AsyncOAuth2Client"
+        ) as mock_client_class:
             # Mock the OAuth2 client
             mock_client = AsyncMock()
             mock_client_class.return_value = mock_client
@@ -217,7 +221,9 @@ class TestOAuth2Callback:
     @pytest.mark.asyncio
     async def test_handle_callback_with_id_token(self, sso_service):
         """Test handling callback with OIDC ID token."""
-        with patch("src.core.auth.sso.sso_service.AsyncOAuth2Client") as mock_client_class:
+        with patch(
+            "src.core.auth.sso.sso_service.AsyncOAuth2Client"
+        ) as mock_client_class:
             # Mock the OAuth2 client
             mock_client = AsyncMock()
             mock_client_class.return_value = mock_client
@@ -255,7 +261,9 @@ class TestOAuth2Callback:
     @pytest.mark.asyncio
     async def test_handle_callback_with_userinfo(self, sso_service):
         """Test handling callback with userinfo endpoint."""
-        with patch("src.core.auth.sso.sso_service.AsyncOAuth2Client") as mock_client_class:
+        with patch(
+            "src.core.auth.sso.sso_service.AsyncOAuth2Client"
+        ) as mock_client_class:
             # Mock the OAuth2 client
             mock_client = AsyncMock()
             mock_client_class.return_value = mock_client
@@ -270,9 +278,11 @@ class TestOAuth2Callback:
             # Mock userinfo request
             mock_client.get = AsyncMock(
                 return_value=httpx.Response(
-                    200, 
+                    200,
                     json={"sub": "user123", "email": "user@example.com"},
-                    request=httpx.Request("GET", "https://openidconnect.googleapis.com/v1/userinfo")
+                    request=httpx.Request(
+                        "GET", "https://openidconnect.googleapis.com/v1/userinfo"
+                    ),
                 )
             )
 
@@ -316,7 +326,7 @@ class TestOAuth2Callback:
                         "login": "testuser",
                         "email": "test@github.com",
                     },
-                    request=httpx.Request("GET", "https://api.github.com/user")
+                    request=httpx.Request("GET", "https://api.github.com/user"),
                 )
             )
 

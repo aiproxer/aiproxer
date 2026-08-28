@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from src.connectors.nvidia import NVIDIA_DEFAULT_BASE_URL, NvidiaConnector
-from src.core.config.app_config import AppConfig
-from src.core.config.models.backends import BackendConfig, BackendSettings
+from src.connectors.nvidia import (
+    NVIDIA_DEFAULT_BASE_URL,
+    NvidiaConfiguredModelEnumerator,
+    NvidiaConnector,
+)
+from src.core.config.app_config import AppConfig, BackendConfig
+from src.core.config.models.backends import BackendSettings
 from src.core.domain.chat import CanonicalChatRequest, ChatMessage
 from src.core.services.translation_service import TranslationService
 
@@ -312,3 +317,103 @@ async def test_prepare_payload_drops_stream_options_for_nim_schema() -> None:
     payload = await connector._prepare_payload(req, list(req.messages), req.model, None)
     assert payload.get("stream") is True
     assert "stream_options" not in payload
+
+
+@pytest.mark.asyncio
+async def test_nvidia_enumerator_uses_explicit_models() -> None:
+    """Explicit config.models should be returned with nvidia/ prefix."""
+    enumerator = NvidiaConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="nvidia",
+        models=["meta/llama-3.3-70b-instruct", "custom-model"],
+    )
+
+    result = await enumerator.enumerate("nvidia", config)
+
+    assert result.status == "available"
+    assert result.source == "nvidia_configured"
+    assert result.models == (
+        "nvidia/meta/llama-3.3-70b-instruct",
+        "nvidia/custom-model",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_nvidia_enumerator_upstream_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Enumerator should query upstream /models and return models with nvidia/ prefix."""
+    enumerator = NvidiaConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="nvidia",
+        api_key="test-key",
+    )
+
+    class MockTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"id": "meta/llama-3.3-70b-instruct"},
+                        {"id": "deepseek-ai/deepseek-r1"},
+                    ]
+                },
+            )
+
+    real_async_client = httpx.AsyncClient
+
+    def _mock_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = MockTransport()
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _mock_client)
+
+    result = await enumerator.enumerate("nvidia", config)
+
+    assert result.status == "available"
+    assert result.source == "nvidia_upstream"
+    assert result.models == (
+        "nvidia/meta/llama-3.3-70b-instruct",
+        "nvidia/deepseek-ai/deepseek-r1",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_nvidia_enumerator_falls_back_to_curated_on_failure() -> None:
+    """Enumerator should fall back to curated models on upstream failure."""
+    enumerator = NvidiaConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="nvidia",
+        api_key="test-key",
+        api_url="http://127.0.0.1:1/invalid",
+        extra={"model_discovery_timeout_seconds": 0.1},
+    )
+
+    result = await enumerator.enumerate("nvidia", config)
+
+    assert result.status == "available"
+    assert result.source == "nvidia_curated"
+    assert "nvidia/meta/llama-3.3-70b-instruct" in result.models
+    assert "nvidia/deepseek-ai/deepseek-r1" in result.models
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_nvidia_enumerator_returns_unavailable_when_missing_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Enumerator should return unavailable when no API key is found."""
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY_1", raising=False)
+
+    enumerator = NvidiaConfiguredModelEnumerator()
+    config = BackendConfig(connector="nvidia")
+
+    result = await enumerator.enumerate("nvidia", config)
+
+    assert result.status == "unavailable"
+    assert result.error_code == "missing_api_key"
+    assert result.models == ()

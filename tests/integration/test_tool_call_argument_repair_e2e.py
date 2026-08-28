@@ -32,7 +32,7 @@ def _extract_json_sse_events(chunks: list[bytes]) -> list[dict[str, Any]]:
 
 
 def _accumulate_tool_call_arguments(
-    events: list[dict[str, Any]]
+    events: list[dict[str, Any]],
 ) -> dict[int | str, str]:
     result: dict[int | str, str] = {}
     for event in events:

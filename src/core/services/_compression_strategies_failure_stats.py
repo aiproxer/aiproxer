@@ -664,8 +664,10 @@ class StatsExtractionSummaryStrategy:
         if summary is None:
             return content
         out = _preserve_trailing_newline(original=content, transformed=summary)
-        if sig == "git" and prefix == "git status" and summary.strip().startswith(
-            "git status"
+        if (
+            sig == "git"
+            and prefix == "git status"
+            and summary.strip().startswith("git status")
         ):
             return out
         if len(out.encode("utf-8")) >= len(content.encode("utf-8")):
@@ -767,9 +769,7 @@ class StatsExtractionSummaryStrategy:
         if long_fmt:
             raw_entries, meta_long = long_fmt
             merged = {**meta, **meta_long}
-            grouped_lines = [
-                (bucket, f"  · {path}") for bucket, path in raw_entries
-            ]
+            grouped_lines = [(bucket, f"  · {path}") for bucket, path in raw_entries]
             n = len(grouped_lines)
             if n < 6 and len(lines) < 18:
                 return None

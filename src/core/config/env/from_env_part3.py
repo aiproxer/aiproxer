@@ -362,84 +362,7 @@ def apply_config_part3(
                 origin="KIMI_API_KEY",
             )
 
-    alibaba_token_plan_key, _ = (
-        get_env_value_with_windows_persistent_fallback(
-            "ALIBABA_TOKEN_PLAN_API_KEY", environ=env
-        )
-    )
-    if alibaba_token_plan_key:
-        config_backends["alibaba-token-plan-intl"] = config_backends.get(
-            "alibaba-token-plan-intl", {}
-        )
-        # Presence registers the backend; the connector always reads the live env value.
-        config_backends["alibaba-token-plan-intl"]["api_key"] = (
-            alibaba_token_plan_key
-        )
-        if resolution is not None:
-            resolution.record(
-                "backends.alibaba-token-plan-intl.api_key",
-                config_backends["alibaba-token-plan-intl"]["api_key"],
-                ParameterSource.ENVIRONMENT,
-                origin="ALIBABA_TOKEN_PLAN_API_KEY",
-            )
-
-    if env.get("OPENCODE_GO_API_KEY") and not _has_numbered_env_variants(
-        env, "OPENCODE_GO_API_KEY"
-    ):
-        config_backends["opencode-go"] = config_backends.get("opencode-go", {})
-        config_backends["opencode-go"]["api_key"] = env["OPENCODE_GO_API_KEY"]
-        config_backends["opencode-go"]["api_url"] = _get_env_value(
-            env,
-            "OPENCODE_GO_API_BASE_URL",
-            "https://opencode.ai/zen/go/v1",
-            path="backends.opencode-go.api_url",
-            resolution=resolution,
-        )
-        opencode_go_timeout = _get_env_value(
-            env,
-            "OPENCODE_GO_TIMEOUT",
-            None,
-            path="backends.opencode-go.timeout",
-            resolution=resolution,
-            transform=lambda value: _to_int(value, 0),
-        )
-        if opencode_go_timeout:
-            config_backends["opencode-go"]["timeout"] = opencode_go_timeout
-        if resolution is not None:
-            resolution.record(
-                "backends.opencode-go.api_key",
-                config_backends["opencode-go"]["api_key"],
-                ParameterSource.ENVIRONMENT,
-                origin="OPENCODE_GO_API_KEY",
-            )
-
-    if env.get("MINIMAX_API_KEY"):
-        config_backends["minimax"] = config_backends.get("minimax", {})
-        config_backends["minimax"]["api_key"] = env["MINIMAX_API_KEY"]
-        config_backends["minimax"]["api_url"] = _get_env_value(
-            env,
-            "MINIMAX_API_BASE_URL",
-            "https://api.minimax.io/v1",
-            path="backends.minimax.api_url",
-            resolution=resolution,
-        )
-        minimax_timeout = _get_env_value(
-            env,
-            "MINIMAX_TIMEOUT",
-            None,
-            path="backends.minimax.timeout",
-            resolution=resolution,
-            transform=lambda value: _to_int(value, 0),
-        )
-        if minimax_timeout:
-            config_backends["minimax"]["timeout"] = minimax_timeout
-        if resolution is not None:
-            resolution.record(
-                "backends.minimax.api_key",
-                config_backends["minimax"]["api_key"],
-                ParameterSource.ENVIRONMENT,
-                origin="MINIMAX_API_KEY",
-            )
+    _apply_extended_provider_backends(config_backends, env, resolution)
 
     ollama_api_base_url = _get_env_value(
         env,
@@ -739,3 +662,191 @@ def apply_config_part3(
         )
     else:
         config["sso"] = None
+
+
+def _apply_extended_provider_backends(
+    config_backends: dict[str, Any],
+    env: Mapping[str, str],
+    resolution: ParameterResolution | None,
+) -> None:
+    alibaba_token_plan_key, _ = get_env_value_with_windows_persistent_fallback(
+        "ALIBABA_TOKEN_PLAN_API_KEY", environ=env
+    )
+    if alibaba_token_plan_key:
+        config_backends["alibaba-token-plan-intl"] = config_backends.get(
+            "alibaba-token-plan-intl", {}
+        )
+        # Presence registers the backend; the connector always reads the live env value.
+        config_backends["alibaba-token-plan-intl"]["api_key"] = alibaba_token_plan_key
+        if resolution is not None:
+            resolution.record(
+                "backends.alibaba-token-plan-intl.api_key",
+                config_backends["alibaba-token-plan-intl"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="ALIBABA_TOKEN_PLAN_API_KEY",
+            )
+
+    if env.get("OPENCODE_GO_API_KEY") and not _has_numbered_env_variants(
+        env, "OPENCODE_GO_API_KEY"
+    ):
+        config_backends["opencode-go"] = config_backends.get("opencode-go", {})
+        config_backends["opencode-go"]["api_key"] = env["OPENCODE_GO_API_KEY"]
+        config_backends["opencode-go"]["api_url"] = _get_env_value(
+            env,
+            "OPENCODE_GO_API_BASE_URL",
+            "https://opencode.ai/zen/go/v1",
+            path="backends.opencode-go.api_url",
+            resolution=resolution,
+        )
+        opencode_go_timeout = _get_env_value(
+            env,
+            "OPENCODE_GO_TIMEOUT",
+            None,
+            path="backends.opencode-go.timeout",
+            resolution=resolution,
+            transform=lambda value: _to_int(value, 0),
+        )
+        if opencode_go_timeout:
+            config_backends["opencode-go"]["timeout"] = opencode_go_timeout
+        if resolution is not None:
+            resolution.record(
+                "backends.opencode-go.api_key",
+                config_backends["opencode-go"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="OPENCODE_GO_API_KEY",
+            )
+
+    if env.get("OPENCODE_ZEN_API_KEY") and not _has_numbered_env_variants(
+        env, "OPENCODE_ZEN_API_KEY"
+    ):
+        config_backends["opencode-zen"] = config_backends.get("opencode-zen", {})
+        config_backends["opencode-zen"]["api_key"] = env["OPENCODE_ZEN_API_KEY"]
+        config_backends["opencode-zen"]["api_url"] = _get_env_value(
+            env,
+            "OPENCODE_ZEN_API_BASE_URL",
+            "https://opencode.ai/zen/v1",
+            path="backends.opencode-zen.api_url",
+            resolution=resolution,
+        )
+        if resolution is not None:
+            resolution.record(
+                "backends.opencode-zen.api_key",
+                config_backends["opencode-zen"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="OPENCODE_ZEN_API_KEY",
+            )
+
+    if env.get("COMMANDCODE_API_KEY") and not _has_numbered_env_variants(
+        env, "COMMANDCODE_API_KEY"
+    ):
+        config_backends["commandcode-openai"] = config_backends.get(
+            "commandcode-openai", {}
+        )
+        config_backends["commandcode-openai"]["api_key"] = env["COMMANDCODE_API_KEY"]
+        config_backends["commandcode-openai"]["api_url"] = _get_env_value(
+            env,
+            "COMMANDCODE_API_BASE_URL",
+            "https://api.commandcode.ai/provider/v1",
+            path="backends.commandcode-openai.api_url",
+            resolution=resolution,
+        )
+        if resolution is not None:
+            resolution.record(
+                "backends.commandcode-openai.api_key",
+                config_backends["commandcode-openai"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="COMMANDCODE_API_KEY",
+            )
+
+    if env.get("MINIMAX_API_KEY"):
+        config_backends["minimax"] = config_backends.get("minimax", {})
+        config_backends["minimax"]["api_key"] = env["MINIMAX_API_KEY"]
+        config_backends["minimax"]["api_url"] = _get_env_value(
+            env,
+            "MINIMAX_API_BASE_URL",
+            "https://api.minimax.io/v1",
+            path="backends.minimax.api_url",
+            resolution=resolution,
+        )
+        minimax_timeout = _get_env_value(
+            env,
+            "MINIMAX_TIMEOUT",
+            None,
+            path="backends.minimax.timeout",
+            resolution=resolution,
+            transform=lambda value: _to_int(value, 0),
+        )
+        if minimax_timeout:
+            config_backends["minimax"]["timeout"] = minimax_timeout
+        if resolution is not None:
+            resolution.record(
+                "backends.minimax.api_key",
+                config_backends["minimax"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="MINIMAX_API_KEY",
+            )
+
+    if env.get("NVIDIA_API_KEY") and not _has_numbered_env_variants(
+        env, "NVIDIA_API_KEY"
+    ):
+        config_backends["nvidia"] = config_backends.get("nvidia", {})
+        config_backends["nvidia"]["api_key"] = env["NVIDIA_API_KEY"]
+        config_backends["nvidia"]["api_url"] = _get_env_value(
+            env,
+            "NVIDIA_API_BASE_URL",
+            "https://integrate.api.nvidia.com/v1",
+            path="backends.nvidia.api_url",
+            resolution=resolution,
+        )
+        nvidia_timeout = _get_env_value(
+            env,
+            "NVIDIA_TIMEOUT",
+            None,
+            path="backends.nvidia.timeout",
+            resolution=resolution,
+            transform=lambda value: _to_int(value, 0),
+        )
+        if nvidia_timeout:
+            config_backends["nvidia"]["timeout"] = nvidia_timeout
+        if resolution is not None:
+            resolution.record(
+                "backends.nvidia.api_key",
+                config_backends["nvidia"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="NVIDIA_API_KEY",
+            )
+
+    if (
+        env.get("OPENAI_CODEX_AUTH_PATH")
+        or env.get("OPENAI_CODEX_PATH")
+        or (
+            env.get("OPENAI_CODEX_API_KEY")
+            and not _has_numbered_env_variants(env, "OPENAI_CODEX_API_KEY")
+        )
+    ):
+        config_backends["openai-codex"] = config_backends.get("openai-codex", {})
+        codex_auth_path = env.get("OPENAI_CODEX_AUTH_PATH") or env.get(
+            "OPENAI_CODEX_PATH"
+        )
+        if codex_auth_path:
+            config_backends["openai-codex"]["credentials_path"] = codex_auth_path
+            if resolution is not None:
+                resolution.record(
+                    "backends.openai-codex.credentials_path",
+                    codex_auth_path,
+                    ParameterSource.ENVIRONMENT,
+                    origin=(
+                        "OPENAI_CODEX_AUTH_PATH"
+                        if env.get("OPENAI_CODEX_AUTH_PATH")
+                        else "OPENAI_CODEX_PATH"
+                    ),
+                )
+        if env.get("OPENAI_CODEX_API_KEY"):
+            config_backends["openai-codex"]["api_key"] = env["OPENAI_CODEX_API_KEY"]
+            if resolution is not None:
+                resolution.record(
+                    "backends.openai-codex.api_key",
+                    config_backends["openai-codex"]["api_key"],
+                    ParameterSource.ENVIRONMENT,
+                    origin="OPENAI_CODEX_API_KEY",
+                )

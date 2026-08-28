@@ -55,9 +55,7 @@ def platform_asset_suffix() -> str:
 
 def _cached_executables(cache_dir: Path) -> list[Path]:
     name = (
-        "go-freebuff-acp-wrapper.exe"
-        if os.name == "nt"
-        else "go-freebuff-acp-wrapper"
+        "go-freebuff-acp-wrapper.exe" if os.name == "nt" else "go-freebuff-acp-wrapper"
     )
     return sorted(
         cache_dir.glob(f"*/{name}"),

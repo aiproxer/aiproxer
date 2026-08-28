@@ -307,7 +307,9 @@ class DiffCompactStrategy:
                 if hunk_count:
                     parts.append(f"{hunk_count} hunks")
                 if parts:
-                    result[file_name_line_index] = f"{current_file}  ({' | '.join(parts)})"
+                    result[file_name_line_index] = (
+                        f"{current_file}  ({' | '.join(parts)})"
+                    )
             file_name_line_index = None
 
         def begin_file(file_name: str) -> None:

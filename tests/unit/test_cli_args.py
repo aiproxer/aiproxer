@@ -126,9 +126,7 @@ def test_apply_cli_overrides_resilience_backends():
         "resilience_shared_backends": ["openai", "openrouter"],
     }
     apply_cli_overrides(env_dict, cli_args)
-    assert (
-        env_dict["RESILIENCE_PERSONAL_BACKEND_TYPES"] == "openai-codex,qwen-oauth"
-    )
+    assert env_dict["RESILIENCE_PERSONAL_BACKEND_TYPES"] == "openai-codex,qwen-oauth"
     assert env_dict["RESILIENCE_SHARED_BACKEND_TYPES"] == "openai,openrouter"
 
 

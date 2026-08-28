@@ -1054,8 +1054,7 @@ def _render_provider_selection_page(
             if requires_captcha
             else 'type="submit"'
         )
-        provider_buttons.append(
-            f"""
+        provider_buttons.append(f"""
             <form id="provider-{provider}" class="provider-form" method="POST" action="{base_url}/auth/login/{provider}">
                 <input type="hidden" name="login_session" value="{login_session}">
                 <input type="hidden" name="captcha_token" value="">
@@ -1064,8 +1063,7 @@ def _render_provider_selection_page(
                     <span class="provider-name">{_get_provider_display_name(provider)}</span>
                 </button>
             </form>
-            """
-        )
+            """)
 
     captcha_html = ""
     if requires_captcha:

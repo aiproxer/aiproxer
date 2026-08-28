@@ -1,6 +1,9 @@
+"""OpenCode Go backend connector implementation."""
+
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import AsyncGenerator
 from dataclasses import replace
@@ -9,13 +12,14 @@ from typing import Any
 import httpx
 
 from src.connectors.anthropic import AnthropicBackend
-from src.connectors.base import strip_vendor_prefix
+from src.connectors.base import add_vendor_prefix, strip_vendor_prefix
 from src.connectors.contracts import (
     ConnectorChatCompletionsRequest,
 )
 from src.connectors.openai import OpenAIConnector
 from src.core.common.exceptions import ConfigurationError, RoutingError
-from src.core.config.app_config import AppConfig
+from src.core.common.model_catalog import BackendModelEnumeration
+from src.core.config.app_config import AppConfig, BackendConfig
 from src.core.domain.models_listing import ModelInfo, ModelsListingResponse
 from src.core.domain.responses import ResponseEnvelope, StreamingResponseEnvelope
 from src.core.services.backend_registry import backend_registry
@@ -602,4 +606,141 @@ class OpencodeGoBackend(OpenAIConnector):
         return await self._anthropic_delegate.chat_completions(anthropic_req)
 
 
+class OpencodeGoConfiguredModelEnumerator:
+    """Enumerate canonical OpenCode Go routes for configured backend instances."""
+
+    async def enumerate(
+        self, instance_name: str, config: BackendConfig
+    ) -> BackendModelEnumeration:
+        extra = config.extra or {}
+        configured_models = config.models or extra.get("models")
+        if isinstance(configured_models, list | tuple) and configured_models:
+            models = [
+                add_vendor_prefix(
+                    strip_vendor_prefix(str(m).strip(), _OPENCODE_GO_VENDOR_PREFIX),
+                    _OPENCODE_GO_VENDOR_PREFIX,
+                )
+                for m in configured_models
+                if str(m).strip()
+            ]
+            if models:
+                return BackendModelEnumeration.available(
+                    instance_name=instance_name,
+                    connector=_OPENCODE_GO_VENDOR_PREFIX,
+                    models=models,
+                    source="opencode_go_configured",
+                    instance_pinned=False,
+                )
+
+        suffix = instance_name.split(".", 1)[-1] if "." in instance_name else None
+        api_key = (
+            config.api_key
+            or extra.get("api_key")
+            or (os.environ.get(f"OPENCODE_GO_API_KEY_{suffix}") if suffix else None)
+            or os.environ.get("OPENCODE_GO_API_KEY")
+        )
+
+        if not api_key:
+            return BackendModelEnumeration.unavailable(
+                instance_name=instance_name,
+                connector=_OPENCODE_GO_VENDOR_PREFIX,
+                source="opencode_go",
+                error_code="missing_api_key",
+                instance_pinned=False,
+            )
+
+        overrides_raw = extra.get("model_protocol_overrides")
+        overrides: dict[str, str] = {}
+        if isinstance(overrides_raw, dict):
+            for k, v in overrides_raw.items():
+                norm_k = _normalize_model_name(str(k))
+                norm_v = _validate_protocol_name(v)
+                if norm_k and norm_v:
+                    overrides[norm_k] = norm_v
+
+        curated_models = [
+            add_vendor_prefix(m, _OPENCODE_GO_VENDOR_PREFIX)
+            for m in OpencodeGoBackend._build_advertised_raw_models(overrides)
+        ]
+
+        shared_api_base_url = (
+            config.api_url or extra.get("api_base_url") or _OPENCODE_GO_DEFAULT_BASE_URL
+        )
+        openai_api_base_url = _normalize_openai_base_url(
+            str(extra.get("openai_api_base_url") or shared_api_base_url)
+        )
+        timeout_seconds = float(extra.get("model_discovery_timeout_seconds", 5.0))
+
+        clean_key = _normalize_opencode_go_api_key(str(api_key))
+        if clean_key:
+            try:
+                headers = {
+                    "Authorization": f"Bearer {clean_key}",
+                    "Accept": "application/json",
+                }
+                async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                    response = await client.get(
+                        f"{openai_api_base_url.rstrip('/')}/models",
+                        headers=headers,
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        raw_items = data.get("data") if isinstance(data, dict) else None
+                        if isinstance(raw_items, list) and raw_items:
+                            upstream_models: list[str] = []
+                            seen: set[str] = set()
+                            for item in raw_items:
+                                model_id = ""
+                                if isinstance(item, dict):
+                                    model_id = str(item.get("id") or "")
+                                elif isinstance(item, str):
+                                    model_id = item
+                                norm_id = _normalize_model_name(model_id)
+                                if norm_id and norm_id not in seen:
+                                    seen.add(norm_id)
+                                    upstream_models.append(
+                                        add_vendor_prefix(
+                                            norm_id, _OPENCODE_GO_VENDOR_PREFIX
+                                        )
+                                    )
+                            for override_model in overrides:
+                                norm_override = _normalize_model_name(override_model)
+                                if norm_override and norm_override not in seen:
+                                    seen.add(norm_override)
+                                    upstream_models.append(
+                                        add_vendor_prefix(
+                                            norm_override, _OPENCODE_GO_VENDOR_PREFIX
+                                        )
+                                    )
+                            if upstream_models:
+                                return BackendModelEnumeration.available(
+                                    instance_name=instance_name,
+                                    connector=_OPENCODE_GO_VENDOR_PREFIX,
+                                    models=upstream_models,
+                                    source="opencode_go_upstream",
+                                    instance_pinned=False,
+                                )
+            except Exception as exc:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Live model discovery failed for %s, falling back to curated list: %s",
+                        instance_name,
+                        exc,
+                        exc_info=True,
+                    )
+
+        return BackendModelEnumeration.available(
+            instance_name=instance_name,
+            connector=_OPENCODE_GO_VENDOR_PREFIX,
+            models=curated_models,
+            source="opencode_go_curated",
+            instance_pinned=False,
+        )
+
+
 backend_registry.register_backend("opencode-go", OpencodeGoBackend)
+
+__all__ = [
+    "OpencodeGoBackend",
+    "OpencodeGoConfiguredModelEnumerator",
+]

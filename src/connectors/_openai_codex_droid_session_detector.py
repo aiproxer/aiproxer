@@ -106,7 +106,9 @@ class DroidSessionDetector:
         # No detection
         return DroidDetectionResult(is_droid=False)
 
-    def _detect_from_user_agent(self, headers: Mapping[str, str]) -> DroidDetectionResult:
+    def _detect_from_user_agent(
+        self, headers: Mapping[str, str]
+    ) -> DroidDetectionResult:
         """Detect Droid from User-Agent header using token-based matching.
 
         Tokenizes the user agent to avoid false positives from substring matches

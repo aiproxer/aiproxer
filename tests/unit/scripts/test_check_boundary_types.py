@@ -191,27 +191,23 @@ class TestCheckBoundaryTypes:
         """Test that clean codebase returns exit code 0."""
         # Create a clean Python file
         test_file = tmp_path / "test_clean.py"
-        test_file.write_text(
-            """
+        test_file.write_text("""
 from src.core.domain.chat import CanonicalChatRequest
 
 def process(request: CanonicalChatRequest) -> None:
     pass
-"""
-        )
+""")
 
         # Create boundary module directory
         boundary_dir = tmp_path / "src" / "core" / "interfaces"
         boundary_dir.mkdir(parents=True)
         boundary_file = boundary_dir / "test_interface.py"
-        boundary_file.write_text(
-            """
+        boundary_file.write_text("""
 from src.core.domain.chat import CanonicalChatRequest
 
 def process(request: CanonicalChatRequest) -> None:
     pass
-"""
-        )
+""")
 
         exit_code = check_boundary_types([str(tmp_path)])
         assert exit_code == 0
@@ -234,14 +230,12 @@ def process(request: CanonicalChatRequest) -> None:
         boundary_dir = tmp_path / "src" / "core" / "interfaces"
         boundary_dir.mkdir(parents=True)
         boundary_file = boundary_dir / "processor.py"
-        boundary_file.write_text(
-            """
+        boundary_file.write_text("""
 from typing import Any
 
 def process(request: Any) -> None:
     pass
-"""
-        )
+""")
 
         scope_config = load_scope_config(scope_file)
         exit_code = check_boundary_types([str(tmp_path)], scope_config=scope_config)
@@ -253,14 +247,12 @@ def process(request: Any) -> None:
         other_dir = tmp_path / "src" / "other"
         other_dir.mkdir(parents=True)
         other_file = other_dir / "test_other.py"
-        other_file.write_text(
-            """
+        other_file.write_text("""
 from typing import Any
 
 def process(request: Any) -> None:
     pass
-"""
-        )
+""")
 
         exit_code = check_boundary_types([str(tmp_path)])
         # Should not find violations in non-boundary modules
@@ -553,14 +545,12 @@ class TestAllowlist:
         # Create file with violation
         test_file = tmp_path / "src" / "core" / "interfaces" / "test.py"
         test_file.parent.mkdir(parents=True)
-        test_file.write_text(
-            """
+        test_file.write_text("""
 from typing import Any
 
 def process_request(request: Any) -> None:
     pass
-"""
-        )
+""")
 
         # Create allowlist
         with freeze_time("2024-01-15T12:00:00Z"):

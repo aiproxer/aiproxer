@@ -49,7 +49,9 @@ def test_oauth_specific_dependency_is_not_required_by_core_distribution() -> Non
     assert "google-auth-oauthlib" not in core_dependency_names
 
     try:
-        plugin_requires = metadata.requires("llm-interactive-proxy-oauth-connectors") or []
+        plugin_requires = (
+            metadata.requires("llm-interactive-proxy-oauth-connectors") or []
+        )
     except metadata.PackageNotFoundError:
         pytest.skip("OAuth plugin package not installed in this environment")
 

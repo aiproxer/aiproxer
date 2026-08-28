@@ -287,9 +287,13 @@ class ModelCapabilityDiscoverer:
             backend_name: str,
         ) -> tuple[str, BackendModelEnumeration] | None:
             cfg = self._config_provider.get_backend_config(backend_name)
-            connector = str(getattr(cfg, "connector", "") or "")
+            if cfg is None:
+                return None
+            connector = str(getattr(cfg, "connector", "") or "").strip()
+            if not connector:
+                connector = backend_name.split(".", 1)[0]
             entry = self._enumerator_registry.get(connector)
-            if entry is None or cfg is None:
+            if entry is None:
                 return None
             enumerator, timeout_seconds = entry
             try:

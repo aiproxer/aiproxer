@@ -44,7 +44,6 @@ class GeminiModelRegistry(IModelRegistry):
         return cls._load_lock
 
     def __init__(
-
         self,
         model_discovery: IModelDiscoveryStrategy,
         endpoint_config: IEndpointConfig,
@@ -147,7 +146,9 @@ class GeminiModelRegistry(IModelRegistry):
                         )
             except Exception as e:
                 if logger.isEnabledFor(logging.WARNING):
-                    logger.warning("Failed to load models from API: %s", e, exc_info=True)
+                    logger.warning(
+                        "Failed to load models from API: %s", e, exc_info=True
+                    )
                 # Fallback to hardcoded list
                 self._available_models = self._model_discovery.get_fallback_models()
                 self._available_models_set = set(self._available_models)
@@ -159,7 +160,6 @@ class GeminiModelRegistry(IModelRegistry):
                     )
 
             self._loaded = True
-
 
     def validate(self, model_name: str) -> None:
         """Raise if the model is unavailable for this backend.

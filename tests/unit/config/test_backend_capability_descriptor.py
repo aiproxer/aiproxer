@@ -1,4 +1,5 @@
 """Contract tests for BackendCapabilityDescriptor and BackendConfig integration."""
+
 from __future__ import annotations
 
 import pytest

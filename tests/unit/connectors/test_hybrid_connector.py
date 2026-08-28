@@ -25,7 +25,9 @@ def app_config():
     config = AppConfig()
     return config.model_copy(
         update={
-            "backends": config.backends.model_copy(update={"disable_hybrid_backend": False})
+            "backends": config.backends.model_copy(
+                update={"disable_hybrid_backend": False}
+            )
         }
     )
 

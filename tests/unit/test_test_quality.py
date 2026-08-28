@@ -977,7 +977,7 @@ def vulture_strict_cli_cache(
 
 @pytest.mark.quality
 def test_vulture_dead_code_on_src_strict_cli(
-    vulture_strict_cli_cache: dict[str, Any]
+    vulture_strict_cli_cache: dict[str, Any],
 ) -> None:
     """Test that vulture CLI finds no dead code in src directory with 100% confidence.
 

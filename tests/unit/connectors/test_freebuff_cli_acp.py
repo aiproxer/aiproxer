@@ -159,10 +159,7 @@ class TestFreebuffCliAcpHelpers:
     def test_connector_default_process_timeout(
         self, connector: FreebuffCliAcpConnector
     ) -> None:
-        assert (
-            connector._process_timeout
-            == DEFAULT_FREEBUFF_PROCESS_TIMEOUT_SECONDS
-        )
+        assert connector._process_timeout == DEFAULT_FREEBUFF_PROCESS_TIMEOUT_SECONDS
         assert DEFAULT_FREEBUFF_PROCESS_TIMEOUT_SECONDS == 300.0
 
 
@@ -177,7 +174,9 @@ class TestFreebuffCliAcpInitialization:
             patch.object(
                 connector,
                 "_discover_models",
-                AsyncMock(return_value=["mimo/mimo-v2.5", "deepseek/deepseek-v4-flash"]),
+                AsyncMock(
+                    return_value=["mimo/mimo-v2.5", "deepseek/deepseek-v4-flash"]
+                ),
             ),
         ):
             await connector.initialize(

@@ -455,9 +455,7 @@ class AppLifecycle:
 
             subscriber = provider.get_service(RedactionCacheEosSubscriber)
             if subscriber:
-                subscribers_to_stop.append(
-                    ("RedactionCacheEosSubscriber", subscriber)
-                )
+                subscribers_to_stop.append(("RedactionCacheEosSubscriber", subscriber))
         except ImportError:
             pass
 
@@ -800,6 +798,7 @@ class AppLifecycle:
             if hasattr(provider, "dispose") and callable(provider.dispose):
                 # We use cast to Any to avoid pyright awaitability issues on object
                 from typing import cast
+
                 await cast(Any, provider).dispose()
                 if logger.isEnabledFor(logging.INFO):
                     logger.info("Service provider disposed successfully")

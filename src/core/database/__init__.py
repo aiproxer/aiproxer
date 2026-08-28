@@ -10,7 +10,7 @@ Usage:
     # Via DI container (recommended)
     engine = provider.get_required_service(DatabaseEngine)
     repo = provider.get_required_service(SQLModelMemoryRepository)
-    
+
     # Direct usage (for tests)
     from src.core.database import DatabaseConfig, init_database
     config = DatabaseConfig(url="sqlite+aiosqlite:///:memory:")

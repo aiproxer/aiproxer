@@ -57,11 +57,11 @@ class InMemorySessionRepository(ISessionRepository):
         self._fingerprints: dict[str, str] = {}  # session_id -> fingerprint
         self._client_sessions: dict[str, list[str]] = {}  # client_key -> session_ids
         self._fingerprint_bundles: dict[str, ConversationFingerprintBundle] = {}
-        
+
         # Reverse mappings for efficient deletion (prevents O(N) scans)
         self._session_to_user: dict[str, str] = {}  # session_id -> user_id
         self._session_to_client: dict[str, str] = {}  # session_id -> client_key
-        
+
         self._max_sessions = max_sessions
         self._default_ttl_seconds = default_ttl_seconds
         self._max_sessions_per_user = _MAX_SESSIONS_PER_USER
@@ -142,7 +142,7 @@ class InMemorySessionRepository(ISessionRepository):
         if hasattr(entity, "user_id") and entity.user_id:
             user_id = entity.user_id
             self._session_to_user[entity.id] = user_id
-            
+
             if user_id not in self._user_sessions:
                 self._user_sessions[user_id] = []
             user_session_list = self._user_sessions[user_id]
@@ -155,11 +155,11 @@ class InMemorySessionRepository(ISessionRepository):
                 excess_count = len(user_session_list) - self._max_sessions_per_user
                 evicted_ids = user_session_list[:excess_count]
                 self._user_sessions[user_id] = user_session_list[excess_count:]
-                # Note: We don't fully delete these sessions from self._sessions here 
+                # Note: We don't fully delete these sessions from self._sessions here
                 # to maintain global limit logic, but we remove the user mapping.
                 for eid in evicted_ids:
                     self._session_to_user.pop(eid, None)
-                
+
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
                         "Evicted %d oldest session IDs for user %s (max_sessions_per_user=%d reached)",
@@ -207,7 +207,7 @@ class InMemorySessionRepository(ISessionRepository):
                 self._user_sessions[new_user_id] = tracked_sessions[excess_count:]
                 for eid in evicted_ids:
                     self._session_to_user.pop(eid, None)
-                
+
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
                         "Evicted %d oldest session IDs for user %s (max_sessions_per_user=%d reached)",
@@ -220,18 +220,18 @@ class InMemorySessionRepository(ISessionRepository):
 
     async def delete(self, id: str) -> bool:
         """Delete a session by its ID.
-        
+
         This method is now optimized to use reverse mappings instead of full scans.
         It also ensures all related state is cleaned up even if the session object
         is not in the main _sessions dictionary (orphans).
         """
         deleted = False
-        
+
         # Remove from main collections
         if id in self._sessions:
             del self._sessions[id]
             deleted = True
-            
+
         if id in self._last_accessed:
             del self._last_accessed[id]
             deleted = True
@@ -337,18 +337,15 @@ class InMemorySessionRepository(ISessionRepository):
         """
         self._fingerprints[session_id] = fingerprint
         self._last_accessed[session_id] = time.time()
-        
+
         # Self-cleanup: if we have too many fingerprints compared to sessions,
         # we might have orphans. Limit fingerprints to 2x max sessions.
         if len(self._fingerprints) > self._max_sessions * 2:
             # Evict oldest fingerprints by last access
-            orphans = [
-                sid for sid in self._fingerprints 
-                if sid not in self._sessions
-            ]
+            orphans = [sid for sid in self._fingerprints if sid not in self._sessions]
             if orphans:
                 # Simple heuristic: remove up to 10% of max sessions worth of orphans
-                for sid in orphans[:self._max_sessions // 10]:
+                for sid in orphans[: self._max_sessions // 10]:
                     await self.delete(sid)
 
     async def update_client_session(self, session_id: str, client_key: str) -> None:
@@ -359,7 +356,7 @@ class InMemorySessionRepository(ISessionRepository):
             client_key: Client identifier (e.g., IP + user-agent hash)
         """
         self._session_to_client[session_id] = client_key
-        
+
         if client_key not in self._client_sessions:
             self._client_sessions[client_key] = []
         client_session_list = self._client_sessions[client_key]
@@ -373,7 +370,7 @@ class InMemorySessionRepository(ISessionRepository):
             self._client_sessions[client_key] = client_session_list[excess_count:]
             for eid in evicted_ids:
                 self._session_to_client.pop(eid, None)
-                
+
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
                     "Evicted %d oldest session IDs for client %s (max_sessions_per_client=%d reached)",
@@ -455,16 +452,15 @@ class InMemorySessionRepository(ISessionRepository):
         """Store extended fingerprint metadata."""
         self._fingerprint_bundles[session_id] = bundle
         self._last_accessed[session_id] = time.time()
-        
+
         # Self-cleanup: if we have too many bundles compared to sessions,
         # we might have orphans. Limit bundles to 2x max sessions.
         if len(self._fingerprint_bundles) > self._max_sessions * 2:
             orphans = [
-                sid for sid in self._fingerprint_bundles 
-                if sid not in self._sessions
+                sid for sid in self._fingerprint_bundles if sid not in self._sessions
             ]
             if orphans:
-                for sid in orphans[:self._max_sessions // 10]:
+                for sid in orphans[: self._max_sessions // 10]:
                     await self.delete(sid)
 
     async def get_fingerprint_bundle(

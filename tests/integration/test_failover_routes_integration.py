@@ -116,7 +116,10 @@ def test_failover_route_commands(app, monkeypatch):
             # Current command flow may execute statelessly in this test harness.
             # In that mode route mutations are not persisted across requests.
             return
-        assert "Element 'openai:gpt-4' appended to failover route 'test-route'" in append_message
+        assert (
+            "Element 'openai:gpt-4' appended to failover route 'test-route'"
+            in append_message
+        )
 
         # List the route elements
         response = client.post(

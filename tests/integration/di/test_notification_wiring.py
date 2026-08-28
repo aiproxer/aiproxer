@@ -12,17 +12,17 @@ from src.core.services.notification_service import NotificationService
 def test_notification_service_is_registered_and_resolvable():
     """Verify that INotificationService can be resolved from the DI container."""
     services = ServiceCollection()
-    
+
     # Use standard registration path
     register_all(services, AppConfig())
-    
+
     provider = services.build_service_provider()
-    
+
     # Resolve by interface
     notif_service = provider.get_service(INotificationService)
     assert notif_service is not None
     assert isinstance(notif_service, NotificationService)
-    
+
     # Resolve by concrete type
     concrete_service = provider.get_service(NotificationService)
     assert concrete_service is not None
@@ -34,13 +34,14 @@ def test_notification_service_wired_with_default_provider():
     services = ServiceCollection()
     register_all(services, AppConfig())
     provider = services.build_service_provider()
-    
+
     notif_service = provider.get_required_service(NotificationService)
-    
+
     # Check if provider is set (internal attribute)
     assert hasattr(notif_service, "_provider")
     assert notif_service._provider is not None
     from src.core.services.notifications.providers.desktop_notifier import (
         DesktopNotifierProvider,
     )
+
     assert isinstance(notif_service._provider, DesktopNotifierProvider)

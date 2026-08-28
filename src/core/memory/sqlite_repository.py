@@ -3,7 +3,7 @@
 .. deprecated::
     This module is deprecated in favor of the SQLModel-based implementation
     at `src.core.database.repositories.memory_repository.SQLModelMemoryRepository`.
-    
+
     The legacy implementation remains for backward compatibility during the
     transition period. New code should use the SQLModel implementation via
     the DI container by requesting `IMemoryRepository` or `SQLModelMemoryRepository`.
@@ -58,8 +58,7 @@ class MemoryRepository:
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         db = await self._get_db()
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS session_summaries (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -90,54 +89,41 @@ class MemoryRepository:
                 summary_version TEXT NOT NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_session_summaries_user_id
             ON session_summaries(user_id)
-        """
-        )
+        """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_session_summaries_session_start
             ON session_summaries(session_start DESC)
-        """
-        )
+        """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_session_summaries_user_session_start
             ON session_summaries(user_id, session_start DESC)
-        """
-        )
+        """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_session_summaries_user_tenant
             ON session_summaries(user_id, tenant_id, session_start DESC)
-        """
-        )
+        """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_session_summaries_user_project
             ON session_summaries(user_id, project_id, session_start DESC)
-        """
-        )
+        """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS user_project_dirs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
                 project_root TEXT NOT NULL,
                 UNIQUE(user_id, project_root)
             )
-        """
-        )
+        """)
 
         await db.commit()
         self._initialized = True

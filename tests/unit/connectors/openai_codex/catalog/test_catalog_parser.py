@@ -14,11 +14,15 @@ def parser() -> CodexCatalogParser:
 
 
 class TestParserHappyPath:
-    def test_parse_returns_catalog_with_routable_slugs(self, parser, raw_catalog) -> None:
+    def test_parse_returns_catalog_with_routable_slugs(
+        self, parser, raw_catalog
+    ) -> None:
         catalog = parser.parse(raw_catalog)
         assert catalog.routable_slugs() == ("gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.5")
 
-    def test_parse_derives_effort_order_from_widest_model(self, parser, raw_catalog) -> None:
+    def test_parse_derives_effort_order_from_widest_model(
+        self, parser, raw_catalog
+    ) -> None:
         catalog = parser.parse(raw_catalog)
         # gpt-5.6-sol has the widest supported_reasoning_levels (6 tiers).
         assert catalog.reasoning_effort_order == (
@@ -33,11 +37,15 @@ class TestParserHappyPath:
     def test_parse_aggregates_effort_descriptions(self, parser, raw_catalog) -> None:
         catalog = parser.parse(raw_catalog)
         descriptions = catalog.reasoning_effort_descriptions
-        assert descriptions["ultra"] == "Maximum reasoning with automatic task delegation"
+        assert (
+            descriptions["ultra"] == "Maximum reasoning with automatic task delegation"
+        )
         assert descriptions["max"] == "Maximum reasoning depth for the hardest problems"
         assert len(descriptions) == 6
 
-    def test_parse_default_reasoning_effort_is_medium(self, parser, raw_catalog) -> None:
+    def test_parse_default_reasoning_effort_is_medium(
+        self, parser, raw_catalog
+    ) -> None:
         assert parser.parse(raw_catalog).default_reasoning_effort == "medium"
 
     def test_parse_preserves_per_model_levels(self, parser, raw_catalog) -> None:
@@ -63,9 +71,13 @@ class TestParserHappyPath:
         assert catalog.default_reasoning_level("gpt-5.5") == "medium"
         assert catalog.default_reasoning_level("gpt-5.3-codex-spark") == "high"
 
-    def test_parse_excludes_cli_only_and_hidden_from_routable(self, parser, raw_catalog) -> None:
+    def test_parse_excludes_cli_only_and_hidden_from_routable(
+        self, parser, raw_catalog
+    ) -> None:
         catalog = parser.parse(raw_catalog)
-        assert catalog.is_supported("gpt-5.3-codex-spark") is False  # supported_in_api=False
+        assert (
+            catalog.is_supported("gpt-5.3-codex-spark") is False
+        )  # supported_in_api=False
         assert catalog.is_supported("codex-auto-review") is False  # visibility=hide
         # ...but the profiles are still present (queryable).
         assert catalog.get_profile("gpt-5.3-codex-spark") is not None
@@ -110,7 +122,10 @@ class TestParserEdgeCases:
     def test_parse_skips_malformed_entries(self, parser) -> None:
         raw = {
             "models": [
-                {"slug": "gpt-5.5", "default_reasoning_level": "medium"},  # missing levels
+                {
+                    "slug": "gpt-5.5",
+                    "default_reasoning_level": "medium",
+                },  # missing levels
                 "not-a-dict",  # not a mapping
                 {"default_reasoning_level": "medium"},  # missing slug
                 make_raw_catalog()["models"][0],  # valid sol
@@ -144,7 +159,9 @@ class TestParserEdgeCases:
                 {
                     "slug": "gpt-5.5",
                     "default_reasoning_level": "medium",
-                    "supported_reasoning_levels": [{"effort": "low", "description": "d"}],
+                    "supported_reasoning_levels": [
+                        {"effort": "low", "description": "d"}
+                    ],
                 }
             ]
         }
@@ -160,7 +177,9 @@ class TestParserEdgeCases:
             "models": [
                 {
                     "slug": "gpt-5.5",
-                    "supported_reasoning_levels": [{"effort": "low", "description": "d"}],
+                    "supported_reasoning_levels": [
+                        {"effort": "low", "description": "d"}
+                    ],
                     "supported_in_api": True,
                 }
             ]

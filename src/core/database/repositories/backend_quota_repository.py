@@ -48,7 +48,7 @@ class BackendQuotaRepository(AsyncRepository[BackendQuotaTable]):
         """
         async with self._engine.session() as session:
             existing = await session.get(BackendQuotaTable, backend_type)
-            
+
             quota_json = json.dumps(quota_headers)
             now = datetime.now(timezone.utc)
 
@@ -80,7 +80,7 @@ class BackendQuotaRepository(AsyncRepository[BackendQuotaTable]):
             statement = select(BackendQuotaTable)
             result = await session.execute(statement)
             records = result.scalars().all()
-            
+
             return {
                 record.backend_type: json.loads(record.quota_headers_json)
                 for record in records

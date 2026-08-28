@@ -197,7 +197,9 @@ async def test_streaming_usage_respects_outbound_token_hint_for_tool_calls() -> 
 
 
 @pytest.mark.asyncio
-async def test_outbound_tokens_overrides_connector_estimate_for_recalc_backends() -> None:
+async def test_outbound_tokens_overrides_connector_estimate_for_recalc_backends() -> (
+    None
+):
     """When allow_usage_recalculation is set (gemini-oauth), outbound_tokens
     must replace the connector's lower prompt_tokens estimate."""
 

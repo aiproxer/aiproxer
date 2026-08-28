@@ -77,15 +77,13 @@ def test_sso_captcha_config_file_defaults(
 ) -> None:
     """Test that config file settings are respected but overridden by CLI/Env."""
     cfg_file = tmp_path / "sso_config.yaml"
-    cfg_file.write_text(
-        """
+    cfg_file.write_text("""
 sso:
   enabled: true
   captcha:
     enabled: false
     provider: cloudflare_turnstile
-"""
-    )
+""")
 
     monkeypatch.delenv("SSO_CAPTCHA_ENABLED", raising=False)
     monkeypatch.setenv("SSO_ENABLED", "true")

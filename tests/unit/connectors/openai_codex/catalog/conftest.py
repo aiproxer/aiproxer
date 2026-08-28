@@ -110,7 +110,9 @@ def make_raw_catalog() -> dict[str, Any]:
 
 def write_raw_catalog(path: Path, raw: dict[str, Any] | None = None) -> Path:
     """Write a raw catalog JSON to ``path`` and return it."""
-    path.write_text(json.dumps(raw if raw is not None else make_raw_catalog()), encoding="utf-8")
+    path.write_text(
+        json.dumps(raw if raw is not None else make_raw_catalog()), encoding="utf-8"
+    )
     return path
 
 

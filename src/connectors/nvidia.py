@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from src.connectors.base import add_vendor_prefix, strip_vendor_prefix
 from src.connectors.contracts import ConnectorChatCompletionsRequest
 from src.connectors.openai import OpenAIConnector
-from src.core.config.app_config import AppConfig
+from src.core.common.model_catalog import BackendModelEnumeration
+from src.core.config.app_config import AppConfig, BackendConfig
 from src.core.domain.chat import CanonicalChatRequest
 from src.core.domain.models_listing import ModelsListingResponse
 from src.core.domain.responses import ResponseEnvelope, StreamingResponseEnvelope
@@ -22,7 +25,29 @@ if TYPE_CHECKING:
     from src.connectors.contracts import ConnectorRequestContext
     from src.core.services.translation_service import TranslationService
 
+logger = logging.getLogger(__name__)
+
 NVIDIA_DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+_NVIDIA_FALLBACK_MODELS: tuple[str, ...] = (
+    "meta/llama-3.3-70b-instruct",
+    "meta/llama-3.1-405b-instruct",
+    "meta/llama-3.1-70b-instruct",
+    "meta/llama-3.1-8b-instruct",
+    "mistralai/mistral-large-2407",
+    "mistralai/mixtral-8x22b-instruct-v0.1",
+    "mistralai/mistral-nemo-12b-instruct",
+    "google/gemma-2-27b-it",
+    "google/gemma-2-9b-it",
+    "deepseek-ai/deepseek-r1",
+    "deepseek-ai/deepseek-v3",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
+    "nvidia/nemotron-4-340b-instruct",
+    "nvidia/nemotron-4-340b-reward",
+    "qwen/qwen2.5-72b-instruct",
+    "qwen/qwen2.5-coder-32b-instruct",
+    "writer/palmyra-med-70b-32k",
+)
 
 _NVIDIA_HTTP_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20)
 # Minimum ``read`` timeout between SSE body chunks. The hosted integrator (and some
@@ -247,3 +272,119 @@ class NvidiaConnector(OpenAIConnector):
 
 
 backend_registry.register_backend("nvidia", NvidiaConnector)
+
+
+class NvidiaConfiguredModelEnumerator:
+    """Enumerate canonical NVIDIA NIM routes for configured backend instances."""
+
+    async def enumerate(
+        self, instance_name: str, config: BackendConfig
+    ) -> BackendModelEnumeration:
+        extra = config.extra or {}
+        configured_models = config.models or extra.get("models")
+        if isinstance(configured_models, list | tuple) and configured_models:
+            models = [
+                add_vendor_prefix(
+                    strip_vendor_prefix(str(m).strip(), "nvidia"),
+                    "nvidia",
+                )
+                for m in configured_models
+                if str(m).strip()
+            ]
+            if models:
+                return BackendModelEnumeration.available(
+                    instance_name=instance_name,
+                    connector="nvidia",
+                    models=models,
+                    source="nvidia_configured",
+                    instance_pinned=False,
+                )
+
+        suffix = instance_name.split(".", 1)[-1] if "." in instance_name else None
+        raw_key = (
+            config.api_key
+            or extra.get("api_key")
+            or (os.environ.get(f"NVIDIA_API_KEY_{suffix}") if suffix else None)
+            or os.environ.get("NVIDIA_API_KEY")
+        )
+
+        api_key = _normalize_nvidia_api_key(str(raw_key)) if raw_key else None
+
+        if not api_key:
+            return BackendModelEnumeration.unavailable(
+                instance_name=instance_name,
+                connector="nvidia",
+                source="nvidia",
+                error_code="missing_api_key",
+                instance_pinned=False,
+            )
+
+        shared_api_base_url = (
+            config.api_url or extra.get("api_base_url") or NVIDIA_DEFAULT_BASE_URL
+        )
+        api_base_url = str(shared_api_base_url).rstrip("/")
+        timeout_seconds = float(extra.get("model_discovery_timeout_seconds", 5.0))
+
+        clean_key = str(api_key).strip()
+        if clean_key:
+            try:
+                headers = {
+                    "Authorization": f"Bearer {clean_key}",
+                    "Accept": "application/json",
+                }
+                async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                    response = await client.get(
+                        f"{api_base_url}/models", headers=headers
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        rows = data.get("data") if isinstance(data, dict) else None
+                        if isinstance(rows, list) and rows:
+                            live_models: list[str] = []
+                            seen: set[str] = set()
+                            for r in rows:
+                                raw_id = ""
+                                if isinstance(r, dict):
+                                    raw_id = str(r.get("id") or "")
+                                elif isinstance(r, str):
+                                    raw_id = r
+                                raw_id = raw_id.strip()
+                                if raw_id and raw_id not in seen:
+                                    seen.add(raw_id)
+                                    live_models.append(
+                                        add_vendor_prefix(raw_id, "nvidia")
+                                    )
+                            if live_models:
+                                return BackendModelEnumeration.available(
+                                    instance_name=instance_name,
+                                    connector="nvidia",
+                                    models=live_models,
+                                    source="nvidia_upstream",
+                                    instance_pinned=False,
+                                )
+            except Exception as exc:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Live model discovery failed for %s, falling back to curated list: %s",
+                        instance_name,
+                        exc,
+                        exc_info=True,
+                    )
+
+        curated_models = [
+            add_vendor_prefix(m, "nvidia") for m in _NVIDIA_FALLBACK_MODELS
+        ]
+        return BackendModelEnumeration.available(
+            instance_name=instance_name,
+            connector="nvidia",
+            models=curated_models,
+            source="nvidia_curated",
+            instance_pinned=False,
+        )
+
+
+__all__ = [
+    "NVIDIA_DEFAULT_BASE_URL",
+    "NvidiaConfiguredModelEnumerator",
+    "NvidiaConnector",
+]

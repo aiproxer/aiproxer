@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -10,10 +11,11 @@ import pytest
 from src.connectors.commandcode_openai import (
     COMMANDCODE_OPENAI_BACKEND_TYPE,
     COMMANDCODE_OPENAI_DEFAULT_BASE_URL,
+    CommandCodeOpenAIConfiguredModelEnumerator,
     CommandCodeOpenAIConnector,
 )
 from src.connectors.contracts import ConnectorChatCompletionsRequest
-from src.core.config.app_config import AppConfig
+from src.core.config.app_config import AppConfig, BackendConfig
 from src.core.domain.chat import CanonicalChatRequest, ChatMessage
 from src.core.domain.responses import ResponseEnvelope
 from src.core.services.backend_registry import backend_registry
@@ -205,3 +207,95 @@ async def test_live_commandcode_openai_end_to_end() -> None:
         assert isinstance(result.content, dict)
         text = result.content["choices"][0]["message"]["content"]
         assert "PONG" in str(text).upper()
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_configured_models() -> None:
+    enumerator = CommandCodeOpenAIConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="commandcode-openai",
+        api_key="test-key",
+        models=["Qwen/Qwen3.7-Flash", "commandcode-openai/deepseek-ai/DeepSeek-V3"],
+    )
+
+    result = await enumerator.enumerate("commandcode-openai", config)
+
+    assert result.status == "available"
+    assert result.source == "commandcode_openai_configured"
+    assert result.models == (
+        "commandcode-openai/Qwen/Qwen3.7-Flash",
+        "commandcode-openai/deepseek-ai/DeepSeek-V3",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_live_upstream_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enumerator = CommandCodeOpenAIConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="commandcode-openai",
+        api_key="test-key",
+    )
+
+    class MockTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"data": [{"id": "Qwen/Qwen3.7-Flash"}, {"id": "custom-model"}]},
+            )
+
+    real_async_client = httpx.AsyncClient
+
+    def _mock_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = MockTransport()
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _mock_client)
+
+    result = await enumerator.enumerate("commandcode-openai", config)
+
+    assert result.status == "available"
+    assert result.source == "commandcode_openai_upstream"
+    assert result.models == (
+        "commandcode-openai/Qwen/Qwen3.7-Flash",
+        "commandcode-openai/custom-model",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_falls_back_to_curated_on_failure() -> None:
+    enumerator = CommandCodeOpenAIConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="commandcode-openai",
+        api_key="test-key",
+        api_url="http://127.0.0.1:1/invalid",
+        extra={"model_discovery_timeout_seconds": 0.1},
+    )
+
+    result = await enumerator.enumerate("commandcode-openai", config)
+
+    assert result.status == "available"
+    assert result.source == "commandcode_openai_curated"
+    assert "commandcode-openai/Qwen/Qwen3.7-Flash" in result.models
+    assert "commandcode-openai/claude-3-5-sonnet-20241022" in result.models
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_unavailable_when_missing_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COMMANDCODE_API_KEY", raising=False)
+    monkeypatch.delenv("COMMANDCODE_API_KEY_1", raising=False)
+
+    enumerator = CommandCodeOpenAIConfiguredModelEnumerator()
+    config = BackendConfig(connector="commandcode-openai")
+
+    result = await enumerator.enumerate("commandcode-openai", config)
+
+    assert result.status == "unavailable"
+    assert result.error_code == "missing_api_key"
+    assert result.models == ()

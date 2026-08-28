@@ -762,8 +762,7 @@ class PersistentB2buaMappingStore(IB2buaMappingStore):
         with self._connect() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys=ON")
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS b2bua_mappings (
                     auth_scope_id TEXT NOT NULL,
                     client_session_id TEXT NOT NULL,
@@ -774,10 +773,8 @@ class PersistentB2buaMappingStore(IB2buaMappingStore):
                     expires_at REAL NOT NULL,
                     PRIMARY KEY (auth_scope_id, client_session_id)
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS b2bua_attempts (
                     b_session_id TEXT PRIMARY KEY,
                     a_session_id TEXT NOT NULL,
@@ -790,26 +787,19 @@ class PersistentB2buaMappingStore(IB2buaMappingStore):
                         REFERENCES b2bua_mappings(a_session_id)
                         ON DELETE CASCADE
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_b2bua_mappings_expires_at
                 ON b2bua_mappings(expires_at)
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_b2bua_mappings_last_accessed
                 ON b2bua_mappings(last_accessed_at)
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_b2bua_attempts_a_session
                 ON b2bua_attempts(a_session_id)
-                """
-            )
+                """)
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:

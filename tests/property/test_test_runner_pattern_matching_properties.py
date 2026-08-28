@@ -201,7 +201,7 @@ def non_test_command_strategy(draw: Any) -> str:
 @given(test_data=command_with_expected_result_strategy())
 @property_test_settings()
 def test_property_8_test_runner_pattern_matching(
-    test_data: tuple[str, str, str]
+    test_data: tuple[str, str, str],
 ) -> None:
     """
     Property 8: Test Runner Pattern Matching.
@@ -339,7 +339,7 @@ def test_property_8_consistent_pattern_matching(
 @given(test_data=command_with_expected_result_strategy())
 @property_test_settings(max_examples=10)  # Reduced from default for performance
 def test_property_8_empty_and_none_command_handling(
-    test_data: tuple[str, str, str]
+    test_data: tuple[str, str, str],
 ) -> None:
     """
     Property 8: Empty and None Command Handling.

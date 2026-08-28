@@ -64,7 +64,9 @@ class TestConfigCoercion:
             (False, False),
         ],
     )
-    def test_discovery_enabled_string_coercion(self, value: object, expected: bool) -> None:
+    def test_discovery_enabled_string_coercion(
+        self, value: object, expected: bool
+    ) -> None:
         cfg = codex_model_catalog_config_from_mapping({"discovery_enabled": value})
         assert cfg.discovery_enabled is expected
 

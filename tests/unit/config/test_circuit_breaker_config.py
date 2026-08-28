@@ -32,7 +32,7 @@ def test_resilience_config_parses_disabled_circuit_breaker() -> None:
     ],
 )
 def test_resilience_config_rejects_invalid_circuit_breaker_values(
-    payload: dict[str, dict[str, float | int]]
+    payload: dict[str, dict[str, float | int]],
 ) -> None:
     """Validation rejects non-sensical circuit breaker thresholds."""
     with pytest.raises(ValidationError):

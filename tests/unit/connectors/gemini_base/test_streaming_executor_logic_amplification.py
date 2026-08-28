@@ -1,4 +1,3 @@
-
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,14 +11,16 @@ class MockRetryContext:
     def __init__(self):
         self.extensions = {}
 
+
 @pytest.mark.asyncio
 async def test_streaming_executor_generator_exit_logging_deduplication():
     """Verify that GeneratorExit is logged only once during nested unwinding."""
     StreamingExecutor(translation_service=MagicMock())
     context = MockRetryContext()
-    
+
     # We want to check if logger.debug is called only once
     with patch("src.connectors.gemini_base.streaming_executor.logger") as mock_logger:
+
         async def inner_gen():
             try:
                 yield ProcessedResponse(content="chunk", metadata={})
@@ -44,21 +45,26 @@ async def test_streaming_executor_generator_exit_logging_deduplication():
         gen = outer_gen()
         await anext(gen)
         await gen.aclose()
-        
+
         # Verify logger.debug was called exactly once
         # (Since we manually mirrored the logic here, it proves the mechanism works)
-        debug_calls = [c for c in mock_logger.debug.call_args_list if "Stream closed by consumer" in str(c)]
+        debug_calls = [
+            c
+            for c in mock_logger.debug.call_args_list
+            if "Stream closed by consumer" in str(c)
+        ]
         assert len(debug_calls) == 1
+
 
 @pytest.mark.asyncio
 async def test_streaming_executor_rate_limit_recording_deduplication():
     """Verify that record_rate_limit is called only once for the same BackendError."""
     executor = StreamingExecutor(translation_service=MagicMock())
     executor._record_rate_limit = AsyncMock()
-    
+
     err = BackendError(message="Rate limit", status_code=429)
     token_refresher = MagicMock()
-    
+
     # Simulate first call
     # Logic amplification: Avoid duplicate rate limit recording when nested generators unwind
     is_429 = getattr(err, "status_code", None) == 429
@@ -66,13 +72,13 @@ async def test_streaming_executor_rate_limit_recording_deduplication():
     if is_429 and not already_recorded:
         err.__rate_limit_recorded__ = True
         await executor._record_rate_limit(token_refresher, 1.0)
-        
+
     assert executor._record_rate_limit.call_count == 1
-    
+
     # Simulate second call with same error object
     already_recorded = getattr(err, "__rate_limit_recorded__", False)
     if is_429 and not already_recorded:
         err.__rate_limit_recorded__ = True
         await executor._record_rate_limit(token_refresher, 1.0)
-        
+
     assert executor._record_rate_limit.call_count == 1

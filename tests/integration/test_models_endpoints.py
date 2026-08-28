@@ -561,3 +561,156 @@ class TestModelsEndpointIntegration:
                 assert "id" in model
                 assert "object" in model
                 assert "owned_by" in model
+
+    def test_models_endpoint_advertises_opencode_go_models(self, monkeypatch):
+        """Test that opencode-go backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig
+
+        monkeypatch.setenv("OPENCODE_GO_API_KEY", "test-key-opencode")
+        config = AppConfig.from_env(
+            environ={
+                "OPENCODE_GO_API_KEY": "test-key-opencode",
+                "DISABLE_AUTH": "true",
+            }
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert "opencode-go/glm-5.1" in model_ids
+            assert "opencode-go/minimax-m2.7" in model_ids
+            assert "opencode-go/kimi-k2.5" in model_ids
+
+    def test_models_endpoint_advertises_opencode_zen_models(self, monkeypatch):
+        """Test that opencode-zen backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig
+
+        monkeypatch.setenv("OPENCODE_ZEN_API_KEY", "test-key-opencode-zen")
+        config = AppConfig.from_env(
+            environ={
+                "OPENCODE_ZEN_API_KEY": "test-key-opencode-zen",
+                "DISABLE_AUTH": "true",
+            }
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert "opencode-zen/anthropic/claude-sonnet-4-5" in model_ids
+            assert "opencode-zen/openai/gpt-5.1" in model_ids
+            assert "opencode-zen/z-ai/glm-5.1" in model_ids
+            assert "opencode-zen/google/gemini-3-flash" in model_ids
+
+    def test_models_endpoint_advertises_commandcode_openai_models(self, monkeypatch):
+        """Test that commandcode-openai backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig
+
+        monkeypatch.setenv("COMMANDCODE_API_KEY", "test-key-commandcode")
+        config = AppConfig.from_env(
+            environ={
+                "COMMANDCODE_API_KEY": "test-key-commandcode",
+                "DISABLE_AUTH": "true",
+            }
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert "commandcode-openai/Qwen/Qwen3.7-Flash" in model_ids
+            assert any(m.startswith("commandcode-openai/") for m in model_ids)
+
+    def test_models_endpoint_advertises_commandcode_anthropic_models(self, monkeypatch):
+        """Test that commandcode-anthropic backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig, BackendConfig
+        from src.core.config.models.auth import AuthConfig
+        from src.core.config.models.backends import BackendSettings
+
+        config = AppConfig(
+            auth=AuthConfig(disable_auth=True),
+            backends=BackendSettings(
+                **{
+                    "commandcode-anthropic": BackendConfig(
+                        connector="commandcode-anthropic",
+                        api_key="test-key-commandcode",
+                    )
+                }
+            ),
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert "commandcode-anthropic/claude-haiku-4-5-20251001" in model_ids
+            assert any(m.startswith("commandcode-anthropic/") for m in model_ids)
+
+    def test_models_endpoint_advertises_nvidia_models(self, monkeypatch):
+        """Test that nvidia backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig
+
+        monkeypatch.setenv("NVIDIA_API_KEY", "test-key-nvidia")
+        config = AppConfig.from_env(
+            environ={
+                "NVIDIA_API_KEY": "test-key-nvidia",
+                "DISABLE_AUTH": "true",
+            }
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert any(m.startswith("nvidia/") for m in model_ids)
+
+    def test_models_endpoint_advertises_openai_codex_models(
+        self, tmp_path, monkeypatch
+    ):
+        """Test that openai-codex backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig, BackendConfig
+        from src.core.config.models.auth import AuthConfig
+        from src.core.config.models.backends import BackendSettings
+
+        auth_file = tmp_path / "auth.json"
+        auth_file.write_text(
+            '{"tokens": {"access_token": "test-token"}}', encoding="utf-8"
+        )
+
+        config = AppConfig(
+            auth=AuthConfig(disable_auth=True),
+            backends=BackendSettings(
+                **{
+                    "openai-codex": BackendConfig(
+                        connector="openai-codex",
+                        credentials_path=str(auth_file),
+                    )
+                }
+            ),
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert "openai/gpt-5.5" in model_ids or "gpt-5.5" in model_ids
+            assert any(m.startswith("openai/gpt-") for m in model_ids)

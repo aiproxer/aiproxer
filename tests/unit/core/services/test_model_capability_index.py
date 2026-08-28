@@ -304,3 +304,54 @@ async def test_refresh_controller_serializes_concurrent_refreshes() -> None:
     )
 
     assert max_in_flight == 1
+
+
+@pytest.mark.asyncio
+async def test_discoverer_enumerates_configured_opencode_go_instances() -> None:
+    from src.connectors.opencode_go import OpencodeGoConfiguredModelEnumerator
+
+    configs = {
+        "opencode-go.1": BackendConfig(
+            connector="opencode-go",
+            api_key="key-1",
+            models=["glm-5.1"],
+        ),
+        "opencode-go.2": BackendConfig(
+            connector="opencode-go",
+            api_key="key-2",
+            models=["glm-5.1", "minimax-m2.7"],
+        ),
+    }
+    provider = _mock_config_provider(configs)
+    provider.iter_configured_backend_names.return_value = list(configs)
+    lifecycle = Mock()
+    lifecycle.get_active_backends.return_value = {}
+
+    registry = BackendModelEnumeratorRegistry()
+    registry.register(
+        "opencode-go",
+        OpencodeGoConfiguredModelEnumerator(),
+        timeout_seconds=None,
+    )
+
+    discoverer = ModelCapabilityDiscoverer(
+        config_provider=provider,
+        backend_lifecycle_manager=lifecycle,
+        enumerator_registry=registry,
+    )
+    snapshot = await discoverer.discover_snapshot()
+
+    assert snapshot.instance_to_models["opencode-go.1"] == ("opencode-go/glm-5.1",)
+    assert snapshot.instance_to_models["opencode-go.2"] == (
+        "opencode-go/glm-5.1",
+        "opencode-go/minimax-m2.7",
+    )
+    # Both instances back opencode-go/glm-5.1 (unpinned for load balancing)
+    assert snapshot.model_to_instances["opencode-go/glm-5.1"] == (
+        "opencode-go.1",
+        "opencode-go.2",
+    )
+    assert snapshot.model_to_instances["opencode-go/minimax-m2.7"] == ("opencode-go.2",)
+    assert snapshot.alias_to_canonical["glm-5.1"] == "opencode-go/glm-5.1"
+    assert snapshot.alias_to_canonical["minimax-m2.7"] == "opencode-go/minimax-m2.7"
+    assert "opencode-go.1" not in snapshot.instance_route_policy

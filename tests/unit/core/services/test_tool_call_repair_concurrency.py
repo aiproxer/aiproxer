@@ -152,15 +152,12 @@ class TestToolCallRepairConcurrency:
         """
         service = ToolCallRepairService()
 
-        tool_calls = [
-            f"""
+        tool_calls = [f"""
             <patch_file>
                 <path>async_file{i}.py</path>
                 <patch_content>print("async {i}")</patch_content>
             </patch_file>
-            """
-            for i in range(10)
-        ]
+            """ for i in range(10)]
 
         async def process_tool_call_async(content: str, index: int) -> None:
             """Process tool call in async context."""
@@ -203,8 +200,7 @@ class TestToolCallRepairConcurrency:
         num_calls = 50
 
         # Create unique tool calls
-        tool_calls = [
-            f"""
+        tool_calls = [f"""
             <patch_file>
                 <path>stress_test_{i}.py</path>
                 <patch_content>
@@ -213,9 +209,7 @@ class TestToolCallRepairConcurrency:
                         return {i}
                 </patch_content>
             </patch_file>
-            """
-            for i in range(num_calls)
-        ]
+            """ for i in range(num_calls)]
 
         results: list[ToolCallRepairResult] = []
         errors: list[str] = []

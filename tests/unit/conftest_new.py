@@ -53,8 +53,6 @@ class MockAppState:
         self.functional_backends = ["openai", "openrouter", "gemini"]
 
 
-
-
 # Define custom mock classes
 class MockSecureStateAccess(ISecureStateAccess):
     def __init__(

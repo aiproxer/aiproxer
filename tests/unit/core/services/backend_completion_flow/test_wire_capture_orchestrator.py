@@ -89,7 +89,6 @@ class TestWireCaptureOrchestrator:
         context.session_id = "sess_123"
         context.extensions = {}
 
-
         # Act
         await orchestrator.capture_wire_outbound(
             backend_type="openai",
@@ -140,7 +139,6 @@ class TestWireCaptureOrchestrator:
         context = Mock(spec=RequestContext)
         context.extensions = {}
         response_content = {"foo": "bar"}
-
 
         # Act
         await orchestrator.capture_inbound_response(

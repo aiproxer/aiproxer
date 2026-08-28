@@ -123,7 +123,9 @@ class ClientSimulator:
             and e.metadata.chunk_index is None
         ]
 
-    def _get_expected_response_entries(self, after_sequence: int) -> list[CapturedWireEvent]:
+    def _get_expected_response_entries(
+        self, after_sequence: int
+    ) -> list[CapturedWireEvent]:
         """Get expected response entries after a request.
 
         Args:

@@ -64,7 +64,7 @@ def overlapping_patterns_strategy(draw: Any) -> tuple[list[TestRunnerPattern], s
 @given(overlapping_data=overlapping_patterns_strategy())
 @property_test_settings()
 def test_property_9_highest_priority_pattern_matches_first(
-    overlapping_data: tuple[list[TestRunnerPattern], str]
+    overlapping_data: tuple[list[TestRunnerPattern], str],
 ) -> None:
     """
     Property 9: Highest Priority Pattern Matches First.

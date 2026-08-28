@@ -1,7 +1,7 @@
 """
 Regression tests for Model Replacement triggering.
 
-This test verifies that the RequestProcessor correctly triggers the model 
+This test verifies that the RequestProcessor correctly triggers the model
 replacement service even when the initial RequestContext.backend is None,
 by correctly resolving the backend from the request model or app defaults.
 """

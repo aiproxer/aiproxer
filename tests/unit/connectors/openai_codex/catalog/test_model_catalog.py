@@ -127,7 +127,9 @@ class TestEffortValidation:
         ("gpt-4-codex", "low", "low"),
     ],
 )
-def test_clamp_reasoning_effort(catalog, model: str, effort: str, expected: str) -> None:
+def test_clamp_reasoning_effort(
+    catalog, model: str, effort: str, expected: str
+) -> None:
     assert catalog.clamp_reasoning_effort(model, effort) == expected
 
 
@@ -162,7 +164,9 @@ class TestCatalogDerivedFields:
 
     def test_reasoning_effort_descriptions(self, catalog) -> None:
         descriptions = catalog.reasoning_effort_descriptions
-        assert descriptions["ultra"] == "Maximum reasoning with automatic task delegation"
+        assert (
+            descriptions["ultra"] == "Maximum reasoning with automatic task delegation"
+        )
         assert descriptions["low"] == "Fast responses with lighter reasoning"
         assert len(descriptions) == 6
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -10,11 +11,12 @@ import pytest
 from src.connectors.commandcode_anthropic import (
     COMMANDCODE_ANTHROPIC_BACKEND_TYPE,
     COMMANDCODE_ANTHROPIC_DEFAULT_BASE_URL,
+    CommandCodeAnthropicConfiguredModelEnumerator,
     CommandCodeAnthropicConnector,
 )
 from src.connectors.contracts import ConnectorChatCompletionsRequest
 from src.core.common.exceptions import ConfigurationError
-from src.core.config.app_config import AppConfig
+from src.core.config.app_config import AppConfig, BackendConfig
 from src.core.domain.chat import CanonicalChatRequest, ChatMessage
 from src.core.domain.responses import ResponseEnvelope
 from src.core.services.backend_registry import backend_registry
@@ -212,3 +214,103 @@ async def test_live_commandcode_anthropic_model_listing() -> None:
         assert len(connector.available_models) > 0
         claude_models = [m for m in connector.available_models if "claude" in m]
         assert len(claude_models) > 0
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_configured_models() -> None:
+    enumerator = CommandCodeAnthropicConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="commandcode-anthropic",
+        api_key="test-key",
+        models=[
+            "claude-3-5-sonnet-20241022",
+            "commandcode-anthropic/claude-haiku-4-5-20251001",
+        ],
+    )
+
+    result = await enumerator.enumerate("commandcode-anthropic", config)
+
+    assert result.status == "available"
+    assert result.source == "commandcode_anthropic_configured"
+    assert result.models == (
+        "commandcode-anthropic/claude-3-5-sonnet-20241022",
+        "commandcode-anthropic/claude-haiku-4-5-20251001",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_live_upstream_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enumerator = CommandCodeAnthropicConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="commandcode-anthropic",
+        api_key="test-key",
+    )
+
+    class MockTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"id": "claude-3-5-sonnet-20241022"},
+                        {"id": "custom-anthropic-model"},
+                    ]
+                },
+            )
+
+    real_async_client = httpx.AsyncClient
+
+    def _mock_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = MockTransport()
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _mock_client)
+
+    result = await enumerator.enumerate("commandcode-anthropic", config)
+
+    assert result.status == "available"
+    assert result.source == "commandcode_anthropic_upstream"
+    assert result.models == (
+        "commandcode-anthropic/claude-3-5-sonnet-20241022",
+        "commandcode-anthropic/custom-anthropic-model",
+    )
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_falls_back_to_curated_on_failure() -> None:
+    enumerator = CommandCodeAnthropicConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="commandcode-anthropic",
+        api_key="test-key",
+        api_url="http://127.0.0.1:1/invalid",
+        extra={"model_discovery_timeout_seconds": 0.1},
+    )
+
+    result = await enumerator.enumerate("commandcode-anthropic", config)
+
+    assert result.status == "available"
+    assert result.source == "commandcode_anthropic_curated"
+    assert "commandcode-anthropic/claude-3-5-sonnet-20241022" in result.models
+    assert "commandcode-anthropic/Qwen/Qwen3.7-Flash" in result.models
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_enumerator_returns_unavailable_when_missing_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COMMANDCODE_API_KEY", raising=False)
+    monkeypatch.delenv("COMMANDCODE_API_KEY_1", raising=False)
+
+    enumerator = CommandCodeAnthropicConfiguredModelEnumerator()
+    config = BackendConfig(connector="commandcode-anthropic")
+
+    result = await enumerator.enumerate("commandcode-anthropic", config)
+
+    assert result.status == "unavailable"
+    assert result.error_code == "missing_api_key"
+    assert result.models == ()

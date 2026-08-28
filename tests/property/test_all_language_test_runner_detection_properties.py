@@ -557,7 +557,7 @@ def test_property_2_dart_test_detection(command: str) -> None:
 @given(test_data=any_language_test_command_strategy())
 @property_test_settings()
 def test_property_2_all_languages_clear_dirty_state(
-    test_data: tuple[str, str, str]
+    test_data: tuple[str, str, str],
 ) -> None:
     """
     Property 2: Test Execution Clears Dirty State Across All Languages.
@@ -603,7 +603,7 @@ def test_property_2_all_languages_clear_dirty_state(
 @given(test_data=any_language_test_command_strategy())
 @property_test_settings()
 def test_property_2_partial_test_execution_clears_state(
-    test_data: tuple[str, str, str]
+    test_data: tuple[str, str, str],
 ) -> None:
     """
     Property 2: Partial Test Execution Clears State.
@@ -638,7 +638,7 @@ def test_property_2_partial_test_execution_clears_state(
 @given(test_data=any_language_test_command_strategy())
 @property_test_settings()
 def test_property_2_test_execution_in_clean_state_all_languages(
-    test_data: tuple[str, str, str]
+    test_data: tuple[str, str, str],
 ) -> None:
     """
     Property 2: Test Execution in Clean State (All Languages).

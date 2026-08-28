@@ -72,7 +72,7 @@ def _normalize_pyright_output(text: str) -> str:
     # Replace common problematic Unicode whitespace/formatting characters
     # with their ASCII equivalents
     replacements = {
-        "\u00A0": " ",  # Non-breaking space -> regular space
+        "\u00a0": " ",  # Non-breaking space -> regular space
         "\u2000": " ",  # En quad -> regular space
         "\u2001": " ",  # Em quad -> regular space
         "\u2002": " ",  # En space -> regular space
@@ -83,9 +83,9 @@ def _normalize_pyright_output(text: str) -> str:
         "\u2007": " ",  # Figure space -> regular space
         "\u2008": " ",  # Punctuation space -> regular space
         "\u2009": " ",  # Thin space -> regular space
-        "\u200A": " ",  # Hair space -> regular space
-        "\u202F": " ",  # Narrow no-break space -> regular space
-        "\u205F": " ",  # Medium mathematical space -> regular space
+        "\u200a": " ",  # Hair space -> regular space
+        "\u202f": " ",  # Narrow no-break space -> regular space
+        "\u205f": " ",  # Medium mathematical space -> regular space
         "\u3000": " ",  # Ideographic space -> regular space
     }
 

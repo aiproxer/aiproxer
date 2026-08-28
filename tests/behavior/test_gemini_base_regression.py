@@ -178,7 +178,6 @@ class TestHealthCheckBehavior:
             allowed_endpoints
         ), f"Found unexpected endpoints: {found_endpoints - allowed_endpoints}"
 
-
     def test_health_check_failure_does_not_raise(self) -> None:
         """Verify health check failures are logged but don't raise."""
         mock_coordinator = Mock()
@@ -643,7 +642,6 @@ class TestHealthCheckEndpointValidation:
         assert found_endpoints.issubset(
             allowed_endpoints
         ), f"Found unexpected endpoints: {found_endpoints - allowed_endpoints}"
-
 
 
 class TestExcInfoRuntimeVerification:
