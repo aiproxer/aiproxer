@@ -105,6 +105,7 @@ test_status.json
 data/test_suite_state.json
 .ck/
 .pi-subagents/
+.go-agy-acp-wrapper/
 dev/test_anthropic_client.py
 complexity_analysis.json
 nul
