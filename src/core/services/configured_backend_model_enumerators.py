@@ -236,8 +236,15 @@ class OpencodeZenConfiguredModelEnumerator:
                         if token:
                             return str(token).strip(), True
                         return None, True
-                except Exception:
-                    pass
+                except Exception as exc:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            "Failed to read OpenCode auth file %s for %s: %s",
+                            path,
+                            instance_name,
+                            exc,
+                            exc_info=True,
+                        )
 
         return None, False
 

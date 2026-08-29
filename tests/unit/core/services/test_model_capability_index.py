@@ -355,3 +355,37 @@ async def test_discoverer_enumerates_configured_opencode_go_instances() -> None:
     assert snapshot.alias_to_canonical["glm-5.1"] == "opencode-go/glm-5.1"
     assert snapshot.alias_to_canonical["minimax-m2.7"] == "opencode-go/minimax-m2.7"
     assert "opencode-go.1" not in snapshot.instance_route_policy
+
+
+@pytest.mark.asyncio
+async def test_discoverer_enumerates_configured_instance_without_connector_fallback() -> (
+    None
+):
+    from src.connectors.opencode_go import OpencodeGoConfiguredModelEnumerator
+
+    configs = {
+        "opencode-go.1": BackendConfig(
+            api_key="key-1",
+            models=["glm-5.1"],
+        ),
+    }
+    provider = _mock_config_provider(configs)
+    provider.iter_configured_backend_names.return_value = list(configs)
+    lifecycle = Mock()
+    lifecycle.get_active_backends.return_value = {}
+
+    registry = BackendModelEnumeratorRegistry()
+    registry.register(
+        "opencode-go",
+        OpencodeGoConfiguredModelEnumerator(),
+        timeout_seconds=None,
+    )
+
+    discoverer = ModelCapabilityDiscoverer(
+        config_provider=provider,
+        backend_lifecycle_manager=lifecycle,
+        enumerator_registry=registry,
+    )
+    snapshot = await discoverer.discover_snapshot()
+
+    assert snapshot.instance_to_models["opencode-go.1"] == ("opencode-go/glm-5.1",)
