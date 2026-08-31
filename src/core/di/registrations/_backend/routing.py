@@ -53,6 +53,9 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             from src.connectors.opencode_go import (
                 OpencodeGoConfiguredModelEnumerator,
             )
+            from src.connectors.runinfra import (
+                RuninfraConfiguredModelEnumerator,
+            )
             from src.core.config.models import RoutingConfig
             from src.core.interfaces.backend_config_provider_interface import (
                 IBackendConfigProvider,
@@ -136,6 +139,11 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             enumerators.register(
                 "nvidia",
                 NvidiaConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "runinfra",
+                RuninfraConfiguredModelEnumerator(),
                 timeout_seconds=None,
             )
             codex_catalog_provider = provider.get_service(CodexModelCatalogProvider)

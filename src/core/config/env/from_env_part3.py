@@ -816,6 +816,36 @@ def _apply_extended_provider_backends(
                 origin="NVIDIA_API_KEY",
             )
 
+    if env.get("RUNINFRA_API_KEY") and not _has_numbered_env_variants(
+        env, "RUNINFRA_API_KEY"
+    ):
+        config_backends["runinfra"] = config_backends.get("runinfra", {})
+        config_backends["runinfra"]["api_key"] = env["RUNINFRA_API_KEY"]
+        config_backends["runinfra"]["api_url"] = _get_env_value(
+            env,
+            "RUNINFRA_API_BASE_URL",
+            "https://api.runinfra.ai/v1",
+            path="backends.runinfra.api_url",
+            resolution=resolution,
+        )
+        runinfra_timeout = _get_env_value(
+            env,
+            "RUNINFRA_TIMEOUT",
+            None,
+            path="backends.runinfra.timeout",
+            resolution=resolution,
+            transform=lambda value: _to_int(value, 0),
+        )
+        if runinfra_timeout:
+            config_backends["runinfra"]["timeout"] = runinfra_timeout
+        if resolution is not None:
+            resolution.record(
+                "backends.runinfra.api_key",
+                config_backends["runinfra"]["api_key"],
+                ParameterSource.ENVIRONMENT,
+                origin="RUNINFRA_API_KEY",
+            )
+
     if (
         env.get("OPENAI_CODEX_AUTH_PATH")
         or env.get("OPENAI_CODEX_PATH")

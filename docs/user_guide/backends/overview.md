@@ -23,6 +23,7 @@ Backend IDs are the `type:` values in YAML and the `backend_type` carried on req
 | `gemini-cli-cloud-project` | Google Gemini (GCP) | OAuth + GCP project | Enterprise / team billing on Vertex-style flows |
 | `openrouter` | OpenRouter | API Key | Many third-party hosted models behind one API |
 | `nvidia` | NVIDIA (NIM / OpenAI-compatible) | API Key (`NVIDIA_API_KEY`) | NVIDIA integrator or self-hosted NIM |
+| `runinfra` | Runinfra (runinfra.ai / OpenAI-compatible) | API Key (`RUNINFRA_API_KEY`) | runinfra.ai hosted models |
 | `zenmux` | ZenMux | API Key | OpenAI-compatible ZenMux router |
 | `zai` | ZAI | API Key | Zhipu / Z.ai |
 | `zai-coding-plan` | ZAI Coding Plan | API Key | Coding-plan SKU / workflows |

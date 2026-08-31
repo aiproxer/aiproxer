@@ -680,6 +680,27 @@ class TestModelsEndpointIntegration:
 
             assert any(m.startswith("nvidia/") for m in model_ids)
 
+    def test_models_endpoint_advertises_runinfra_models(self, monkeypatch):
+        """Test that runinfra backend advertises its models proxy-wide in /models."""
+        from src.core.config.app_config import AppConfig
+
+        monkeypatch.setenv("RUNINFRA_API_KEY", "test-key-runinfra")
+        config = AppConfig.from_env(
+            environ={
+                "RUNINFRA_API_KEY": "test-key-runinfra",
+                "DISABLE_AUTH": "true",
+            }
+        )
+
+        app = build_app(config=config)
+        with TestClient(app) as client:
+            response = client.get("/models")
+            assert response.status_code == 200
+            data = response.json()
+            model_ids = [m["id"] for m in data.get("data", [])]
+
+            assert any(m.startswith("runinfra/") for m in model_ids)
+
     def test_models_endpoint_advertises_openai_codex_models(
         self, tmp_path, monkeypatch
     ):

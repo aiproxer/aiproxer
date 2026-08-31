@@ -71,6 +71,7 @@ class BackendInstanceEnvSource:
             "commandcode-openai": "COMMANDCODE_API_KEY",
             "commandcode-anthropic": "COMMANDCODE_API_KEY",
             "nvidia": "NVIDIA_API_KEY",
+            "runinfra": "RUNINFRA_API_KEY",
             "openai-codex": "OPENAI_CODEX_API_KEY",
             "openai-codex-v2": "OPENAI_CODEX_API_KEY",
         }

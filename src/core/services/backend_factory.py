@@ -392,6 +392,11 @@ class BackendFactory(IBackendFactory):
                     "api_base_url_env": "MINIMAX_API_BASE_URL",
                     "default_api_base_url": "https://api.minimax.io/v1",
                 },
+                "runinfra": {
+                    "api_key_env": "RUNINFRA_API_KEY",
+                    "api_base_url_env": "RUNINFRA_API_BASE_URL",
+                    "default_api_base_url": "https://api.runinfra.ai/v1",
+                },
             }
             env_spec = env_key_mapping.get(connector_type)  # Use connector_type
             if env_spec:

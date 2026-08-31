@@ -325,6 +325,7 @@ logging:
 # - ANTHROPIC_API_KEY for Anthropic
 # - ZAI_API_KEY for ZAI
 # - NVIDIA_API_KEY for Nvidia (NIM OpenAI-compatible API)
+# - RUNINFRA_API_KEY for Runinfra (runinfra.ai OpenAI-compatible API)
 # - GOOGLE_CLOUD_PROJECT for Google Cloud Project ID
 # See README.md and config/sample.env for examples
 
@@ -385,6 +386,14 @@ backends:
   #   # timeout: 120  # Also raises httpx *read* (inter-SSE-chunk) timeout; connector enforces
   #   # a floor (~300s) vs the shared pool default so long reasoning pauses do not abort streams.
   #   # models: []  # Optional static allowlist; with no API key and no models list, discovery is empty
+
+  # runinfra:
+  #   # runinfra.ai OpenAI-compatible chat API.
+  #   # Default base URL when api_url is omitted: https://api.runinfra.ai/v1
+  #   # Secrets: use RUNINFRA_API_KEY in the environment (do not put real keys in YAML).
+  #   # api_url: null
+  #   # timeout: 120
+  #   # models: []  # Optional static allowlist
 
   anthropic:
     # API key set via ANTHROPIC_API_KEY environment variable
