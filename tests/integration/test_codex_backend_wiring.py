@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -87,14 +88,16 @@ async def test_codex_dependencies_registration(auth_dir: Path):
     # Verify services are registered
     provider = services.build_service_provider()
 
-    settings_loader = provider.get_service(ISettingsLoader)
+    settings_loader = provider.get_service(cast(type[Any], ISettingsLoader))
     assert settings_loader is not None
 
-    credential_manager = provider.get_service(ICredentialManager)
+    credential_manager = provider.get_service(cast(type[Any], ICredentialManager))
     assert credential_manager is not None
 
     try:
-        tool_execution_service = provider.get_service(IToolExecutionService)
+        tool_execution_service = provider.get_service(
+            cast(type[Any], IToolExecutionService)
+        )
         assert tool_execution_service is not None
     finally:
         # cleanup credential manager
@@ -250,7 +253,9 @@ async def test_openai_codex_v2_backend_factory_and_settings_defaults(auth_dir: P
         }
     )
 
-    connector = factory.create_backend("openai-codex-v2", cfg)
+    connector = cast(
+        OpenAICodexV2Connector, factory.create_backend("openai-codex-v2", cfg)
+    )
     try:
         assert isinstance(connector, OpenAICodexV2Connector)
         assert connector.backend_type == "openai-codex-v2"
@@ -435,7 +440,9 @@ async def test_config_keys_honored_from_documentation(auth_dir: Path):
             }
         }
     )
-    config = AppConfig(backends=BackendSettings(openai_codex=codex_backend))
+    config = AppConfig(
+        backends=BackendSettings(openai_codex=codex_backend)  # type: ignore[call-arg]
+    )
 
     loader = SettingsLoader()
     settings = loader.load(config)
@@ -651,6 +658,7 @@ async def test_staged_initialization_constructs_connector_with_partial_bundle(
 
         try:
             assert backend is not None
+            assert isinstance(backend, OpenAICodexConnector)
             assert backend.backend_type == "openai-codex"
             initialize_mock.assert_awaited_once()
 
@@ -868,6 +876,7 @@ async def test_usage_accounting_can_extract_usage_from_envelope(auth_dir: Path):
         )
 
     # Verify envelope is still valid
+    assert isinstance(wrapped, ResponseEnvelope)
     assert wrapped is envelope
     assert wrapped.usage is not None
 
@@ -1121,6 +1130,7 @@ async def test_usage_service_failure_does_not_affect_response(auth_dir: Path):
             pytest.fail(f"Usage tracking failure should not propagate: {e}")
 
         # Verify envelope is still valid after usage recording attempt
+        assert isinstance(wrapped, ResponseEnvelope)
         assert wrapped is envelope
         assert wrapped.content is not None
         assert wrapped.status_code == 200
@@ -1129,3 +1139,58 @@ async def test_usage_service_failure_does_not_affect_response(auth_dir: Path):
 
     # Verify usage tracking service was attempted (but failed silently)
     assert usage_tracking_service.record_response.called
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_gpt_6_astra_support_and_alias_resolution(auth_dir: Path):
+    """Test that gpt-6-astra is supported by Codex connector and gpt-6.0-astra resolves via alias."""
+    from typing import Any, cast
+
+    from src.core.app.application_builder import ApplicationBuilder
+    from src.core.config.app_config import load_config
+    from src.core.di.provider_lifecycle import get_current_service_provider
+    from src.core.domain.chat import ChatMessage, ChatRequest
+    from src.core.interfaces.backend_model_resolver_interface import (
+        IBackendModelResolver,
+    )
+    from src.core.services.backend_factory import BackendFactory
+
+    config = load_config("config/config.yaml")
+    builder = ApplicationBuilder()
+    builder.add_default_stages()
+    await builder.build(config)
+
+    provider = get_current_service_provider()
+    resolver = provider.get_required_service(cast(type[Any], IBackendModelResolver))
+
+    # Test resolving openai-codex:gpt-6-astra
+    target1 = await resolver.resolve_target(
+        ChatRequest(
+            model="openai-codex:gpt-6-astra",
+            messages=[ChatMessage(role="user", content="hello")],
+        )
+    )
+    assert target1.backend == "openai-codex"
+    assert target1.model == "gpt-6-astra"
+
+    # Test resolving openai-codex:gpt-6.0-astra alias
+    target2 = await resolver.resolve_target(
+        ChatRequest(
+            model="openai-codex:gpt-6.0-astra",
+            messages=[ChatMessage(role="user", content="hello")],
+        )
+    )
+    assert target2.backend == "openai-codex"
+    assert target2.model == "gpt-6-astra"
+
+    # Verify connector recognizes gpt-6-astra
+    backend_factory = provider.get_required_service(BackendFactory)
+    connector = cast(
+        OpenAICodexConnector, backend_factory.create_backend("openai-codex", config)
+    )
+    try:
+        assert connector._is_codex_model("gpt-6-astra") is True
+        assert "gpt-6-astra" in connector.SUPPORTED_CODEX_MODELS
+    finally:
+        await connector.shutdown()

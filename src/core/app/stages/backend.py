@@ -28,7 +28,7 @@ class BackendStage(InitializationStage):
         return "backends"
 
     def get_dependencies(self) -> list[str]:
-        return ["infrastructure"]
+        return ["infrastructure", "core_services"]
 
     def get_description(self) -> str:
         return "Register backend services (registry, factory, service)"

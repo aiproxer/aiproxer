@@ -332,18 +332,12 @@ resilience:
 # Model name rewrite rules (optional)
 # These rules allow you to dynamically rewrite model names before they are processed
 # Rules are processed in order, and the first matching rule is applied
-# model_aliases:
-#   # Statically replace a specific model
-#   - pattern: "^claude-3-sonnet-20240229$"
-#     replacement: "gemini-oauth-plan:gemini-1.5-flash"
-#
-#   # Dynamically replace any GPT model, keeping the version
-#   - pattern: "^gpt-(.*)"
-#     replacement: "openrouter:openai/gpt-\\1"
-#
-#   # Catch-all for any other model
-#   - pattern: "^(.*)$"
-#     replacement: "gemini-oauth-plan:gemini-1.5-pro"
+model_aliases:
+  # Map gpt-6.0-astra to official gpt-6-astra
+  - pattern: "^openai-codex:gpt-6\\.0-astra(.*)$"
+    replacement: "openai-codex:gpt-6-astra\\1"
+  - pattern: "^gpt-6\\.0-astra(.*)$"
+    replacement: "gpt-6-astra\\1"
 
 # Random Model/Backend Replacement
 # Probabilistically replace user-specified backend:model with an alternative
