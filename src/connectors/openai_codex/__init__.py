@@ -6,11 +6,10 @@ startup (``codex debug models``) with a shipped fallback snapshot — see
 :mod:`src.connectors.openai_codex.catalog`.
 """
 
-from src.connectors._openai_codex_connector import (
-    OPENAI_VENDOR_PREFIX,
-    OpenAICodexConfiguredModelEnumerator,
-    OpenAICodexConnector,
-)
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from src.connectors.openai_codex.catalog import (
     CodexModelCatalog,
     CodexModelCatalogConfig,
@@ -18,6 +17,17 @@ from src.connectors.openai_codex.catalog import (
     CodexModelReasoningProfile,
     ICodexModelCatalog,
 )
+
+if TYPE_CHECKING:
+    from src.connectors._openai_codex_connector import (
+        OPENAI_VENDOR_PREFIX as OPENAI_VENDOR_PREFIX,
+    )
+    from src.connectors._openai_codex_connector import (
+        OpenAICodexConfiguredModelEnumerator as OpenAICodexConfiguredModelEnumerator,
+    )
+    from src.connectors._openai_codex_connector import (
+        OpenAICodexConnector as OpenAICodexConnector,
+    )
 
 __all__ = [
     "OPENAI_VENDOR_PREFIX",
@@ -39,3 +49,15 @@ try:
     __all__.append("OpenAICredentialsFileHandler")
 except ImportError:
     pass
+
+
+def __getattr__(name: str) -> Any:
+    if name in (
+        "OPENAI_VENDOR_PREFIX",
+        "OpenAICodexConnector",
+        "OpenAICodexConfiguredModelEnumerator",
+    ):
+        from src.connectors import _openai_codex_connector as _mod
+
+        return getattr(_mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
