@@ -315,6 +315,13 @@ class OpencodeZenConfiguredModelEnumerator:
                                     )
                             if result:
                                 return result
+            except (httpx.TransportError, TimeoutError, ConnectionError) as exc:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Live model discovery attempt failed for %s: %s",
+                        instance_name,
+                        exc,
+                    )
             except Exception as exc:
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(

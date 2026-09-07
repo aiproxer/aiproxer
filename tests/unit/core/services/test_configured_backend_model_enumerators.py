@@ -304,3 +304,32 @@ async def test_openai_codex_enumerator_with_managed_oauth_storage(
     assert result.source == "codex_discovery"
     assert result.models == ("openai/gpt-5.5",)
     assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_opencode_zen_enumerator_timeout_does_not_log_exc_info(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import logging
+
+    enumerator = OpencodeZenConfiguredModelEnumerator()
+    config = BackendConfig(
+        connector="opencode-zen",
+        api_key="test-key",
+        api_url="http://127.0.0.1:1/timeout",
+        extra={"model_discovery_timeout_seconds": 0.001},
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        result = await enumerator.enumerate("opencode-zen", config)
+
+    assert result.status == "available"
+    assert result.source == "opencode_zen_curated"
+    matching_records = [
+        r
+        for r in caplog.records
+        if "Live model discovery attempt failed for opencode-zen" in r.message
+    ]
+    assert len(matching_records) > 0
+    for record in matching_records:
+        assert record.exc_info is None

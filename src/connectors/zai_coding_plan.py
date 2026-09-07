@@ -13,6 +13,7 @@ from collections.abc import AsyncGenerator, Mapping
 from dataclasses import replace
 from typing import Any, cast
 
+import httpx
 from fastapi import HTTPException
 
 from src.connectors.base import strip_vendor_prefix
@@ -387,6 +388,12 @@ class ZaiCodingPlanBackend(OpenAIConnector):
                         model_id = entry.get("id")
                         if isinstance(model_id, str):
                             discovered_models.append(model_id)
+        except (httpx.TransportError, TimeoutError, ConnectionError) as exc:
+            if logger.isEnabledFor(logging.WARNING):
+                logger.warning(
+                    "Unable to fetch ZAI Coding Plan models from API: %s",
+                    exc,
+                )
         except Exception as exc:
             if logger.isEnabledFor(logging.WARNING):
                 logger.warning(

@@ -860,3 +860,32 @@ async def test_enumerator_returns_unavailable_when_api_key_missing(
     assert result.status == "unavailable"
     assert result.error_code == "missing_api_key"
     assert result.models == ()
+
+
+@pytest.mark.asyncio
+async def test_enumerator_timeout_does_not_log_exc_info(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import logging
+
+    enumerator = opencode_go_module.OpencodeGoConfiguredModelEnumerator()
+    config = opencode_go_module.BackendConfig(
+        connector="opencode-go",
+        api_key="test-key",
+        api_url="http://127.0.0.1:1/timeout",
+        extra={"model_discovery_timeout_seconds": 0.001},
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        result = await enumerator.enumerate("opencode-go", config)
+
+    assert result.status == "available"
+    assert result.source == "opencode_go_curated"
+    matching_records = [
+        r
+        for r in caplog.records
+        if "Live model discovery failed for opencode-go" in r.message
+    ]
+    assert len(matching_records) > 0
+    for record in matching_records:
+        assert record.exc_info is None

@@ -199,6 +199,13 @@ class CommandCodeAnthropicConfiguredModelEnumerator:
                                     source="commandcode_anthropic_upstream",
                                     instance_pinned=False,
                                 )
+            except (httpx.TransportError, TimeoutError, ConnectionError) as exc:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Live model discovery failed for %s, falling back to curated list: %s",
+                        instance_name,
+                        exc,
+                    )
             except Exception as exc:
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
