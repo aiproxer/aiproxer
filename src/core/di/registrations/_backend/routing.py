@@ -56,6 +56,9 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             from src.connectors.runinfra import (
                 RuninfraConfiguredModelEnumerator,
             )
+            from src.connectors.workbuddy_acp import (
+                WorkBuddyConfiguredModelEnumerator,
+            )
             from src.core.config.models import RoutingConfig
             from src.core.interfaces.backend_config_provider_interface import (
                 IBackendConfigProvider,
@@ -109,6 +112,17 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             enumerators.register(
                 "freebuff-cli-acp",
                 FreebuffCliConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            wb_enumerator = WorkBuddyConfiguredModelEnumerator()
+            enumerators.register(
+                "workbuddy-acp",
+                wb_enumerator,
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "workbuddy_acp",
+                wb_enumerator,
                 timeout_seconds=None,
             )
             enumerators.register(

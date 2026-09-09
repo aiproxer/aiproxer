@@ -125,6 +125,7 @@ Backend provider configuration and usage:
 - **[Runinfra Backend](backends/runinfra.md)** - Runinfra (runinfra.ai) OpenAI-compatible API
 - **[Ollama Backend](backends/ollama.md)** - Local model serving via Ollama
 - **[OpenCode Zen Backend](backends/opencode-zen.md)** - OpenCode Zen API configuration
+- **[WorkBuddy ACP Backend](backends/workbuddy-acp.md)** - WorkBuddy AI local CLI connector via native ACP over stdio
 - **[Custom Backends](backends/custom-backends.md)** - Creating and configuring custom backend connectors
 
 ## Debugging

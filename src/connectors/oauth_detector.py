@@ -34,6 +34,7 @@ KNOWN_OAUTH_CONNECTORS: set[str] = _EXTRACTED_OAUTH_CONNECTORS.union(
         "cursor-cli-acp",  # Uses Cursor CLI (agent acp) with cursor_login
         "agy-cli-acp",  # Uses local Antigravity CLI auth through ACP wrapper
         "eve-acp",  # Uses local Vercel Eve CLI via native ACP
+        "workbuddy-acp",  # Uses local WorkBuddy AI CLI via native ACP
         "openai-codex",  # Uses OAuth via auth.json (special case)
         "openai-codex-v2",  # Managed OAuth stack shared with openai-codex
         "openai-codex-app-server",  # Local Codex CLI app-server (personal login, stdio)

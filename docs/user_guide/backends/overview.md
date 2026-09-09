@@ -20,6 +20,7 @@ Backend IDs are the `type:` values in YAML and the `backend_type` carried on req
 | `gemini-cli-acp` | Google Gemini (ACP via Gemini CLI) | Local OAuth token | Sub-agents and tooling via Gemini CLI |
 | `cursor-cli-acp` | Cursor (ACP via Cursor CLI `agent acp`) | Local Cursor login (`agent login`); optional `CURSOR_API_KEY` discovery fallback | Cursor-hosted models through the official CLI; requires `agent` on PATH or `CURSOR_AGENT_BIN` |
 | `eve-acp` | Vercel Eve (ACP via `eve acp`) | Local Eve runtime | Agent runtime execution with native ACP protocol over stdio; requires `eve` on PATH or `EVE_BINARY` |
+| `workbuddy-acp` | WorkBuddy AI (ACP via bundled `codebuddy` CLI) | Local WorkBuddy account / session | Tencent Hunyuan 4 flagship (`workbuddy/hy4`) and coding plan tiers via native ACP over stdio (see [WorkBuddy ACP](workbuddy-acp.md)) |
 | `gemini-cli-cloud-project` | Google Gemini (GCP) | OAuth + GCP project | Enterprise / team billing on Vertex-style flows |
 | `openrouter` | OpenRouter | API Key | Many third-party hosted models behind one API |
 | `nvidia` | NVIDIA (NIM / OpenAI-compatible) | API Key (`NVIDIA_API_KEY`) | NVIDIA integrator or self-hosted NIM |

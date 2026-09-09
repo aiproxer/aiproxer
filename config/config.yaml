@@ -274,6 +274,23 @@ backends:
     # API key set via ZAI_API_KEY environment variable
     timeout: 120
 
+  workbuddy-acp:
+    # WorkBuddy AI local CLI connector via native ACP over stdio
+    connector: "workbuddy-acp"
+    timeout: 300
+    models:
+      - "workbuddy/primary-model"
+      - "workbuddy/deep-model"
+      - "workbuddy/balanced-model"
+      - "workbuddy/fast-model"
+      - "workbuddy/hy4"
+      - "workbuddy/hy4-preview"
+      - "workbuddy/hunyuan"
+      - "workbuddy/auto"
+    extra:
+      permission_mode: "bypassPermissions"
+      thought_level: "enabled"
+
   openai_codex:
     # API key set via OpenAI OAuth flow (see docs)
     timeout: 120

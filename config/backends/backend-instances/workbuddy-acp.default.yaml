@@ -1,0 +1,20 @@
+# Optional WorkBuddy AI ACP backend instance.
+# WorkBuddy natively speaks Agent Client Protocol (ACP) via its bundled codebuddy CLI.
+# Multi User Mode: this connector is OAuth-style and is not loaded in production multi-user.
+connector: workbuddy-acp
+models:
+  - "workbuddy/primary-model"
+  - "workbuddy/deep-model"
+  - "workbuddy/balanced-model"
+  - "workbuddy/fast-model"
+  - "workbuddy/hy4"
+  - "workbuddy/hy4-preview"
+  - "workbuddy/hunyuan"
+  - "workbuddy/auto"
+extra:
+  model: "workbuddy/primary-model"
+  permission_mode: "bypassPermissions"
+  thought_level: "enabled"
+  process_timeout: 300
+  idle_timeout: 60
+  mcp_servers: []
