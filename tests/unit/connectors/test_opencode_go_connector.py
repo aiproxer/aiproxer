@@ -35,6 +35,7 @@ CURATED_OPENAI_MODELS = [
     "mimo-v2.5-pro",
     "mimo-v2-pro",
     "mimo-v2-omni",
+    "omen-alpha",
 ]
 CURATED_ANTHROPIC_MODELS = [
     "minimax-m3",
@@ -60,10 +61,7 @@ class RequestRecorder:
         path = request.url.path.rstrip("/")
 
         if path.endswith("/models"):
-            return httpx.Response(
-                200,
-                json=self.models_payload,
-            )
+            return httpx.Response(200, json=self.models_payload)
 
         if path.endswith("/chat/completions"):
             return httpx.Response(
@@ -97,18 +95,14 @@ class RequestRecorder:
 
 
 async def _make_backend(
-    client: httpx.AsyncClient,
-    *,
-    overrides: dict[str, str] | None = None,
+    client: httpx.AsyncClient, *, overrides: dict[str, str] | None = None
 ) -> Any:
     config = MagicMock(spec=AppConfig)
     config.streaming_yield_interval = 0.0
     config.backends = MagicMock()
 
     backend = opencode_go_module.OpencodeGoBackend(
-        client=client,
-        config=config,
-        translation_service=TranslationService(),
+        client=client, config=config, translation_service=TranslationService()
     )
 
     await backend.initialize(
@@ -255,8 +249,7 @@ async def test_model_protocol_overrides_can_redirect_unknown_models() -> None:
 
     async with httpx.AsyncClient(transport=transport) as client:
         backend = await _make_backend(
-            client,
-            overrides={"custom-openai-model": "openai"},
+            client, overrides={"custom-openai-model": "openai"}
         )
 
         await backend.chat_completions(_make_request("opencode-go:custom-openai-model"))
@@ -272,8 +265,7 @@ async def test_model_protocol_overrides_can_redirect_to_anthropic() -> None:
 
     async with httpx.AsyncClient(transport=transport) as client:
         backend = await _make_backend(
-            client,
-            overrides={"custom-anthropic-model": "anthropic"},
+            client, overrides={"custom-anthropic-model": "anthropic"}
         )
 
         await backend.chat_completions(
@@ -295,9 +287,7 @@ async def test_api_key_strips_leading_bearer_prefix() -> None:
 
     async with httpx.AsyncClient(transport=transport) as client:
         backend = opencode_go_module.OpencodeGoBackend(
-            client=client,
-            config=config,
-            translation_service=TranslationService(),
+            client=client, config=config, translation_service=TranslationService()
         )
         await backend.initialize(
             api_key="Bearer  secret-token",
@@ -382,9 +372,7 @@ async def test_openai_endpoint_style_base_url_is_normalized() -> None:
 
     async with httpx.AsyncClient(transport=transport) as client:
         backend = opencode_go_module.OpencodeGoBackend(
-            client=client,
-            config=config,
-            translation_service=TranslationService(),
+            client=client, config=config, translation_service=TranslationService()
         )
         await backend.initialize(
             api_key="test-api-key",
@@ -410,9 +398,7 @@ def test_provider_name_reports_openai_for_outer_connector() -> None:
     config.backends = MagicMock()
     client = MagicMock(spec=httpx.AsyncClient)
     backend = opencode_go_module.OpencodeGoBackend(
-        client=client,
-        config=config,
-        translation_service=TranslationService(),
+        client=client, config=config, translation_service=TranslationService()
     )
 
     assert backend.get_provider_name() == "openai"
@@ -448,8 +434,7 @@ async def test_available_models_are_canonically_prefixed() -> None:
 
     async with httpx.AsyncClient(transport=transport) as client:
         backend = await _make_backend(
-            client,
-            overrides={"custom-openai-model": "openai"},
+            client, overrides={"custom-openai-model": "openai"}
         )
 
         models = backend.get_available_models()
@@ -544,8 +529,7 @@ async def test_openai_payload_strips_extra_body_vendor_prefixed_model() -> None:
         backend = await _make_backend(client)
         await backend.chat_completions(
             _make_request(
-                "opencode-go:kimi-k2.5",
-                extra_body={"model": "opencode-go/kimi-k2.5"},
+                "opencode-go:kimi-k2.5", extra_body={"model": "opencode-go/kimi-k2.5"}
             )
         )
 
@@ -889,3 +873,112 @@ async def test_enumerator_timeout_does_not_log_exc_info(
     assert len(matching_records) > 0
     for record in matching_records:
         assert record.exc_info is None
+
+
+@pytest.mark.asyncio
+async def test_session_header_propagated_to_openai_chat_completions() -> None:
+    recorder = RequestRecorder()
+    transport = httpx.MockTransport(recorder)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        backend = await _make_backend(client)
+        req = _make_request("opencode-go:glm-5.1")
+        assert req.context is not None
+        req.context.session_id = "sess-corr-123"
+        await backend.chat_completions(req)
+
+    request = _matching_request(recorder.requests, "/chat/completions")
+    assert request.headers.get("x-opencode-session") == "sess-corr-123"
+
+
+@pytest.mark.asyncio
+async def test_session_header_propagated_to_openai_streaming() -> None:
+    recorder = RequestRecorder()
+    transport = httpx.MockTransport(recorder)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        backend = await _make_backend(client)
+        req = _make_request("opencode-go:glm-5.1", stream=True)
+        assert req.context is not None
+        req.context.session_id = "sess-stream-openai-456"
+        await backend.chat_completions(req)
+
+    request = _matching_request(recorder.requests, "/chat/completions")
+    assert request.headers.get("x-opencode-session") == "sess-stream-openai-456"
+
+
+@pytest.mark.asyncio
+async def test_session_header_propagated_to_anthropic_messages() -> None:
+    recorder = RequestRecorder()
+    transport = httpx.MockTransport(recorder)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        backend = await _make_backend(client)
+        req = _make_request("opencode-go:minimax-m2.7")
+        assert req.context is not None
+        req.context.session_id = "sess-anthropic-789"
+        await backend.chat_completions(req)
+
+    request = _matching_request(recorder.requests, "/messages")
+    assert request.headers.get("x-opencode-session") == "sess-anthropic-789"
+
+
+@pytest.mark.asyncio
+async def test_session_header_propagated_to_anthropic_streaming() -> None:
+    recorder = RequestRecorder()
+    transport = httpx.MockTransport(recorder)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        backend = await _make_backend(client)
+        req = _make_request("opencode-go:minimax-m2.7", stream=True)
+        assert req.context is not None
+        req.context.session_id = "sess-stream-anthropic-101"
+        await backend.chat_completions(req)
+
+    request = _matching_request(recorder.requests, "/messages")
+    assert request.headers.get("x-opencode-session") == "sess-stream-anthropic-101"
+
+
+@pytest.mark.asyncio
+async def test_fallback_session_header_generated_when_absent() -> None:
+    recorder = RequestRecorder()
+    transport = httpx.MockTransport(recorder)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        backend = await _make_backend(client)
+        req = _make_request("opencode-go:glm-5.1")
+        req_without_session = replace(
+            req,
+            context=ConnectorRequestContext(
+                request_id="req-1", session_id=None, client_host=None, extensions={}
+            ),
+        )
+        await backend.chat_completions(req_without_session)
+
+    request = _matching_request(recorder.requests, "/chat/completions")
+    sid = request.headers.get("x-opencode-session")
+    assert sid is not None
+    assert sid.startswith("lip-")
+
+
+@pytest.mark.asyncio
+async def test_omen_alpha_routes_to_chat_completions_and_sanitizes_payload() -> None:
+    recorder = RequestRecorder()
+    transport = httpx.MockTransport(recorder)
+
+    async with httpx.AsyncClient(transport=transport) as client:
+        backend = await _make_backend(client)
+        req = _make_request(
+            "opencode-go:omen-alpha",
+            reasoning_effort="medium",
+            extra_body={"thinking": {"budget_tokens": 512}},
+        )
+        await backend.chat_completions(req)
+
+    request = _matching_request(recorder.requests, "/chat/completions")
+    payload = cast(dict[str, Any], json.loads(request.content.decode("utf-8")))
+    assert payload["model"] == "omen-alpha"
+    assert "reasoning" not in payload
+    assert "reasoning_effort" not in payload
+    assert "thinking" not in payload
+    assert request.headers.get("x-opencode-session") == "test-session-id"

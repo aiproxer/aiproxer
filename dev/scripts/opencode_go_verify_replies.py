@@ -105,12 +105,43 @@ async def _probe_openai(
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+        "x-opencode-session": "verify-replies-openai",
     }
     payload = {
-        "model": "kimi-k2.5",
+        "model": "glm-5.1",
         "max_tokens": 256,
         "stream": False,
         "messages": [{"role": "user", "content": "Reply with exactly: OK_OPENAI"}],
+    }
+    r = await client.post(url, headers=headers, json=payload)
+    body_text = r.text
+    if r.status_code != 200:
+        return r.status_code, None, _preview(body_text)
+    try:
+        data = r.json()
+    except Exception:
+        return r.status_code, None, _preview(body_text)
+    if not isinstance(data, dict):
+        return r.status_code, None, _preview(body_text)
+    extracted = _openai_assistant_text(data)
+    hint = None if extracted else _preview(body_text)
+    return r.status_code, extracted, hint
+
+
+async def _probe_omen_alpha(
+    client: httpx.AsyncClient, base: str, api_key: str
+) -> tuple[int, str | None, str | None]:
+    url = f"{base.rstrip('/')}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "x-opencode-session": "verify-replies-omen-alpha",
+    }
+    payload = {
+        "model": "omen-alpha",
+        "max_tokens": 256,
+        "stream": False,
+        "messages": [{"role": "user", "content": "Reply with exactly: OK_OMEN_ALPHA"}],
     }
     r = await client.post(url, headers=headers, json=payload)
     body_text = r.text
@@ -135,6 +166,7 @@ async def _probe_anthropic(
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
+        "x-opencode-session": "verify-replies-anthropic",
     }
     payload = {
         "model": "minimax-m2.7",
@@ -176,6 +208,7 @@ async def amain() -> int:
     base = str(args.base_url).strip()
     async with httpx.AsyncClient(timeout=args.timeout, follow_redirects=True) as client:
         o_status, o_text, o_hint = await _probe_openai(client, base, key)
+        omen_status, omen_text, omen_hint = await _probe_omen_alpha(client, base, key)
         a_status, a_text, a_hint = await _probe_anthropic(client, base, key)
 
     def _prev(x: str | None) -> str | None:
@@ -192,6 +225,13 @@ async def amain() -> int:
             "body_hint_if_unparsed": o_hint,
             "ok": bool(o_text),
         },
+        "omen_alpha": {
+            "model_sent": "omen-alpha",
+            "http_status": omen_status,
+            "assistant_preview": _prev(omen_text),
+            "body_hint_if_unparsed": omen_hint,
+            "ok": bool(omen_text),
+        },
         "anthropic_messages": {
             "model_sent": "minimax-m2.7",
             "http_status": a_status,
@@ -207,13 +247,15 @@ async def amain() -> int:
             f"\nOpenAI path failed: status={o_status} (expected 200 and choices[0].message.content)",
             file=sys.stderr,
         )
+    if not omen_text:
+        print(f"\nOmen Alpha probe failed: status={omen_status}", file=sys.stderr)
     if not a_text:
         print(
             f"\nAnthropic path failed: status={a_status} (expected 200 and text blocks)",
             file=sys.stderr,
         )
 
-    return 0 if (o_text and a_text) else 1
+    return 0 if (o_text and omen_text and a_text) else 1
 
 
 if __name__ == "__main__":

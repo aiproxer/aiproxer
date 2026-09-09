@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+import uuid
 from collections.abc import AsyncGenerator
+from contextvars import ContextVar
 from dataclasses import replace
 from typing import Any
 
@@ -13,19 +15,68 @@ import httpx
 
 from src.connectors.anthropic import AnthropicBackend
 from src.connectors.base import add_vendor_prefix, strip_vendor_prefix
-from src.connectors.contracts import (
-    ConnectorChatCompletionsRequest,
-)
+from src.connectors.contracts import ConnectorChatCompletionsRequest
 from src.connectors.openai import OpenAIConnector
 from src.core.common.exceptions import ConfigurationError, RoutingError
 from src.core.common.model_catalog import BackendModelEnumeration
 from src.core.config.app_config import AppConfig, BackendConfig
 from src.core.domain.models_listing import ModelInfo, ModelsListingResponse
 from src.core.domain.responses import ResponseEnvelope, StreamingResponseEnvelope
+from src.core.interfaces.configuration_interface import IAppIdentityConfig
 from src.core.services.backend_registry import backend_registry
 from src.core.services.translation_service import TranslationService
 
 logger = logging.getLogger(__name__)
+
+_LLM_PROXY_SESSION_ID_KEY = "_llm_proxy_session_id"
+_OPENCODE_SESSION_HEADER = "x-opencode-session"
+_current_opencode_session: ContextVar[str | None] = ContextVar(
+    "_current_opencode_session", default=None
+)
+
+
+def _resolve_opencode_go_session_id(
+    request: ConnectorChatCompletionsRequest | None,
+) -> str:
+    """Extract a stable session identifier from request context, domain request, or options,
+
+    falling back to a freshly generated uuid if none was provided.
+    """
+    if request is not None:
+        if request.context is not None and request.context.session_id:
+            sid = request.context.session_id.strip()
+            if sid:
+                return sid
+
+        raw_sid = getattr(request.request, "session_id", None)
+        if isinstance(raw_sid, str) and raw_sid.strip():
+            return raw_sid.strip()
+
+        if request.options:
+            for opt_key in ("headers_override", "headers"):
+                headers_map = request.options.get(opt_key)
+                if isinstance(headers_map, dict):
+                    for h_k, h_v in headers_map.items():
+                        if (
+                            str(h_k).lower() == _OPENCODE_SESSION_HEADER
+                            and isinstance(h_v, str)
+                            and h_v.strip()
+                        ):
+                            return h_v.strip()
+
+            for key in ("session_id", "client_session_id"):
+                val = request.options.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+
+        extra_body = getattr(request.request, "extra_body", None)
+        if isinstance(extra_body, dict):
+            for key in ("session_id", "client_session_id", _LLM_PROXY_SESSION_ID_KEY):
+                val = extra_body.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+
+    return f"lip-{uuid.uuid4().hex}"
 
 
 def _strip_opencode_go_anthropic_extra_body(
@@ -96,10 +147,7 @@ def _opencode_go_normalize_tool_for_messages_api(
     root_name = tool.get("name")
     if isinstance(root_name, str) and root_name.strip():
         isc = _opencode_go_coerce_input_schema(tool.get("input_schema"))
-        out_flat: dict[str, Any] = {
-            "name": root_name.strip(),
-            "input_schema": isc,
-        }
+        out_flat: dict[str, Any] = {"name": root_name.strip(), "input_schema": isc}
         desc2 = tool.get("description")
         if isinstance(desc2, str) and desc2.strip():
             out_flat["description"] = desc2.strip()
@@ -130,13 +178,12 @@ def _opencode_go_normalize_payload_tools(payload: dict[str, Any]) -> None:
 
 
 def _opencode_go_sanitize_openai_payload(
-    payload: dict[str, Any],
-    model_name: str,
+    payload: dict[str, Any], model_name: str
 ) -> None:
     """Remove fields rejected by OpenCode Go's OpenAI-compatible endpoint."""
 
     normalized_model = _normalize_model_name(model_name).lower()
-    if normalized_model.startswith("glm-"):
+    if normalized_model.startswith("glm-") or normalized_model == "omen-alpha":
         for key in ("reasoning", "reasoning_effort", "thinking"):
             payload.pop(key, None)
 
@@ -156,13 +203,12 @@ _OPENCODE_GO_OPENAI_MODELS: tuple[str, ...] = (
     "mimo-v2.5-pro",
     "mimo-v2-pro",
     "mimo-v2-omni",
+    "omen-alpha",
 )
 # Legacy aliases for model ids the gateway used to advertise. The live
 # /models endpoint is authoritative at runtime; this map only rescues user
 # configs that still reference the older slugs.
-_OPENCODE_GO_LEGACY_MODEL_ALIASES: dict[str, str] = {
-    "kimi-k2.7": "kimi-k2.7-code",
-}
+_OPENCODE_GO_LEGACY_MODEL_ALIASES: dict[str, str] = {"kimi-k2.7": "kimi-k2.7-code"}
 _OPENCODE_GO_ANTHROPIC_MODELS: tuple[str, ...] = (
     "minimax-m3",
     "minimax-m2.5",
@@ -258,6 +304,40 @@ class _OpencodeGoAnthropicDelegate(AnthropicBackend):
         kwargs.setdefault("auth_header_name", "x-api-key")
         await super().initialize(**kwargs)
 
+    def _get_headers(
+        self, identity: IAppIdentityConfig | None = None
+    ) -> dict[str, str]:
+        headers = super()._get_headers(identity=identity)
+        sid = _current_opencode_session.get()
+        if sid:
+            headers[_OPENCODE_SESSION_HEADER] = sid
+        return headers
+
+    async def chat_completions(  # type: ignore[override]
+        self, request: ConnectorChatCompletionsRequest
+    ) -> ResponseEnvelope | StreamingResponseEnvelope:
+        token = None
+        if not _current_opencode_session.get():
+            sid = _resolve_opencode_go_session_id(request)
+            token = _current_opencode_session.set(sid)
+
+        try:
+            active_sid = _current_opencode_session.get()
+            existing_options = dict(request.options or {})
+            raw_headers = existing_options.get("headers")
+            headers_opt: dict[str, Any] = (
+                dict(raw_headers) if isinstance(raw_headers, dict) else {}
+            )
+            if active_sid:
+                headers_opt.setdefault(_OPENCODE_SESSION_HEADER, active_sid)
+            existing_options["headers"] = headers_opt
+            return await super().chat_completions(
+                replace(request, options=existing_options)
+            )
+        finally:
+            if token is not None:
+                _current_opencode_session.reset(token)
+
     def _prepare_anthropic_payload(
         self,
         request_data: Any,
@@ -268,11 +348,7 @@ class _OpencodeGoAnthropicDelegate(AnthropicBackend):
     ) -> dict[str, Any]:
         normalized_model = _normalize_model_name(effective_model)
         payload = super()._prepare_anthropic_payload(
-            request_data,
-            processed_messages,
-            normalized_model,
-            project,
-            context,
+            request_data, processed_messages, normalized_model, project, context
         )
         # extra_body may reintroduce config-style ids (opencode-go/...); upstream rejects
         # those on the wire with 401 (see dev/scripts/opencode_go_probe.py).
@@ -287,11 +363,25 @@ class _OpencodeGoAnthropicDelegate(AnthropicBackend):
         return payload
 
     async def stream_completion(self, request: Any) -> AsyncGenerator[object, None]:
-        normalized_request = request.model_copy(
-            update={"model": _normalize_model_name(getattr(request, "model", ""))}
-        )
-        async for chunk in super().stream_completion(normalized_request):
-            yield chunk
+        token = None
+        if not _current_opencode_session.get():
+            extra_body = getattr(request, "extra_body", None) or {}
+            sid = (
+                extra_body.get(_LLM_PROXY_SESSION_ID_KEY)
+                or getattr(request, "session_id", None)
+                or f"lip-{uuid.uuid4().hex}"
+            )
+            token = _current_opencode_session.set(str(sid).strip())
+
+        try:
+            normalized_request = request.model_copy(
+                update={"model": _normalize_model_name(getattr(request, "model", ""))}
+            )
+            async for chunk in super().stream_completion(normalized_request):
+                yield chunk
+        finally:
+            if token is not None:
+                _current_opencode_session.reset(token)
 
 
 class OpencodeGoBackend(OpenAIConnector):
@@ -341,9 +431,7 @@ class OpencodeGoBackend(OpenAIConnector):
         return ordered_models
 
     @staticmethod
-    def _build_protocol_override_map(
-        overrides: Any,
-    ) -> dict[str, str]:
+    def _build_protocol_override_map(overrides: Any) -> dict[str, str]:
         if overrides is None:
             return {}
         if not isinstance(overrides, dict):
@@ -363,10 +451,7 @@ class OpencodeGoBackend(OpenAIConnector):
                     message=(
                         "model_protocol_overrides values must be 'openai' or 'anthropic'"
                     ),
-                    details={
-                        "model": model_name,
-                        "protocol": raw_protocol,
-                    },
+                    details={"model": model_name, "protocol": raw_protocol},
                     code="invalid_config",
                 )
             normalized[model_name] = protocol
@@ -374,9 +459,7 @@ class OpencodeGoBackend(OpenAIConnector):
 
     @classmethod
     def _resolve_protocol_for_model(
-        cls,
-        model_name: str,
-        protocol_overrides: dict[str, str],
+        cls, model_name: str, protocol_overrides: dict[str, str]
     ) -> str | None:
         normalized = _normalize_model_name(model_name)
         if not normalized:
@@ -407,11 +490,7 @@ class OpencodeGoBackend(OpenAIConnector):
     ) -> ConnectorChatCompletionsRequest:
         wire_model = self._resolve_wire_model_id(raw_model)
         normalized_request = request.request.model_copy(update={"model": wire_model})
-        return replace(
-            request,
-            request=normalized_request,
-            effective_model=wire_model,
-        )
+        return replace(request, request=normalized_request, effective_model=wire_model)
 
     async def _prepare_payload(
         self,
@@ -422,10 +501,7 @@ class OpencodeGoBackend(OpenAIConnector):
     ) -> dict[str, Any]:
         wire_model = self._resolve_wire_model_id(effective_model)
         payload = await super()._prepare_payload(
-            request_data,
-            processed_messages,
-            wire_model,
-            context,
+            request_data, processed_messages, wire_model, context
         )
         canonical_wire_model = _normalize_model_name(
             str(payload.get("model") or wire_model)
@@ -576,14 +652,38 @@ class OpencodeGoBackend(OpenAIConnector):
             **self._model_protocol_overrides,
         }
 
+    def get_headers(self, identity: IAppIdentityConfig | None = None) -> dict[str, str]:
+        headers = super().get_headers(identity=identity)
+        sid = _current_opencode_session.get()
+        if sid:
+            headers[_OPENCODE_SESSION_HEADER] = sid
+        return headers
+
+    async def stream_completion(self, request: Any) -> AsyncGenerator[object, None]:
+        token = None
+        if not _current_opencode_session.get():
+            extra_body = getattr(request, "extra_body", None) or {}
+            sid = (
+                extra_body.get(_LLM_PROXY_SESSION_ID_KEY)
+                or getattr(request, "session_id", None)
+                or f"lip-{uuid.uuid4().hex}"
+            )
+            token = _current_opencode_session.set(str(sid).strip())
+
+        try:
+            async for chunk in super().stream_completion(request):
+                yield chunk
+        finally:
+            if token is not None:
+                _current_opencode_session.reset(token)
+
     def get_provider_name(self) -> str:
         # The outer connector routes OpenAI-compatible requests through the
         # OpenAI streaming stack; Anthropic requests use the private delegate.
         return "openai"
 
     async def chat_completions(  # type: ignore[override]
-        self,
-        request: ConnectorChatCompletionsRequest,
+        self, request: ConnectorChatCompletionsRequest
     ) -> ResponseEnvelope | StreamingResponseEnvelope:
         if not isinstance(request, ConnectorChatCompletionsRequest):
             raise TypeError(
@@ -598,12 +698,37 @@ class OpencodeGoBackend(OpenAIConnector):
             raw_model, self._model_protocol_overrides
         )
 
-        normalized_request = self._normalize_request(request, raw_model)
-        if protocol == "openai":
-            return await super().chat_completions(normalized_request)
+        session_id = _resolve_opencode_go_session_id(request)
+        token = _current_opencode_session.set(session_id)
 
-        anthropic_req = _strip_opencode_go_anthropic_extra_body(normalized_request)
-        return await self._anthropic_delegate.chat_completions(anthropic_req)
+        try:
+            existing_options = dict(request.options or {})
+            if protocol == "openai":
+                raw_override = existing_options.get("headers_override")
+                headers_override: dict[str, Any] = (
+                    dict(raw_override) if isinstance(raw_override, dict) else {}
+                )
+                headers_override.setdefault(_OPENCODE_SESSION_HEADER, session_id)
+                existing_options["headers_override"] = headers_override
+                normalized_request = replace(
+                    self._normalize_request(request, raw_model),
+                    options=existing_options,
+                )
+                return await super().chat_completions(normalized_request)
+
+            raw_headers = existing_options.get("headers")
+            headers_opt: dict[str, Any] = (
+                dict(raw_headers) if isinstance(raw_headers, dict) else {}
+            )
+            headers_opt.setdefault(_OPENCODE_SESSION_HEADER, session_id)
+            existing_options["headers"] = headers_opt
+            normalized_request = replace(
+                self._normalize_request(request, raw_model), options=existing_options
+            )
+            anthropic_req = _strip_opencode_go_anthropic_extra_body(normalized_request)
+            return await self._anthropic_delegate.chat_completions(anthropic_req)
+        finally:
+            _current_opencode_session.reset(token)
 
 
 class OpencodeGoConfiguredModelEnumerator:
@@ -680,8 +805,7 @@ class OpencodeGoConfiguredModelEnumerator:
                 }
                 async with httpx.AsyncClient(timeout=timeout_seconds) as client:
                     response = await client.get(
-                        f"{openai_api_base_url.rstrip('/')}/models",
-                        headers=headers,
+                        f"{openai_api_base_url.rstrip('/')}/models", headers=headers
                     )
                     if response.status_code == 200:
                         data = response.json()
@@ -747,7 +871,4 @@ class OpencodeGoConfiguredModelEnumerator:
 
 backend_registry.register_backend("opencode-go", OpencodeGoBackend)
 
-__all__ = [
-    "OpencodeGoBackend",
-    "OpencodeGoConfiguredModelEnumerator",
-]
+__all__ = ["OpencodeGoBackend", "OpencodeGoConfiguredModelEnumerator"]
