@@ -31,6 +31,7 @@ class _SessionLoopState:
     pending_steer_score: int = 0
     pending_steer_repeated_call_count: int = 0
     pending_steer_repeated_output_count: int = 0
+    last_counted_identity: str | None = None
 
 
 class ToolProgressLoopGuard(IToolProgressLoopGuard):
@@ -81,6 +82,22 @@ class ToolProgressLoopGuard(IToolProgressLoopGuard):
         tool_outputs = self._extract_tool_outputs(messages)
         assistant_tool_calls = self._extract_recent_assistant_tool_calls(messages)
         current_call_fingerprint = self._fingerprint_tool_calls(assistant_tool_calls)
+        turn_identity = self._turn_identity(
+            message_count=len(messages),
+            call_fingerprint=current_call_fingerprint,
+            tool_outputs=tool_outputs,
+        )
+        if (
+            tool_outputs
+            and turn_identity
+            and turn_identity == state.last_counted_identity
+        ):
+            return ToolProgressLoopDecision(
+                action=ToolProgressLoopAction.ALLOW,
+                score=state.consecutive_tool_followups,
+                repeated_call_count=max(state.call_counts.values(), default=0),
+                repeated_output_count=max(state.output_counts.values(), default=0),
+            )
 
         if state.pending_steer_call_fingerprint is not None:
             if (
@@ -130,6 +147,8 @@ class ToolProgressLoopGuard(IToolProgressLoopGuard):
             state.output_counts[key] = state.output_counts.get(key, 0) + 1
             max_output_count = max(max_output_count, state.output_counts[key])
             self._evict_oldest_if_needed(state.output_counts)
+
+        state.last_counted_identity = turn_identity or None
 
         if max_output_count >= self._max_repeated_tool_output:
             return self._resolve_loop_detection(
@@ -226,6 +245,20 @@ class ToolProgressLoopGuard(IToolProgressLoopGuard):
     def _evict_oldest_if_needed(self, counter: OrderedDict[str, int]) -> None:
         while len(counter) > self._max_counts_per_session:
             counter.popitem(last=False)
+
+    @staticmethod
+    def _turn_identity(
+        *,
+        message_count: int,
+        call_fingerprint: str,
+        tool_outputs: list[Any],
+    ) -> str:
+        if not call_fingerprint and not tool_outputs:
+            return ""
+        output_part = "|".join(
+            fingerprint_tool_output(output).output_hash for output in tool_outputs
+        )
+        return f"{message_count}::{call_fingerprint}::{output_part}"
 
     @staticmethod
     def _fingerprint_tool_calls(tool_calls: list[Any]) -> str:

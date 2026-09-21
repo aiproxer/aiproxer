@@ -8,7 +8,7 @@ URI parameter extraction, and static routing overrides.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 
 from pydantic.types import JsonValue
 
@@ -340,14 +340,10 @@ class BackendModelResolver(IBackendModelResolver):
                         )
                     backend_type = resolved
                 else:
-                    raise RoutingError(
-                        message=(
-                            f"No available backend instance for '{backend_type}:{effective_model}'."
-                        ),
-                        details=self._build_temporarily_unavailable_details(
-                            backend_type=backend_type,
-                            model=effective_model,
-                        ),
+                    self._raise_no_available_instance(
+                        backend_type=backend_type,
+                        effective_model=effective_model,
+                        excluded_backends=excluded_backends,
                     )
 
         else:
@@ -379,14 +375,10 @@ class BackendModelResolver(IBackendModelResolver):
                     )
                 backend_type = resolved
             else:
-                raise RoutingError(
-                    message=(
-                        f"No available backend instance for '{backend_type}:{effective_model}'."
-                    ),
-                    details=self._build_temporarily_unavailable_details(
-                        backend_type=backend_type,
-                        model=effective_model,
-                    ),
+                self._raise_no_available_instance(
+                    backend_type=backend_type,
+                    effective_model=effective_model,
+                    excluded_backends=excluded_backends,
                 )
 
         skip_static_route = False
@@ -776,6 +768,32 @@ class BackendModelResolver(IBackendModelResolver):
                 return normalized_context
 
         return {}
+
+    def _raise_no_available_instance(
+        self,
+        *,
+        backend_type: str,
+        effective_model: str,
+        excluded_backends: set[str],
+    ) -> NoReturn:
+        availability_reason = None
+        describe = getattr(self._routing_service, "describe_ineligibility", None)
+        if callable(describe):
+            availability_reason = describe(
+                backend_type, effective_model, excluded_backends
+            )
+        raise RoutingError(
+            message=(
+                f"No available backend instance for '{backend_type}:{effective_model}'."
+            ),
+            details={
+                **self._build_temporarily_unavailable_details(
+                    backend_type=backend_type,
+                    model=effective_model,
+                ),
+                "availability_reason": availability_reason,
+            },
+        )
 
     @staticmethod
     def _extract_request_context_tokens(request: ChatRequest) -> int | None:

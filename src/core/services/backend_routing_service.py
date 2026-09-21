@@ -366,20 +366,51 @@ class BackendRoutingService:
         model: str,
         excluded: set[str],
     ) -> bool:
+        return self._candidate_ineligibility_reason(candidate, model, excluded) is None
+
+    def _candidate_ineligibility_reason(
+        self,
+        candidate: str,
+        model: str,
+        excluded: set[str],
+    ) -> str | None:
         if candidate in excluded:
-            return False
+            return "excluded_disabled_backend"
 
         if self._backend_lifecycle_manager is not None:
             disabled_backends = self._backend_lifecycle_manager.get_disabled_backends()
             if candidate in disabled_backends:
-                return False
+                disabled_info = disabled_backends.get(candidate)
+                reason = getattr(disabled_info, "reason", None)
+                return f"lifecycle_disabled:{reason or 'unknown'}"
 
         if self._resilience_coordinator is not None:
             decision = self._resilience_coordinator.check_availability(candidate, model)
             if not decision.should_proceed():
-                return False
+                return decision.reason or "resilience_reject"
 
-        return True
+        return None
+
+    def describe_ineligibility(
+        self,
+        backend_type: str,
+        model: str,
+        excluded_backends: set[str] | None = None,
+    ) -> str | None:
+        excluded = excluded_backends or set()
+        instances = self._find_instances_for_backend(backend_type)
+        if instances:
+            reasons = [
+                f"{instance}:{self._candidate_ineligibility_reason(instance, model, excluded) or 'eligible'}"
+                for instance in instances
+            ]
+            generic_reason = self._candidate_ineligibility_reason(
+                backend_type, model, excluded
+            )
+            return (
+                f"instances={';'.join(reasons)};generic={generic_reason or 'eligible'}"
+            )
+        return self._candidate_ineligibility_reason(backend_type, model, excluded)
 
     def _select_instance(
         self, key: str, instances: list[str], excluded: set[str] | None = None

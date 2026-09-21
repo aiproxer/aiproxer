@@ -5,28 +5,40 @@ from src.core.domain.tool_progress_loop import (
 )
 from src.core.services.tool_progress_loop_guard import ToolProgressLoopGuard
 
+_DEFAULT_READ_ARGS = '{"filePath":"var/logs/proxy.log","limit":20}'
+
 
 def _request_with_tool_result(output: str, *, tool_name: str = "read") -> ChatRequest:
-    return ChatRequest(
-        model="gpt-4",
-        messages=[
-            ChatMessage(role="user", content="inspect logs"),
+    return _request_with_repeated_turns([output], tool_name=tool_name)
+
+
+def _request_with_repeated_turns(
+    outputs: list[str],
+    *,
+    tool_name: str = "read",
+    arguments: str = _DEFAULT_READ_ARGS,
+) -> ChatRequest:
+    messages: list[ChatMessage] = [
+        ChatMessage(role="user", content="inspect logs"),
+    ]
+    for idx, output in enumerate(outputs, start=1):
+        call_id = f"call_{idx}"
+        messages.append(
             ChatMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
                     ToolCall(
-                        id="call_1",
-                        function=FunctionCall(
-                            name=tool_name,
-                            arguments='{"filePath":"var/logs/proxy.log","limit":20}',
-                        ),
+                        id=call_id,
+                        function=FunctionCall(name=tool_name, arguments=arguments),
                     )
                 ],
-            ),
-            ChatMessage(role="tool", content=output, tool_call_id="call_1"),
-        ],
-    )
+            )
+        )
+        messages.append(
+            ChatMessage(role="tool", content=output, tool_call_id=call_id),
+        )
+    return ChatRequest(model="gpt-4", messages=messages)
 
 
 async def test_guard_blocks_repeated_same_tool_output() -> None:
@@ -35,20 +47,38 @@ async def test_guard_blocks_repeated_same_tool_output() -> None:
         action_mode="error",
     )
 
-    for _ in range(2):
+    for count in range(1, 3):
         decision = await guard.evaluate_request(
             session_id="stable-session",
-            request=_request_with_tool_result("same output"),
+            request=_request_with_repeated_turns(["same output"] * count),
         )
         assert decision.action == ToolProgressLoopAction.ALLOW
 
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 3),
     )
 
     assert decision.action == ToolProgressLoopAction.BLOCK
     assert decision.repeated_output_count == 3
+
+
+async def test_guard_does_not_count_identical_http_retries() -> None:
+    guard = ToolProgressLoopGuard(
+        max_repeated_tool_call_signature=3,
+        max_repeated_tool_output=3,
+        action_mode="steer_then_error",
+    )
+    request = _request_with_tool_result("same output")
+
+    for _ in range(8):
+        decision = await guard.evaluate_request(
+            session_id="stable-session",
+            request=request,
+        )
+        assert decision.action == ToolProgressLoopAction.ALLOW
+        assert decision.repeated_call_count <= 1
+        assert decision.repeated_output_count <= 1
 
 
 async def test_guard_blocks_repeated_same_tool_parameters() -> None:
@@ -166,51 +196,52 @@ async def test_guard_counts_only_latest_tool_result_batch() -> None:
         max_repeated_tool_output=3,
         action_mode="error",
     )
-    request = ChatRequest(
-        model="gpt-4",
-        messages=[
-            ChatMessage(role="user", content="inspect logs"),
-            ChatMessage(
-                role="assistant",
-                content=None,
-                tool_calls=[
-                    ToolCall(
-                        id="call_1",
-                        function=FunctionCall(
-                            name="read", arguments='{"filePath":"one.log"}'
-                        ),
-                    )
-                ],
-            ),
-            ChatMessage(role="tool", content="old repeated", tool_call_id="call_1"),
-            ChatMessage(
-                role="assistant",
-                content=None,
-                tool_calls=[
-                    ToolCall(
-                        id="call_2",
-                        function=FunctionCall(
-                            name="read", arguments='{"filePath":"two.log"}'
-                        ),
-                    )
-                ],
-            ),
-            ChatMessage(role="tool", content="latest", tool_call_id="call_2"),
-        ],
-    )
+    prefix = [
+        ChatMessage(role="user", content="inspect logs"),
+        ChatMessage(
+            role="assistant",
+            content=None,
+            tool_calls=[
+                ToolCall(
+                    id="call_1",
+                    function=FunctionCall(
+                        name="read", arguments='{"filePath":"one.log"}'
+                    ),
+                )
+            ],
+        ),
+        ChatMessage(role="tool", content="old repeated", tool_call_id="call_1"),
+    ]
 
-    assert (
-        await guard.evaluate_request(session_id="stable-session", request=request)
-    ).allow
-    assert (
-        await guard.evaluate_request(session_id="stable-session", request=request)
-    ).allow
-    decision = await guard.evaluate_request(
-        session_id="stable-session", request=request
-    )
+    async def _evaluate(latest_count: int) -> ToolProgressLoopAction:
+        messages = list(prefix)
+        for idx in range(latest_count):
+            call_id = f"call_latest_{idx}"
+            messages.append(
+                ChatMessage(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[
+                        ToolCall(
+                            id=call_id,
+                            function=FunctionCall(
+                                name="read", arguments='{"filePath":"two.log"}'
+                            ),
+                        )
+                    ],
+                )
+            )
+            messages.append(
+                ChatMessage(role="tool", content="latest", tool_call_id=call_id)
+            )
+        request = ChatRequest(model="gpt-4", messages=messages)
+        return (
+            await guard.evaluate_request(session_id="stable-session", request=request)
+        ).action
 
-    assert decision.action == ToolProgressLoopAction.BLOCK
-    assert decision.repeated_output_count == 3
+    assert await _evaluate(1) == ToolProgressLoopAction.ALLOW
+    assert await _evaluate(2) == ToolProgressLoopAction.ALLOW
+    assert await _evaluate(3) == ToolProgressLoopAction.BLOCK
 
 
 async def test_guard_does_not_block_different_calls_same_output() -> None:
@@ -262,16 +293,16 @@ async def test_guard_still_blocks_same_call_same_output() -> None:
         action_mode="error",
     )
 
-    for _ in range(2):
+    for count in range(1, 3):
         decision = await guard.evaluate_request(
             session_id="stable-session",
-            request=_request_with_tool_result("same output"),
+            request=_request_with_repeated_turns(["same output"] * count),
         )
         assert decision.action == ToolProgressLoopAction.ALLOW
 
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 3),
     )
     assert decision.action == ToolProgressLoopAction.BLOCK
     assert decision.repeated_output_count == 3
@@ -321,17 +352,17 @@ async def test_guard_falls_back_when_call_output_count_mismatch() -> None:
 async def test_guard_default_action_mode_steers_on_first_loop() -> None:
     guard = ToolProgressLoopGuard(max_repeated_tool_output=3)
 
-    for _ in range(2):
+    for count in range(1, 3):
         assert (
             await guard.evaluate_request(
                 session_id="stable-session",
-                request=_request_with_tool_result("same output"),
+                request=_request_with_repeated_turns(["same output"] * count),
             )
         ).action == ToolProgressLoopAction.ALLOW
 
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 3),
     )
 
     assert decision.action == ToolProgressLoopAction.STEER
@@ -343,17 +374,17 @@ async def test_guard_error_action_mode_blocks_on_loop() -> None:
         action_mode="error",
     )
 
-    for _ in range(2):
+    for count in range(1, 3):
         assert (
             await guard.evaluate_request(
                 session_id="stable-session",
-                request=_request_with_tool_result("same output"),
+                request=_request_with_repeated_turns(["same output"] * count),
             )
         ).action == ToolProgressLoopAction.ALLOW
 
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 3),
     )
 
     assert decision.action == ToolProgressLoopAction.BLOCK
@@ -365,17 +396,17 @@ async def test_guard_steer_then_error_returns_steer_on_first_loop() -> None:
         action_mode="steer_then_error",
     )
 
-    for _ in range(2):
+    for count in range(1, 3):
         assert (
             await guard.evaluate_request(
                 session_id="stable-session",
-                request=_request_with_tool_result("same output"),
+                request=_request_with_repeated_turns(["same output"] * count),
             )
         ).action == ToolProgressLoopAction.ALLOW
 
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 3),
     )
 
     assert decision.action == ToolProgressLoopAction.STEER
@@ -393,11 +424,11 @@ async def test_guard_steer_then_error_uses_custom_steering_message() -> None:
 
     await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"]),
     )
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output", "same output"]),
     )
 
     assert decision.action == ToolProgressLoopAction.STEER
@@ -417,24 +448,31 @@ async def test_guard_steer_then_error_blocks_repeat_same_call_after_steer() -> N
         action_mode="steer_then_error",
     )
 
-    for _ in range(2):
+    for count in range(1, 3):
         assert (
             await guard.evaluate_request(
                 session_id="stable-session",
-                request=_request_with_tool_result("same output"),
+                request=_request_with_repeated_turns(["same output"] * count),
             )
         ).action == ToolProgressLoopAction.ALLOW
 
+    steered_request = _request_with_repeated_turns(["same output"] * 3)
     assert (
         await guard.evaluate_request(
             session_id="stable-session",
-            request=_request_with_tool_result("same output"),
+            request=steered_request,
         )
     ).action == ToolProgressLoopAction.STEER
 
+    retry = await guard.evaluate_request(
+        session_id="stable-session",
+        request=steered_request,
+    )
+    assert retry.action == ToolProgressLoopAction.ALLOW
+
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 4),
     )
 
     assert decision.action == ToolProgressLoopAction.BLOCK
@@ -449,23 +487,31 @@ async def test_guard_block_after_steer_is_one_shot_not_sticky() -> None:
         max_consecutive_tool_followups=99,
         action_mode="steer_then_error",
     )
-    request = _request_with_tool_result("same output")
 
-    for _ in range(2):
+    for count in range(1, 3):
         assert (
-            await guard.evaluate_request(session_id="stable-session", request=request)
+            await guard.evaluate_request(
+                session_id="stable-session",
+                request=_request_with_repeated_turns(["same output"] * count),
+            )
         ).action == ToolProgressLoopAction.ALLOW
 
     assert (
-        await guard.evaluate_request(session_id="stable-session", request=request)
+        await guard.evaluate_request(
+            session_id="stable-session",
+            request=_request_with_repeated_turns(["same output"] * 3),
+        )
     ).action == ToolProgressLoopAction.STEER
 
+    fourth_turn = _request_with_repeated_turns(["same output"] * 4)
     assert (
-        await guard.evaluate_request(session_id="stable-session", request=request)
+        await guard.evaluate_request(session_id="stable-session", request=fourth_turn)
     ).action == ToolProgressLoopAction.BLOCK
 
     # One-shot block: session counters/pending steer are cleared so retries recover.
-    retry = await guard.evaluate_request(session_id="stable-session", request=request)
+    retry = await guard.evaluate_request(
+        session_id="stable-session", request=fourth_turn
+    )
     assert retry.action == ToolProgressLoopAction.ALLOW
 
 
@@ -526,17 +572,17 @@ async def test_guard_steer_then_error_block_preserves_steering_metadata() -> Non
         action_mode="steer_then_error",
     )
 
-    for _ in range(2):
+    for count in range(1, 3):
         assert (
             await guard.evaluate_request(
                 session_id="stable-session",
-                request=_request_with_tool_result("same output"),
+                request=_request_with_repeated_turns(["same output"] * count),
             )
         ).action == ToolProgressLoopAction.ALLOW
 
     steer_decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 3),
     )
     assert steer_decision.action == ToolProgressLoopAction.STEER
     assert steer_decision.reason == "repeated_tool_output"
@@ -545,7 +591,7 @@ async def test_guard_steer_then_error_block_preserves_steering_metadata() -> Non
 
     block_decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"] * 4),
     )
 
     assert block_decision.action == ToolProgressLoopAction.BLOCK
@@ -564,10 +610,10 @@ async def test_guard_steer_then_error_clears_pending_when_call_changes() -> None
         action_mode="steer_then_error",
     )
 
-    for _ in range(3):
+    for count in range(1, 4):
         await guard.evaluate_request(
             session_id="stable-session",
-            request=_request_with_tool_result("same output"),
+            request=_request_with_repeated_turns(["same output"] * count),
         )
 
     changed_call_request = ChatRequest(
@@ -607,11 +653,11 @@ async def test_guard_error_mode_never_steers() -> None:
 
     await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output"]),
     )
     decision = await guard.evaluate_request(
         session_id="stable-session",
-        request=_request_with_tool_result("same output"),
+        request=_request_with_repeated_turns(["same output", "same output"]),
     )
 
     assert decision.action == ToolProgressLoopAction.BLOCK
