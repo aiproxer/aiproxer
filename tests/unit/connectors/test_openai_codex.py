@@ -22,11 +22,11 @@ from src.core.domain.chat import CanonicalChatRequest, ChatMessage, ChatRequest
 
 
 @pytest.mark.asyncio
-async def test_openai_codex_routes_gpt_5_4_mini_through_codex_api(
+async def test_openai_codex_routes_supported_model_through_codex_api(
     openai_codex_backend: OpenAICodexConnector,
 ):
     req = ChatRequest(
-        model="openai-codex:gpt-5.4-mini",
+        model="openai-codex:gpt-5.5",
         messages=[ChatMessage(role="user", content="hi")],
         max_tokens=16,
         stream=False,
@@ -51,7 +51,7 @@ async def test_openai_codex_routes_gpt_5_4_mini_through_codex_api(
         connector_req = ConnectorChatCompletionsRequest(
             request=domain,
             processed_messages=[ChatMessage(role="user", content="hi")],
-            effective_model="gpt-5.4-mini",
+            effective_model="gpt-5.5",
             identity=None,
             cancellation_token=None,
             cancellation_coordinator=None,
@@ -117,7 +117,7 @@ async def test_usage_window_warmup_targeted_bind_failure_raises_backend_error(
     openai_codex_backend: OpenAICodexConnector,
 ):
     req = ChatRequest(
-        model="openai-codex:gpt-5.4-mini",
+        model="openai-codex:gpt-5.5",
         messages=[ChatMessage(role="user", content="warmup probe")],
         max_tokens=16,
         stream=False,
@@ -126,7 +126,7 @@ async def test_usage_window_warmup_targeted_bind_failure_raises_backend_error(
     connector_req = ConnectorChatCompletionsRequest(
         request=domain,
         processed_messages=[ChatMessage(role="user", content="warmup probe")],
-        effective_model="gpt-5.4-mini",
+        effective_model="gpt-5.5",
         identity=None,
         cancellation_token=None,
         cancellation_coordinator=None,
@@ -164,7 +164,7 @@ async def test_usage_window_warmup_restores_credentials_after_success(
     openai_codex_backend: OpenAICodexConnector,
 ):
     req = ChatRequest(
-        model="openai-codex:gpt-5.4-mini",
+        model="openai-codex:gpt-5.5",
         messages=[ChatMessage(role="user", content="warmup probe")],
         max_tokens=16,
         stream=False,
@@ -173,7 +173,7 @@ async def test_usage_window_warmup_restores_credentials_after_success(
     connector_req = ConnectorChatCompletionsRequest(
         request=domain,
         processed_messages=[ChatMessage(role="user", content="warmup probe")],
-        effective_model="gpt-5.4-mini",
+        effective_model="gpt-5.5",
         identity=None,
         cancellation_token=None,
         cancellation_coordinator=None,
@@ -237,7 +237,7 @@ async def test_usage_window_warmup_restores_credentials_after_failure(
     openai_codex_backend: OpenAICodexConnector,
 ):
     req = ChatRequest(
-        model="openai-codex:gpt-5.4-mini",
+        model="openai-codex:gpt-5.5",
         messages=[ChatMessage(role="user", content="warmup probe")],
         max_tokens=16,
         stream=False,
@@ -246,7 +246,7 @@ async def test_usage_window_warmup_restores_credentials_after_failure(
     connector_req = ConnectorChatCompletionsRequest(
         request=domain,
         processed_messages=[ChatMessage(role="user", content="warmup probe")],
-        effective_model="gpt-5.4-mini",
+        effective_model="gpt-5.5",
         identity=None,
         cancellation_token=None,
         cancellation_coordinator=None,
@@ -310,7 +310,7 @@ async def test_usage_window_warmup_concurrent_targeted_probes_use_matching_crede
         request_id: str, account_id: str
     ) -> ConnectorChatCompletionsRequest:
         req = ChatRequest(
-            model="openai-codex:gpt-5.4-mini",
+            model="openai-codex:gpt-5.5",
             messages=[ChatMessage(role="user", content=f"warmup {account_id}")],
             max_tokens=16,
             stream=False,
@@ -321,7 +321,7 @@ async def test_usage_window_warmup_concurrent_targeted_probes_use_matching_crede
             processed_messages=[
                 ChatMessage(role="user", content=f"warmup {account_id}")
             ],
-            effective_model="gpt-5.4-mini",
+            effective_model="gpt-5.5",
             identity=None,
             cancellation_token=None,
             cancellation_coordinator=None,

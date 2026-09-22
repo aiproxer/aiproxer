@@ -74,11 +74,16 @@ class ICredentialManager(ABC):
     """
 
     @abstractmethod
-    async def initialize(self, auth_path: Path | None) -> None:
-        """Load initial credentials and start watcher.
+    async def initialize(
+        self, auth_path: Path | None, *, start_watcher: bool = True
+    ) -> None:
+        """Load initial credentials and optionally start the file watcher.
 
         Args:
             auth_path: Optional path to auth.json file
+            start_watcher: When True (default), start the credential file
+                watcher. Catalog discovery passes False so it does not spawn a
+                long-lived watcher during startup.
         """
         ...
 

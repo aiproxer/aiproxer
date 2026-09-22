@@ -245,11 +245,11 @@ def from_domain_to_openai_stream_chunk(chunk: Any) -> dict[str, Any]:
     # Ensure reasoning aliases are present for compatibility
     if delta.get("reasoning_content"):
         reasoning = delta["reasoning_content"]
-        if "reasoning" not in delta:
+        if not delta.get("reasoning"):
             delta["reasoning"] = reasoning
-        if "thinking" not in delta:
+        if not delta.get("thinking"):
             delta["thinking"] = reasoning
-        if "thought" not in delta:
+        if not delta.get("thought"):
             delta["thought"] = reasoning
 
     normalized_choice = {

@@ -18,7 +18,7 @@ from src.connectors.openai_codex.catalog.types import (
     CodexModelReasoningProfile,
 )
 
-# Reasoning effort descriptions verbatim from `codex debug models`.
+# Reasoning effort descriptions verbatim from the authenticated Codex backend catalog.
 _EFFORT_DESCRIPTIONS = {
     "low": "Fast responses with lighter reasoning",
     "medium": "Balances speed and reasoning depth for everyday tasks",
@@ -34,7 +34,7 @@ def _levels(*efforts: str) -> list[dict[str, str]]:
 
 
 def make_raw_catalog() -> dict[str, Any]:
-    """Return a sample raw ``codex debug models`` payload covering all edge cases.
+    """Return a sample raw authenticated backend catalog payload covering all edge cases.
 
     Includes:
     - gpt-5.6-sol: full ultra tier, api-accepted (routable).

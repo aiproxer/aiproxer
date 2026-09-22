@@ -41,26 +41,35 @@ share **one auto-discovered model catalog** — no model slugs are hardcoded in
 the connector code.
 
 **Auto-discovery at startup.** On proxy startup the `CodexModelCatalogStage`
-runs `codex debug models` (via the resolved Codex CLI binary) and parses the
-result into the catalog used by all three Codex variants. If discovery fails
-(binary missing, timeout, non-zero exit, malformed output) or is disabled, the
-proxy falls back to a **shipped snapshot** at
-`src/resources/codex/codex_model_catalog.json` (the verbatim `codex debug
-models` output). Operators can override the fallback file via
-`extra.codex.model_catalog.fallback_path`.
+issues an authenticated `GET https://chatgpt.com/backend-api/codex/models`
+request using the current (legacy) Codex OAuth account and parses the JSON
+response into the catalog used by all three Codex variants. If discovery fails
+(missing credentials, non-2xx response, timeout, malformed output) or is
+disabled, the proxy falls back to a **shipped snapshot** at
+`src/resources/codex/codex_model_catalog.json`. Operators can override the
+fallback file via `extra.codex.model_catalog.fallback_path`.
 
-The catalog is the verbatim `codex debug models` output, so it contains exactly
-the models the installed Codex CLI advertises (e.g. Codex CLI `0.144.0` reports
-`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.4`,
-`gpt-5.4-mini` as routable, plus CLI-only `gpt-5.3-codex-spark` and hidden
-`codex-auto-review` which are **not** routable). The app-server variant
-additionally advertises the `auto` routing sentinel (the app-server resolves
-the actual model server-side).
+The Codex CLI executable is **no longer required** for discovery or for
+refreshing the snapshot. `client_version` (default `0.156.0`) declares the Codex
+protocol compatibility level: it is sent as the catalog GET `client_version`
+query parameter and as the outbound Codex `version` header / User-Agent. The
+backend gates newer models (for example `gpt-6-sol`, whose
+`minimal_client_version` is `0.155.0`) on this value, so it must not be
+automatically set from npm's latest version. The catalog endpoint is an internal
+Codex contract that may change without notice; on any failure the proxy serves
+the shipped snapshot.
 
-> **Backward-incompatible:** legacy Codex slugs that the Codex CLI no longer
+The catalog is the backend's raw response, so it contains exactly the models the
+Codex backend advertises (the shipped `0.156.0` snapshot reports
+`gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`,
+`gpt-5.6-luna` and `gpt-5.5` as routable). The app-server variant additionally
+advertises the `auto` routing sentinel (the app-server resolves the actual model
+server-side).
+
+> **Backward-incompatible:** legacy Codex slugs that the backend no longer
 > advertises (e.g. `gpt-5.1-codex`, `gpt-5-codex`, `gpt-5.3-codex`,
 > `gpt-oss-120b`, ...) are **no longer routable**. To keep routing them, ship a
-> custom fallback JSON (same `codex debug models` format) and point
+> custom fallback JSON (same backend catalog format) and point
 > `extra.codex.model_catalog.fallback_path` at it.
 
 **Reasoning effort hierarchy** (lowest → highest depth, derived from the
@@ -130,11 +139,15 @@ backends:
     extra:
       codex:
         model_catalog:
-          discovery_enabled: true            # run `codex debug models` at startup
+          discovery_enabled: true            # GET the backend catalog at startup
+          # client_version: 0.156.0          # Codex protocol compatibility level
+          # auth_path: ~/.codex/auth.json    # explicit auth.json (else discovered)
           # fallback_path: /etc/codex/catalog.json   # override shipped snapshot
-          # codex_binary_path: /usr/local/bin/codex   # explicit binary path
-          discovery_timeout_seconds: 10.0
+          discovery_timeout_seconds: 10.0  # HTTP request timeout
 ```
+
+> `codex_binary_path` is deprecated: it is still parsed for one release as a
+> no-op and emits a warning, but the executable is never resolved or executed.
 
 **Inspecting / refreshing the catalog:**
 
@@ -143,8 +156,9 @@ backends:
 ./.venv/Scripts/python.exe scripts/list_codex_models.py
 ./.venv/Scripts/python.exe scripts/list_codex_models.py --json
 
-# Refresh the shipped snapshot from the installed Codex CLI
+# Refresh the shipped snapshot from the authenticated Codex backend
 ./.venv/Scripts/python.exe scripts/refresh_codex_model_catalog.py
+./.venv/Scripts/python.exe scripts/refresh_codex_model_catalog.py --client-version 0.156.0 --auth-path ~/.codex/auth.json
 ```
 
 ### Authentication

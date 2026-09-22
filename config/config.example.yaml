@@ -503,19 +503,25 @@ backends:
         websocket:
           enabled: false  # Set to true to enable WebSocket transport for Codex
 
-        # Model catalog auto-discovery + fallback. By default the proxy runs
-        # `codex debug models` at startup to learn supported model slugs and
-        # per-model reasoning-effort settings; on any failure it falls back to
-        # the shipped snapshot (src/resources/codex/codex_model_catalog.json).
-        # Set discovery_enabled: false to skip discovery and always use the
-        # fallback file. Override fallback_path to use a custom snapshot.
+        # Model catalog auto-discovery + fallback. By default the proxy issues
+        # an authenticated GET to the Codex backend catalog
+        # (https://chatgpt.com/backend-api/codex/models) at startup to learn
+        # supported model slugs and per-model reasoning-effort settings; on any
+        # failure it falls back to the shipped snapshot
+        # (src/resources/codex/codex_model_catalog.json). The Codex CLI
+        # executable is not required. Set discovery_enabled: false to skip
+        # discovery and always use the fallback file. Override fallback_path to
+        # use a custom snapshot.
         model_catalog:
           discovery_enabled: true
+          # client_version: 0.156.0          # Codex protocol compatibility level
+          # auth_path: ~/.codex/auth.json    # explicit auth.json (else discovered)
           # fallback_path: /etc/llm-proxy/codex_model_catalog.json
-          # codex_binary_path: /usr/local/bin/codex
           discovery_timeout_seconds: 10.0
 
         # When ChatGPT-account Codex rejects gpt-5.5 (e.g. free plan), downgrade to target.
+        # target_model may be a legacy-accepted slug absent from the advertised
+        # catalog; verify it against your account when changing it.
         gpt55_unsupported_free_plan_downgrade:
           enabled: true
           proactive_enabled: true   # use x-codex-plan-type / usage_limit plan_type when known
@@ -587,6 +593,7 @@ backends:
           enabled: true
           beta_mode: v2
         # Model catalog auto-discovery + fallback (same keys as openai_codex).
+        # Direct authenticated backend catalog GET (no Codex CLI required).
         # See openai_codex.extra.codex.model_catalog for details.
         model_catalog:
           discovery_enabled: true

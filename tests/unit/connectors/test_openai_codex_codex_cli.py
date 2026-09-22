@@ -121,7 +121,7 @@ async def connector() -> AsyncIterator[OpenAICodexConnector]:
 def test_is_codex_model_detection(connector: OpenAICodexConnector) -> None:
     """_is_codex_model recognizes catalog-routable slugs (auto-discovered).
 
-    The injected catalog mirrors ``codex debug models`` (Codex CLI 0.144.0):
+    The injected catalog mirrors the authenticated backend catalog response:
     routable slugs gpt-5.6-sol, gpt-5.6-luna, gpt-5.5; CLI-only
     gpt-5.3-codex-spark and hidden codex-auto-review are NOT routable. Legacy
     slugs absent from the discovered catalog are no longer routable.
@@ -591,7 +591,21 @@ async def test_codex_headers_include_expected_fields() -> None:
     assert headers["Codex-Task-Type"] == "standard"
     assert headers["originator"] == connector.CODEX_ORIGINATOR
     assert headers["version"] == connector.CODEX_VERSION_HEADER
+    assert headers["version"] == "0.156.0"
     assert "User-Agent" in headers
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_codex_client_version_uses_configured_model_catalog_version() -> None:
+    client = httpx.AsyncClient()
+    config = AppConfig()
+    connector = OpenAICodexConnector(client=client, config=config)
+    connector._connector_settings = {"model_catalog": {"client_version": "0.155.0"}}  # type: ignore[reportPrivateUsage]
+
+    assert connector.codex_client_version == "0.155.0"
+    assert connector._build_codex_headers("c-id")["version"] == "0.155.0"
+    assert "codex_cli_rs/0.155.0" in connector._codex_user_agent()
     await client.aclose()
 
 

@@ -261,7 +261,18 @@ class ChatMessage(DomainModel):
         if self.name:
             result["name"] = self.name
         if self.tool_calls:
-            result["tool_calls"] = [tc.model_dump() for tc in self.tool_calls]
+            serialized_tool_calls: list[Any] = []
+            for tool_call in self.tool_calls:
+                dumper = getattr(tool_call, "model_dump", None)
+                if callable(dumper):
+                    serialized_tool_calls.append(dumper())
+                elif isinstance(tool_call, dict):
+                    # ``model_copy(update=...)`` bypasses validation, so callers
+                    # (e.g. MCP XML extraction) may inject plain dicts here.
+                    serialized_tool_calls.append(dict(tool_call))
+                else:
+                    serialized_tool_calls.append(tool_call)
+            result["tool_calls"] = serialized_tool_calls
         if self.tool_call_id:
             result["tool_call_id"] = self.tool_call_id
         return result

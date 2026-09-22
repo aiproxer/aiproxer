@@ -34,6 +34,7 @@ GEMINI.md
 .ruff_cache/
 .agent/
 .opencode/
+.commandcode/
 
 
 # Test and coverage artifacts

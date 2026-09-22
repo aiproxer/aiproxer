@@ -791,19 +791,28 @@ class CredentialManager(ICredentialManager):
 
         return ValidationResult.success()
 
-    async def initialize(self, auth_path: Path | None = None) -> None:
+    async def initialize(
+        self, auth_path: Path | None = None, *, start_watcher: bool = True
+    ) -> None:
         """Load initial credentials and start watcher.
 
         Args:
             auth_path: Optional path to auth.json file (if None, will discover default)
+            start_watcher: When False, do not start the credential file watcher.
+                Catalog discovery passes False so startup does not spawn a
+                long-lived watcher for a one-shot catalog fetch.
         """
         try:
             self._event_loop = asyncio.get_running_loop()
         except RuntimeError:
             self._event_loop = None
 
-        # Set directory override if provided (auth_path is a file, so use parent)
+        # Set directory override if provided (auth_path is a file, so use parent).
+        # Expand ``~`` first: YAML and native Windows shells never do, so a
+        # documented ``~/.codex/auth.json`` would otherwise miss ``is_file()``
+        # and wrongly fall into the directory-override branch.
         if auth_path is not None:
+            auth_path = auth_path.expanduser()
             if auth_path.is_file():
                 # Direct file path provided
                 self._auth_path = auth_path
@@ -835,7 +844,7 @@ class CredentialManager(ICredentialManager):
             return
 
         # 4) Start file watching
-        if self._auth_path is not None:
+        if start_watcher and self._auth_path is not None:
             # Store event loop reference in watcher for reload scheduling
             self._watcher.set_event_loop(self._event_loop)
             self._watcher.start(self._auth_path)
@@ -1747,11 +1756,7 @@ class CredentialManager(ICredentialManager):
         now_ms = int(time.time() * 1000)
         available, eligible = self._managed_selector._available_accounts(now_ms)  # type: ignore[reportPrivateUsage]
         source = eligible if eligible else available
-        return [
-            account.account_id
-            for account in source
-            if isinstance(account.account_id, str) and account.account_id
-        ]
+        return [account.account_id for account in source if account.account_id]
 
     def begin_usage_window_warmup_override(self) -> dict[str, Any]:
         """Capture mutable account selection state before warm-up account override."""

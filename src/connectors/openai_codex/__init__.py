@@ -2,8 +2,8 @@
 
 This module contains the refactored OpenAI Codex connector with separated
 responsibilities and clear interfaces. The model catalog is auto-discovered at
-startup (``codex debug models``) with a shipped fallback snapshot — see
-:mod:`src.connectors.openai_codex.catalog`.
+startup from the authenticated Codex backend catalog endpoint, with a shipped
+fallback snapshot — see :mod:`src.connectors.openai_codex.catalog`.
 """
 
 from __future__ import annotations

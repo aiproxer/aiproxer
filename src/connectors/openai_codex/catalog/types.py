@@ -5,8 +5,9 @@ defined on ``CodexModelCatalog`` but intentionally left unimplemented in this
 module during the TDD interface phase; implementations land in a later phase
 after the tests are written.
 
-The catalog is sourced at runtime from ``codex debug models`` (verbatim JSON)
-and parsed by :class:`src.connectors.openai_codex.catalog.parser.CodexCatalogParser`.
+The catalog is sourced at runtime from the authenticated Codex backend catalog
+endpoint (raw JSON) and parsed by
+:class:`src.connectors.openai_codex.catalog.parser.CodexCatalogParser`.
 """
 
 from __future__ import annotations
@@ -63,8 +64,8 @@ class CodexModelReasoningProfile:
 class CodexModelCatalog:
     """Runtime Codex model catalog with per-model reasoning-effort mappings.
 
-    The catalog is built by the parser from ``codex debug models`` JSON (or the
-    shipped fallback snapshot). Connectors query it through
+    The catalog is built by the parser from the Codex backend catalog JSON (or
+    the shipped fallback snapshot). Connectors query it through
     :class:`src.connectors.openai_codex.catalog.interfaces.ICodexModelCatalog`.
 
     Attributes:
@@ -180,4 +181,89 @@ class CodexModelCatalog:
         return profile.default_verbosity
 
 
-__all__ = ["CodexModelCatalog", "CodexModelReasoningProfile"]
+def parse_client_version(value: object) -> tuple[int, ...] | None:
+    """Parse a ``major.minor.patch`` client version into comparable ints.
+
+    Returns ``None`` when the value is missing or unparsable so callers treat
+    the entry as compatible rather than dropping it on unexpected input.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text[:1].lower() == "v":
+        text = text[1:].strip()
+    parts: list[int] = []
+    for chunk in text.split("."):
+        chunk = chunk.strip()
+        if not chunk:
+            return None
+        digits = ""
+        for ch in chunk:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        if not digits:
+            return None
+        try:
+            parts.append(int(digits))
+        except ValueError:
+            return None
+        # Stop at build metadata / pre-release suffixes (e.g. ``0.155.0-beta``).
+        if len(digits) != len(chunk):
+            break
+    if not parts:
+        return None
+    return tuple(parts)
+
+
+def _version_lte(left: tuple[int, ...], right: tuple[int, ...]) -> bool:
+    width = max(len(left), len(right))
+    padded_left = tuple(left) + (0,) * (width - len(left))
+    padded_right = tuple(right) + (0,) * (width - len(right))
+    return padded_left <= padded_right
+
+
+def filter_catalog_by_client_version(
+    catalog: CodexModelCatalog, client_version: object
+) -> CodexModelCatalog:
+    """Return a catalog with models requiring a newer client removed.
+
+    Entries without a parsable ``minimal_client_version`` stay eligible. The
+    effective client version is the outbound ``version`` header / catalog
+    ``client_version`` query value, so a lower configured version must not
+    advertise models the backend gates behind a newer client.
+    """
+    configured = parse_client_version(client_version)
+    if configured is None:
+        return catalog
+    kept: dict[str, CodexModelReasoningProfile] = {}
+    for key, profile in catalog.profiles.items():
+        minimal_raw = profile.extra.get("minimal_client_version")
+        minimal = parse_client_version(minimal_raw)
+        if minimal is not None and not _version_lte(minimal, configured):
+            continue
+        kept[key] = profile
+    if len(kept) == len(catalog.profiles):
+        return catalog
+    widest: tuple[str, ...] = ()
+    for profile in kept.values():
+        levels = profile.supported_reasoning_levels
+        if len(levels) > len(widest):
+            widest = levels
+    return CodexModelCatalog(
+        profiles=kept,
+        reasoning_effort_order=widest,
+        default_reasoning_effort=catalog.default_reasoning_effort,
+        reasoning_effort_descriptions=dict(catalog.reasoning_effort_descriptions),
+    )
+
+
+__all__ = [
+    "CodexModelCatalog",
+    "CodexModelReasoningProfile",
+    "filter_catalog_by_client_version",
+    "parse_client_version",
+]

@@ -2,8 +2,8 @@
 """List the Codex model slugs and reasoning-effort settings accepted by the
 ``openai-codex``, ``openai-codex-v2`` and ``openai-codex-app-server`` connectors.
 
-The catalog is auto-discovered at proxy startup from ``codex debug models``;
-this script prints the shipped fallback snapshot
+The catalog is auto-discovered at proxy startup from the authenticated Codex
+backend catalog endpoint; this script prints the shipped fallback snapshot
 (``src/resources/codex/codex_model_catalog.json``) that the connectors fall
 back to when discovery is unavailable. Run
 ``scripts/refresh_codex_model_catalog.py`` to refresh that snapshot.
@@ -123,7 +123,7 @@ def _render_matrix(catalog: CodexModelCatalog) -> None:
 
 def _render_json(catalog: CodexModelCatalog) -> None:
     payload = {
-        "source": "codex debug models (shipped fallback snapshot)",
+        "source": "Codex backend catalog (shipped fallback snapshot)",
         "reasoning_effort_order": list(catalog.reasoning_effort_order),
         "reasoning_effort_descriptions": dict(catalog.reasoning_effort_descriptions),
         "default_reasoning_effort": catalog.default_reasoning_effort,

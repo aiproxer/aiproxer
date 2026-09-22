@@ -1,11 +1,12 @@
 """Catalog parser.
 
-Parses raw ``codex debug models`` JSON (a dict with a ``models`` list) into a
+Parses raw Codex backend catalog JSON (a dict with a ``models`` list) into a
 :class:`CodexModelCatalog`. Each model entry is mapped to a
 :class:`CodexModelReasoningProfile`; entries missing required fields or with no
 usable reasoning levels are skipped. The global reasoning-effort order is
 derived from the widest model's ``supported_reasoning_levels`` (the per-model
-list is depth-ordered in the CLI output), so no effort hierarchy is hardcoded.
+list is depth-ordered in the backend response), so no effort hierarchy is
+hardcoded.
 """
 
 from __future__ import annotations
@@ -33,9 +34,15 @@ _KNOWN_KEYS = frozenset(
     }
 )
 
+# Known-huge raw keys that are never consumed downstream and must not be
+# retained in ``extra``. ``model_messages`` (incl. ``persistent_instructions``)
+# runs to tens of KB per model and ``base_instructions`` to ~20KB per model;
+# keeping them would pin megabytes of dead payload on every parsed catalog.
+_EXCLUDED_FROM_EXTRA = frozenset({"model_messages", "base_instructions"})
+
 
 class CodexCatalogParser:
-    """Parse the raw ``codex debug models`` payload into a catalog."""
+    """Parse the raw Codex backend catalog payload into a catalog."""
 
     def parse(self, raw: Mapping[str, Any]) -> CodexModelCatalog:
         models_raw = raw.get("models") if isinstance(raw, Mapping) else None
@@ -115,7 +122,11 @@ class CodexCatalogParser:
         else:
             default_verbosity = None
 
-        extra = {str(k): v for k, v in entry.items() if str(k) not in _KNOWN_KEYS}
+        extra = {
+            str(k): v
+            for k, v in entry.items()
+            if str(k) not in _KNOWN_KEYS and str(k) not in _EXCLUDED_FROM_EXTRA
+        }
 
         profile = CodexModelReasoningProfile(
             slug=slug,

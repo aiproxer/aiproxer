@@ -1,13 +1,15 @@
 """Catalog provider.
 
-Orchestrates discovery (``codex debug models``) -> fallback (shipped snapshot)
-and caches the resolved catalog. Connectors resolve the catalog through DI
-(:class:`ICodexModelCatalog`) rather than constructing this provider directly.
+Orchestrates discovery (authenticated backend catalog GET) -> fallback (shipped
+snapshot) and caches the resolved catalog. Connectors resolve the catalog
+through DI (:class:`ICodexModelCatalog`) rather than constructing this provider
+directly.
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from src.connectors.openai_codex.catalog.config import CodexModelCatalogConfig
 from src.connectors.openai_codex.catalog.discovery_service import (
@@ -20,7 +22,10 @@ from src.connectors.openai_codex.catalog.interfaces import (
     ICodexCatalogDiscoveryService,
     ICodexCatalogFallbackLoader,
 )
-from src.connectors.openai_codex.catalog.types import CodexModelCatalog
+from src.connectors.openai_codex.catalog.types import (
+    CodexModelCatalog,
+    filter_catalog_by_client_version,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +50,10 @@ class CodexModelCatalogProvider:
             discovery_service
             if discovery_service is not None
             else CodexCatalogDiscoveryService(
-                codex_binary_path=config.codex_binary_path,
+                client_version=config.client_version,
+                auth_path=(
+                    Path(config.auth_path).expanduser() if config.auth_path else None
+                ),
                 timeout_seconds=config.discovery_timeout_seconds,
             )
         )
@@ -56,6 +64,9 @@ class CodexModelCatalogProvider:
         """Eagerly resolve the catalog (discovery, else fallback) and cache it.
 
         Idempotent: subsequent calls return without re-running discovery.
+        Both sources are gated by ``minimal_client_version`` so a lower
+        configured client never advertises models the backend gates behind a
+        newer client.
         """
         if self._catalog is not None:
             return
@@ -70,17 +81,23 @@ class CodexModelCatalogProvider:
                 )
                 discovered = None
             if discovered is not None:
+                gated = filter_catalog_by_client_version(
+                    discovered, self._config.client_version
+                )
                 logger.info(
                     "Codex model catalog loaded via discovery (%d routable models).",
-                    len(discovered.routable_slugs()),
+                    len(gated.routable_slugs()),
                 )
-                self._catalog = discovered
+                self._catalog = gated
                 self._catalog_source = "discovery"
                 return
             logger.info(
                 "Codex catalog discovery unavailable; falling back to shipped snapshot."
             )
-        self._catalog = self._fallback_loader.load()
+        fallback = self._fallback_loader.load()
+        self._catalog = filter_catalog_by_client_version(
+            fallback, self._config.client_version
+        )
         self._catalog_source = "fallback"
         logger.info(
             "Codex model catalog loaded from fallback snapshot (%d routable models).",
@@ -107,7 +124,8 @@ class CodexModelCatalogProvider:
         tests, or when the startup discovery stage did not run). Does not
         populate :meth:`get_catalog`.
         """
-        return self._fallback_loader.load()
+        fallback = self._fallback_loader.load()
+        return filter_catalog_by_client_version(fallback, self._config.client_version)
 
 
 __all__ = ["CodexModelCatalogProvider"]

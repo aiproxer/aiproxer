@@ -29,6 +29,7 @@ from src.connectors.contracts.wire_capture_context import (
     WIRE_CAPTURE_IS_RETRY_KEY,
     WIRE_CAPTURE_RETRY_ATTEMPT_KEY,
 )
+from src.connectors.openai_codex.catalog.config import DEFAULT_CLIENT_VERSION
 from src.connectors.openai_codex.continuation import (
     CodexContinuationSnapshot,
     InMemoryCodexContinuationCoordinator,
@@ -42,6 +43,7 @@ from src.connectors.openai_codex.contracts import (
 from src.connectors.openai_codex.gpt55_account_compatibility import (
     DEFAULT_GPT55_DOWNGRADE,
     Gpt55FreePlanDowngradeConfig,
+    is_gpt55_downgrade_target_advertised,
     is_upstream_gpt55_chatgpt_rejection,
     maybe_reactive_gpt55_downgrade,
     plan_hint_is_free,
@@ -354,6 +356,7 @@ class ResponseExecutor(IResponseExecutor):
         codex_ws_lineage: Any | None = None,
         preserve_tools_on_managed_ws_continuation: bool = False,
         gpt55_free_plan_downgrade: Gpt55FreePlanDowngradeConfig | None = None,
+        codex_client_version: str = DEFAULT_CLIENT_VERSION,
     ) -> None:
         """Initialize the response executor.
 
@@ -391,6 +394,7 @@ class ResponseExecutor(IResponseExecutor):
             if gpt55_free_plan_downgrade is not None
             else DEFAULT_GPT55_DOWNGRADE
         )
+        self._codex_client_version = codex_client_version or DEFAULT_CLIENT_VERSION
         self._max_incompatible_tool_retries = 2
         self._continuation_coordinator = (
             continuation_coordinator
@@ -452,6 +456,7 @@ class ResponseExecutor(IResponseExecutor):
             return
         if not plan_hint_is_free(plan_hint, cfg.free_plan_types):
             return
+        self._warn_when_downgrade_target_not_advertised(cfg)
         payload["model"] = cfg.target_model
         if logger.isEnabledFor(logging.INFO):
             logger.info(
@@ -464,6 +469,27 @@ class ResponseExecutor(IResponseExecutor):
                     "backend": self._connector_transport_backend,
                     "session_id": context.session_id,
                 },
+            )
+
+    def _warn_when_downgrade_target_not_advertised(
+        self, cfg: Gpt55FreePlanDowngradeConfig
+    ) -> None:
+        """Log when the downgrade target is absent from the resolved catalog.
+
+        Absence is observability only: the target may still be legacy-accepted
+        by the backend, so the configured target is still attempted.
+        """
+        catalog = getattr(self._base_connector, "_catalog", None)
+        is_supported = getattr(catalog, "is_supported", None)
+        try:
+            advertised = is_gpt55_downgrade_target_advertised(cfg, is_supported)
+        except Exception:
+            return
+        if advertised is False:
+            logger.warning(
+                "Codex gpt-5.5 downgrade target %r is not in the resolved model "
+                "catalog; attempting it anyway as a legacy-accepted slug.",
+                str(cfg.target_model).strip(),
             )
 
     async def execute(
@@ -866,6 +892,9 @@ class ResponseExecutor(IResponseExecutor):
                                 )
                                 if nxt is not None:
                                     gpt55_reactive_recovery_used = True
+                                    self._warn_when_downgrade_target_not_advertised(
+                                        cfg_55
+                                    )
                                     if logger.isEnabledFor(logging.INFO):
                                         logger.info(
                                             "Codex reactive model downgrade: %s -> %s "
@@ -1548,10 +1577,12 @@ class ResponseExecutor(IResponseExecutor):
         headers = dict(base_headers)
         headers["OpenAI-Beta"] = "responses=experimental"
         headers["Accept"] = "text/event-stream"
-        headers["version"] = "0.0.0"  # CODEX_VERSION_HEADER
+        headers["version"] = self._codex_client_version  # CODEX_VERSION_HEADER
         headers["originator"] = "codex_cli_rs"  # CODEX_ORIGINATOR
 
-        headers["User-Agent"] = build_codex_user_agent()
+        headers["User-Agent"] = build_codex_user_agent(
+            version=self._codex_client_version
+        )
 
         headers["conversation_id"] = conversation_id
         # Codex CLI sends both conversation_id and session_id as the same stable id.

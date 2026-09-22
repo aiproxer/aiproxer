@@ -52,13 +52,13 @@ async def test_openai_codex_degrades_on_http_auth_error(monkeypatch):
 
     with pytest.raises(InvalidRequestError):
         request = CanonicalChatRequest(
-            model="gpt-5.4-mini",
+            model="gpt-5.5",
             messages=[ChatMessage(role="user", content="test")],
         )
         connector_req = ConnectorChatCompletionsRequest(
             request=request,
             processed_messages=list(request.messages),
-            effective_model="gpt-5.4-mini",
+            effective_model="gpt-5.5",
             identity=None,
             cancellation_token=None,
             cancellation_coordinator=None,

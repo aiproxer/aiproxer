@@ -86,7 +86,7 @@ class TestCanonicalInstructionProtection:
         from src.core.domain.chat import CanonicalChatRequest, ChatMessage, ChatRequest
 
         request = ChatRequest(
-            model="gpt-5.4",
+            model="gpt-5.6-luna",
             messages=[ChatMessage(role="user", content="Hello")],
             max_tokens=50,
         )
@@ -114,7 +114,7 @@ class TestCanonicalInstructionProtection:
                     ConnectorChatCompletionsRequest(
                         request=canonical,
                         processed_messages=[ChatMessage(role="user", content="Hello")],
-                        effective_model="gpt-5.4",
+                        effective_model="gpt-5.6-luna",
                         identity=None,
                         cancellation_token=None,
                         cancellation_coordinator=None,

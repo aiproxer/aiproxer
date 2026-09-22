@@ -55,6 +55,7 @@ from src.connectors.contracts import (
     ConnectorRequestContext,
 )
 from src.connectors.openai import OpenAIConnector
+from src.connectors.openai_codex.catalog.config import DEFAULT_CLIENT_VERSION
 from src.connectors.openai_codex.catalog.fallback_loader import (
     CodexCatalogFallbackLoader,
 )
@@ -142,7 +143,24 @@ class OpenAICodexConnector(OpenAIConnector):
     CODEX_PROMPT_RESOURCE_PACKAGE = "src.resources.codex"
     CODEX_PROMPT_RESOURCE_NAME = "gpt_5_codex_prompt.md"
     CODEX_ORIGINATOR = "codex_cli_rs"
-    CODEX_VERSION_HEADER = "0.0.0"
+    CODEX_VERSION_HEADER = DEFAULT_CLIENT_VERSION
+
+    @property
+    def codex_client_version(self) -> str:
+        """Return the Codex protocol compatibility level for outbound requests.
+
+        Mirrors ``extra.codex.model_catalog.client_version`` when configured;
+        falls back to :data:`DEFAULT_CLIENT_VERSION`. The backend gates
+        newer models (e.g. ``gpt-6-sol``) on this value.
+        """
+        settings = getattr(self, "_connector_settings", None)
+        if isinstance(settings, dict):
+            model_catalog = settings.get("model_catalog")
+            if isinstance(model_catalog, dict):
+                version = model_catalog.get("client_version")
+                if isinstance(version, str) and version.strip():
+                    return version.strip()
+        return self.CODEX_VERSION_HEADER
 
     def __init__(
         self,
@@ -337,6 +355,7 @@ class OpenAICodexConnector(OpenAIConnector):
             connector_transport_backend=self.backend_type,
             continuation_backend_label=self.backend_type,
             gpt55_free_plan_downgrade=gpt55_cfg,
+            codex_client_version=self.codex_client_version,
         )
 
     def _validate_dependencies(self, dependencies: CodexConnectorDependencies) -> None:
@@ -902,7 +921,7 @@ class OpenAICodexConnector(OpenAIConnector):
 
     def _codex_user_agent(self) -> str:
         """Build a Codex CLI compatible User-Agent string."""
-        return build_codex_user_agent(self.CODEX_ORIGINATOR, self.CODEX_VERSION_HEADER)
+        return build_codex_user_agent(self.CODEX_ORIGINATOR, self.codex_client_version)
 
     def _codex_account_id(self) -> str | None:
         """Return the ChatGPT account_id from cached credentials when available."""
@@ -1332,7 +1351,7 @@ class OpenAICodexConnector(OpenAIConnector):
         headers = self.get_headers() or {}
         headers["OpenAI-Beta"] = "responses=experimental"
         headers["Accept"] = "text/event-stream"
-        headers["version"] = self.CODEX_VERSION_HEADER
+        headers["version"] = self.codex_client_version
         headers["originator"] = self.CODEX_ORIGINATOR
         headers["User-Agent"] = self._codex_user_agent()
         headers["conversation_id"] = conversation_id

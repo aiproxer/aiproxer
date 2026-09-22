@@ -1,9 +1,8 @@
-"""Tests for ``CodexCatalogDiscoveryService`` — subprocess ``codex debug models``."""
+"""Tests for ``CodexCatalogDiscoveryService`` — authenticated endpoint discovery."""
 
 from __future__ import annotations
 
-import json
-import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -19,41 +18,24 @@ from tests.unit.connectors.openai_codex.catalog.conftest import (
 )
 
 
-def _completed(
-    *, returncode: int = 0, stdout: str = "", stderr: str = ""
-) -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(
-        args=["codex", "debug", "models"],
-        returncode=returncode,
-        stdout=stdout,
-        stderr=stderr,
-    )
-
-
-class _RecordingRun:
-    """Fake ``subprocess.run`` that records kwargs and returns/raises configured."""
+class _FakeEndpointClient:
+    """Endpoint-client fake recording fetch calls."""
 
     def __init__(
         self,
         *,
-        result: subprocess.CompletedProcess | None = None,
+        result: dict[str, Any] | None = None,
         raises: BaseException | None = None,
     ) -> None:
-        self.result = result or _completed(returncode=0, stdout="{}", stderr="")
-        self.raises = raises
-        self.last_kwargs: dict[str, Any] | None = None
-        self.last_cmd: list[str] | None = None
+        self._result = result
+        self._raises = raises
         self.calls = 0
 
-    def __call__(
-        self, cmd: list[str], *args: Any, **kwargs: Any
-    ) -> subprocess.CompletedProcess:
+    async def fetch(self) -> dict[str, Any] | None:
         self.calls += 1
-        self.last_cmd = list(cmd)
-        self.last_kwargs = dict(kwargs)
-        if self.raises is not None:
-            raise self.raises
-        return self.result
+        if self._raises is not None:
+            raise self._raises
+        return self._result
 
 
 @pytest.fixture()
@@ -61,36 +43,14 @@ def fake_parser() -> FakeParser:
     return FakeParser(result=sentinel_catalog())
 
 
-@pytest.fixture()
-def patch_bin(monkeypatch):
-    """Patch ``candidate_codex_executables`` to return a controlled candidate list."""
-
-    def _patch(candidates: list[str]):
-        recorded: dict[str, Any] = {}
-
-        def fake(configured: str | None) -> list[str]:
-            recorded["configured"] = configured
-            return candidates
-
-        monkeypatch.setattr(discovery_module, "candidate_codex_executables", fake)
-        return recorded
-
-    return _patch
-
-
 class TestDiscoverySuccess:
     @pytest.mark.asyncio
-    async def test_discover_success_parses_stdout(
-        self, monkeypatch, patch_bin, fake_parser, raw_catalog
+    async def test_discover_success_parses_fetched_raw(
+        self, fake_parser, raw_catalog
     ) -> None:
-        patch_bin(["/fake/codex"])
-        run = _RecordingRun(
-            result=_completed(returncode=0, stdout=json.dumps(raw_catalog))
-        )
-        monkeypatch.setattr(subprocess, "run", run)
-
+        endpoint = _FakeEndpointClient(result=raw_catalog)
         service = CodexCatalogDiscoveryService(
-            codex_binary_path=None, timeout_seconds=10.0, parser=fake_parser
+            endpoint_client=endpoint, parser=fake_parser
         )
 
         result = await service.discover()
@@ -98,137 +58,92 @@ class TestDiscoverySuccess:
         assert result is fake_parser._result
         assert fake_parser.calls == 1
         assert fake_parser.last_raw == raw_catalog
-        assert run.last_cmd == ["/fake/codex", "debug", "models"]
-
-    @pytest.mark.asyncio
-    async def test_discover_passes_timeout_to_subprocess(
-        self, monkeypatch, patch_bin, fake_parser, raw_catalog
-    ) -> None:
-        patch_bin(["/fake/codex"])
-        run = _RecordingRun(
-            result=_completed(returncode=0, stdout=json.dumps(raw_catalog))
-        )
-        monkeypatch.setattr(subprocess, "run", run)
-
-        service = CodexCatalogDiscoveryService(timeout_seconds=5.0, parser=fake_parser)
-        await service.discover()
-
-        assert run.last_kwargs is not None
-        assert run.last_kwargs.get("timeout") == 5.0
-
-    @pytest.mark.asyncio
-    async def test_discover_uses_configured_binary_path(
-        self, monkeypatch, patch_bin, fake_parser, raw_catalog
-    ) -> None:
-        recorded = patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess,
-            "run",
-            _RecordingRun(result=_completed(stdout=json.dumps(raw_catalog))),
-        )
-
-        service = CodexCatalogDiscoveryService(
-            codex_binary_path="/custom/codex", parser=fake_parser
-        )
-        await service.discover()
-
-        assert recorded["configured"] == "/custom/codex"
+        assert endpoint.calls == 1
 
     @pytest.mark.asyncio
     async def test_discover_default_parser_parses_real_catalog(
-        self, monkeypatch, patch_bin, raw_catalog
+        self, raw_catalog
     ) -> None:
-        """Integration: default parser yields a queryable catalog."""
-        patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess,
-            "run",
-            _RecordingRun(result=_completed(stdout=json.dumps(raw_catalog))),
-        )
+        endpoint = _FakeEndpointClient(result=raw_catalog)
+        service = CodexCatalogDiscoveryService(endpoint_client=endpoint)
 
-        service = CodexCatalogDiscoveryService()
         catalog = await service.discover()
 
         assert catalog is not None
         assert catalog.routable_slugs() == ("gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.5")
 
+    @pytest.mark.asyncio
+    async def test_default_endpoint_client_receives_config(
+        self, monkeypatch, fake_parser
+    ) -> None:
+        recorded: dict[str, Any] = {}
+
+        class _RecordingEndpoint:
+            def __init__(
+                self,
+                *,
+                client_version: str,
+                auth_path: Path | None,
+                timeout_seconds: float,
+            ) -> None:
+                recorded["client_version"] = client_version
+                recorded["auth_path"] = auth_path
+                recorded["timeout_seconds"] = timeout_seconds
+
+            async def fetch(self) -> dict[str, Any] | None:
+                return None
+
+        monkeypatch.setattr(
+            discovery_module, "CodexCatalogEndpointClient", _RecordingEndpoint
+        )
+
+        service = CodexCatalogDiscoveryService(
+            client_version="9.9.9",
+            auth_path=Path("/x/auth.json"),
+            timeout_seconds=3.5,
+            parser=fake_parser,
+        )
+        await service.discover()
+
+        assert recorded == {
+            "client_version": "9.9.9",
+            "auth_path": Path("/x/auth.json"),
+            "timeout_seconds": 3.5,
+        }
+
 
 class TestDiscoveryFailuresReturnNone:
     @pytest.mark.asyncio
-    async def test_binary_missing_returns_none(self, patch_bin, fake_parser) -> None:
-        patch_bin([])
-
-        service = CodexCatalogDiscoveryService(parser=fake_parser)
-        result = await service.discover()
-
-        assert result is None
-        assert fake_parser.calls == 0
-
-    @pytest.mark.asyncio
-    async def test_timeout_returns_none(
-        self, monkeypatch, patch_bin, fake_parser
-    ) -> None:
-        patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess,
-            "run",
-            _RecordingRun(raises=subprocess.TimeoutExpired(cmd=["codex"], timeout=10)),
+    async def test_endpoint_returns_none(self, fake_parser) -> None:
+        endpoint = _FakeEndpointClient(result=None)
+        service = CodexCatalogDiscoveryService(
+            endpoint_client=endpoint, parser=fake_parser
         )
 
-        service = CodexCatalogDiscoveryService(parser=fake_parser)
         assert await service.discover() is None
         assert fake_parser.calls == 0
 
     @pytest.mark.asyncio
-    async def test_nonzero_exit_returns_none(
-        self, monkeypatch, patch_bin, fake_parser
-    ) -> None:
-        patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess,
-            "run",
-            _RecordingRun(result=_completed(returncode=1, stderr="boom")),
+    async def test_endpoint_raises_falls_back(self, fake_parser) -> None:
+        endpoint = _FakeEndpointClient(raises=RuntimeError("boom"))
+        service = CodexCatalogDiscoveryService(
+            endpoint_client=endpoint, parser=fake_parser
         )
 
-        service = CodexCatalogDiscoveryService(parser=fake_parser)
         assert await service.discover() is None
         assert fake_parser.calls == 0
 
     @pytest.mark.asyncio
-    async def test_malformed_stdout_returns_none(
-        self, monkeypatch, patch_bin, fake_parser
-    ) -> None:
-        patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess, "run", _RecordingRun(result=_completed(stdout="not json"))
+    async def test_parser_raises_falls_back(self) -> None:
+        class _BoomParser:
+            def parse(self, raw: Any) -> Any:
+                raise ValueError("bad catalog")
+
+        endpoint = _FakeEndpointClient(result={"models": []})
+        service = CodexCatalogDiscoveryService(
+            endpoint_client=endpoint, parser=_BoomParser()
         )
 
-        service = CodexCatalogDiscoveryService(parser=fake_parser)
-        assert await service.discover() is None
-        assert fake_parser.calls == 0
-
-    @pytest.mark.asyncio
-    async def test_empty_stdout_returns_none(
-        self, monkeypatch, patch_bin, fake_parser
-    ) -> None:
-        patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess, "run", _RecordingRun(result=_completed(stdout=""))
-        )
-
-        service = CodexCatalogDiscoveryService(parser=fake_parser)
-        assert await service.discover() is None
-
-    @pytest.mark.asyncio
-    async def test_oserror_returns_none(
-        self, monkeypatch, patch_bin, fake_parser
-    ) -> None:
-        patch_bin(["/fake/codex"])
-        monkeypatch.setattr(
-            subprocess, "run", _RecordingRun(raises=OSError("spawn failed"))
-        )
-
-        service = CodexCatalogDiscoveryService(parser=fake_parser)
         assert await service.discover() is None
 
 

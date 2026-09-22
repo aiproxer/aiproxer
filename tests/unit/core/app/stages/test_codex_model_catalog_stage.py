@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from src.connectors.openai_codex.catalog.config import (
@@ -128,6 +128,68 @@ class TestResolveModelCatalogConfig:
         assert cfg.discovery_enabled is False
 
 
+class TestResolveAuthPathPrecedence:
+    def _config_with_backend(self, backend: BackendConfig) -> AppConfig:
+        base = AppConfig()
+        return base.model_copy(
+            update={
+                "backends": base.backends.model_copy(update={"openai_codex": backend})
+            }
+        )
+
+    def test_model_catalog_auth_path_wins(self) -> None:
+        backend = BackendConfig(
+            credentials_path="/backend/creds.json",
+            extra={
+                "openai_codex_path": "/legacy/dir",
+                "codex": {
+                    "model_catalog": {"auth_path": "/explicit/model-catalog-auth.json"}
+                },
+            },
+        )
+        cfg = resolve_codex_model_catalog_config(self._config_with_backend(backend))
+        assert cfg.auth_path == "/explicit/model-catalog-auth.json"
+
+    def test_backend_credentials_path_when_no_explicit_auth_path(self) -> None:
+        backend = BackendConfig(
+            credentials_path="/backend/creds.json",
+            extra={
+                "openai_codex_path": "/legacy/dir",
+                "codex": {"model_catalog": {}},
+            },
+        )
+        cfg = resolve_codex_model_catalog_config(self._config_with_backend(backend))
+        assert cfg.auth_path == "/backend/creds.json"
+
+    def test_legacy_openai_codex_path_when_no_credentials_path(self) -> None:
+        backend = BackendConfig(
+            extra={
+                "openai_codex_path": "/legacy/dir",
+                "codex": {"model_catalog": {}},
+            }
+        )
+        cfg = resolve_codex_model_catalog_config(self._config_with_backend(backend))
+        assert cfg.auth_path == "/legacy/dir"
+
+    def test_none_when_no_backend_paths(self) -> None:
+        backend = BackendConfig(extra={"codex": {"model_catalog": {}}})
+        cfg = resolve_codex_model_catalog_config(self._config_with_backend(backend))
+        assert cfg.auth_path is None
+
+    def test_no_model_catalog_section_still_honors_backend_auth_path(self) -> None:
+        # Discovery runs with defaults even without a section, so the
+        # backend's credentials paths must not be silently dropped.
+        backend = BackendConfig(credentials_path="/backend/creds.json")
+        cfg = resolve_codex_model_catalog_config(self._config_with_backend(backend))
+        assert cfg.auth_path == "/backend/creds.json"
+        assert cfg.discovery_enabled is True
+
+    def test_defaults_when_no_backend_at_all(self) -> None:
+        config = AppConfig()
+        cfg = resolve_codex_model_catalog_config(config)
+        _assert_catalog_config_equal(cfg, DEFAULT_CODEX_MODEL_CATALOG_CONFIG)
+
+
 class TestStageExecute:
     @pytest.mark.asyncio
     async def test_registers_catalog_from_fallback_file(self, tmp_path: Path) -> None:
@@ -148,7 +210,7 @@ class TestStageExecute:
         from src.connectors.openai_codex.catalog.interfaces import ICodexModelCatalog
 
         provider = services.build_service_provider()
-        catalog = provider.get_required_service(cast(type, ICodexModelCatalog))
+        catalog: Any = provider.get_required_service(cast(type, ICodexModelCatalog))
         assert catalog.routable_slugs() == ("gpt-5.6-sol", "gpt-5.5")
         assert catalog.is_supported("gpt-5.6-sol") is True
 
@@ -156,15 +218,18 @@ class TestStageExecute:
     async def test_registers_catalog_even_when_no_model_catalog_section(
         self, tmp_path: Path, monkeypatch
     ) -> None:
-        """With defaults (discovery enabled) but no codex binary present and a
+        """With defaults (discovery enabled) but discovery unavailable and a
         fallback override, the stage still registers a catalog."""
         catalog_file = _write_catalog(tmp_path / "catalog.json")
-        # Force discovery to find no binary so it falls back to the override path.
-        import src.connectors.openai_codex.catalog.discovery_service as ds_mod
-
-        monkeypatch.setattr(
-            ds_mod, "candidate_codex_executables", lambda configured: []
+        # Force discovery to fail so it falls back to the override path.
+        from src.connectors.openai_codex.catalog.endpoint_client import (
+            CodexCatalogEndpointClient,
         )
+
+        async def _no_fetch(self) -> None:
+            return None
+
+        monkeypatch.setattr(CodexCatalogEndpointClient, "fetch", _no_fetch)
         config = _config_with_model_catalog(
             {"discovery_enabled": True, "fallback_path": str(catalog_file)}
         )
@@ -176,5 +241,5 @@ class TestStageExecute:
         from src.connectors.openai_codex.catalog.interfaces import ICodexModelCatalog
 
         provider = services.build_service_provider()
-        catalog = provider.get_required_service(cast(type, ICodexModelCatalog))
+        catalog: Any = provider.get_required_service(cast(type, ICodexModelCatalog))
         assert catalog.routable_slugs() == ("gpt-5.6-sol", "gpt-5.5")

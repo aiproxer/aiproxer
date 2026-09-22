@@ -21,6 +21,26 @@ class TestResponseExecutor:
         assert headers["Accept"] == "text/event-stream"
         assert headers["conversation_id"] == sample_context.session_id
         assert headers["session_id"] == sample_context.session_id
+        assert headers["version"] == "0.156.0"
+        assert "codex_cli_rs/0.156.0" in headers["User-Agent"]
+
+    def test_build_headers_uses_configured_client_version(
+        self, mock_base_connector, mock_credential_manager, sample_context
+    ):
+        """The Codex protocol version header is configurable (gates gpt-6-sol)."""
+        from src.connectors.openai_codex.executor import ResponseExecutor
+
+        executor = ResponseExecutor(
+            mock_base_connector,
+            mock_credential_manager,
+            codex_client_version="0.155.0",
+        )
+        headers = executor._build_headers(
+            sample_context.session_id, sample_context.session_id
+        )
+
+        assert headers["version"] == "0.155.0"
+        assert "codex_cli_rs/0.155.0" in headers["User-Agent"]
 
     def test_should_retry_for_auth_error_with_status(self, executor):
         """Test detection of auth error in chunk."""

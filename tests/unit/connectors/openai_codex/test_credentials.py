@@ -108,6 +108,16 @@ class TestCredentialManager:
         assert manager.is_watcher_running() is True
 
     @pytest.mark.asyncio
+    async def test_initialize_start_watcher_false_skips_watcher(
+        self, manager, temp_auth_file
+    ):
+        """Catalog discovery passes start_watcher=False to avoid a watcher."""
+        await manager.initialize(auth_path=temp_auth_file, start_watcher=False)
+
+        assert manager.is_watcher_running() is False
+        assert manager.get_access_token() == "test_access_token"
+
+    @pytest.mark.asyncio
     async def test_get_access_token_returns_token(self, manager, temp_auth_file):
         """Test that get_access_token returns the access token."""
         await manager.initialize(auth_path=temp_auth_file)

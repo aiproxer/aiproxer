@@ -1,6 +1,6 @@
 """Startup stage: discover the Codex model catalog and register it in DI.
 
-Runs ``codex debug models`` at startup (via
+Fetches the Codex model catalog from the authenticated backend at startup (via
 :class:`src.connectors.openai_codex.catalog.provider.CodexModelCatalogProvider`)
 and registers the resolved :class:`ICodexModelCatalog` as a DI singleton shared
 by the ``openai-codex``, ``openai-codex-v2`` and ``openai-codex-app-server``
@@ -12,7 +12,9 @@ snapshot; if that also fails, the stage logs and leaves registration absent
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 
 from src.core.app.stages.base import InitializationStage
@@ -35,20 +37,34 @@ def resolve_codex_model_catalog_config(
 ) -> CodexModelCatalogConfig:
     """Resolve the catalog config from the first codex backend that defines it.
 
-    Returns ``DEFAULT_CODEX_MODEL_CATALOG_CONFIG`` when no backend provides a
-    ``model_catalog`` section.
+    Applies the ``OPENAI_CODEX_MODEL_CATALOG_*`` environment overrides first
+    (shared with the connector settings loader), then the ``auth_path``
+    precedence: the model-catalog ``auth_path`` wins, then the backend
+    ``credentials_path``, then the legacy backend ``extra.openai_codex_path``;
+    when none is set the credential manager's own environment/default
+    discovery is used.
+
+    Returns the environment-overridden defaults when no codex backend is
+    configured; when a backend exists but defines no ``model_catalog`` section,
+    the defaults apply with ``auth_path`` still filled from the backend's
+    ``credentials_path`` / ``extra.openai_codex_path`` (discovery runs with
+    defaults in that case, so dropping the backend paths would be surprising).
     """
     from src.connectors.openai_codex.catalog.config import (
         DEFAULT_CODEX_MODEL_CATALOG_CONFIG,
+        apply_model_catalog_env_overrides,
         codex_model_catalog_config_from_mapping,
     )
     from src.connectors.openai_codex.utils import to_mapping
 
     backends = getattr(config, "backends", None)
+    first_backend: Any = None
     for attr in _CODEX_CONFIG_BACKEND_ATTRS:
         backend = _get_backend(backends, attr)
         if backend is None:
             continue
+        if first_backend is None:
+            first_backend = backend
         extra = getattr(backend, "extra", None)
         if not isinstance(extra, Mapping):
             continue
@@ -58,8 +74,44 @@ def resolve_codex_model_catalog_config(
         model_catalog = codex.get("model_catalog")
         if model_catalog is None:
             continue
-        return codex_model_catalog_config_from_mapping(to_mapping(model_catalog))
-    return DEFAULT_CODEX_MODEL_CATALOG_CONFIG
+        merged = apply_model_catalog_env_overrides(to_mapping(model_catalog))
+        cfg = codex_model_catalog_config_from_mapping(merged)
+        return _with_backend_auth_path(cfg, backend)
+    if first_backend is not None:
+        # No ``model_catalog`` section anywhere: discovery still runs with
+        # defaults, so honor the backend's credentials paths instead of
+        # silently dropping them.
+        cfg = codex_model_catalog_config_from_mapping(
+            apply_model_catalog_env_overrides(None)
+        )
+        # Preserve the shared default instance when no overrides are present so
+        # existing identity/equality expectations keep holding.
+        if cfg == DEFAULT_CODEX_MODEL_CATALOG_CONFIG:
+            cfg = DEFAULT_CODEX_MODEL_CATALOG_CONFIG
+        return _with_backend_auth_path(cfg, first_backend)
+    return codex_model_catalog_config_from_mapping(
+        apply_model_catalog_env_overrides(None)
+    )
+
+
+def _with_backend_auth_path(
+    cfg: CodexModelCatalogConfig, backend: Any
+) -> CodexModelCatalogConfig:
+    """Fill ``cfg.auth_path`` from backend credentials config when unset."""
+    if cfg.auth_path:
+        return cfg
+
+    credentials_path = getattr(backend, "credentials_path", None)
+    if isinstance(credentials_path, str) and credentials_path.strip():
+        expanded = os.path.expandvars(os.path.expanduser(credentials_path.strip()))
+        return replace(cfg, auth_path=expanded)
+    extra = getattr(backend, "extra", None)
+    if isinstance(extra, Mapping):
+        legacy = extra.get("openai_codex_path")
+        if isinstance(legacy, str) and legacy.strip():
+            expanded = os.path.expandvars(os.path.expanduser(legacy.strip()))
+            return replace(cfg, auth_path=expanded)
+    return cfg
 
 
 def _get_backend(backends: Any, attr: str) -> Any:

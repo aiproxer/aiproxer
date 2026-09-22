@@ -1,4 +1,4 @@
-"""Tests for ``CodexCatalogParser`` — raw ``codex debug models`` JSON -> catalog."""
+"""Tests for ``CodexCatalogParser`` — raw backend catalog JSON -> catalog."""
 
 from __future__ import annotations
 
@@ -215,6 +215,31 @@ class TestParserEdgeCases:
         catalog = parser.parse(raw)
         # Widest model (gpt-5.6-sol, 4 levels) defines the order.
         assert catalog.reasoning_effort_order == ("low", "medium", "high", "ultra")
+
+    def test_parse_excludes_heavy_payload_keys_from_extra(self, parser) -> None:
+        """``model_messages``/``base_instructions`` (tens of KB per model) are
+        dead weight downstream and must not be retained in ``extra``."""
+        raw = {
+            "models": [
+                {
+                    "slug": "gpt-5.5",
+                    "default_reasoning_level": "medium",
+                    "supported_reasoning_levels": [
+                        {"effort": "low", "description": "d"}
+                    ],
+                    "model_messages": {"persistent_instructions": "x" * 100},
+                    "base_instructions": "y" * 100,
+                    "display_name": "GPT-5.5",
+                }
+            ]
+        }
+        catalog = parser.parse(raw)
+        profile = catalog.get_profile("gpt-5.5")
+        assert profile is not None
+        assert "model_messages" not in profile.extra
+        assert "base_instructions" not in profile.extra
+        # Small unknown keys are still preserved.
+        assert profile.extra.get("display_name") == "GPT-5.5"
 
     def test_parse_clamp_uses_parsed_profiles(self, parser, raw_catalog) -> None:
         catalog = parser.parse(raw_catalog)

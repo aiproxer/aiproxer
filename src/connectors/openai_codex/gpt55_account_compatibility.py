@@ -21,7 +21,13 @@ _GPT55_REJECTION_PATTERN = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class Gpt55FreePlanDowngradeConfig:
-    """Configuration for proactive/reactive gpt-5.5 downgrades on Codex."""
+    """Configuration for proactive/reactive gpt-5.5 downgrades on Codex.
+
+    ``target_model`` is intentionally allowed to be a legacy-accepted slug
+    that is absent from the advertised catalog: absence from the catalog
+    proves only that the model is not advertised, not that the backend
+    rejects it. Operators should verify the target against their account.
+    """
 
     enabled: bool = True
     proactive_enabled: bool = True
@@ -180,3 +186,27 @@ def maybe_reactive_gpt55_downgrade(
     if str(current_model).strip() != config.source_model:
         return None
     return str(config.target_model).strip() or None
+
+
+def is_gpt55_downgrade_target_advertised(
+    config: Gpt55FreePlanDowngradeConfig,
+    is_supported: Any | None,
+) -> bool | None:
+    """Check whether the downgrade target is in the advertised catalog.
+
+    Returns ``None`` when no catalog predicate is available. A ``False``
+    result is only observability (the target may still be legacy-accepted),
+    so callers keep attempting the configured target but log a warning.
+    """
+    if is_supported is None or not callable(is_supported):
+        return None
+    try:
+        target = str(config.target_model).strip()
+    except Exception:
+        return None
+    if not target:
+        return False
+    try:
+        return bool(is_supported(target))
+    except Exception:
+        return None

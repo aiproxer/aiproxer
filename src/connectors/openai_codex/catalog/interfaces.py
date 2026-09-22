@@ -8,6 +8,7 @@ inversion and test substitution. All connectors depend on
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from src.connectors.openai_codex.catalog.types import (
@@ -51,7 +52,7 @@ class ICodexModelCatalog(Protocol):
 
 @runtime_checkable
 class ICodexCatalogParser(Protocol):
-    """Parses raw ``codex debug models`` JSON into a ``CodexModelCatalog``."""
+    """Parses raw Codex backend catalog JSON into a ``CodexModelCatalog``."""
 
     def parse(self, raw: Mapping[str, Any]) -> CodexModelCatalog: ...
 
@@ -64,11 +65,48 @@ class ICodexCatalogFallbackLoader(Protocol):
 
 
 @runtime_checkable
-class ICodexCatalogDiscoveryService(Protocol):
-    """Discovers the catalog at runtime by running ``codex debug models``.
+class ICodexCatalogEndpointClient(Protocol):
+    """Fetches the raw Codex model catalog from the authenticated backend.
 
-    Returns ``None`` on any failure (binary missing, timeout, non-zero exit,
-    malformed output) so the caller can fall back to the shipped snapshot.
+    Returns the raw JSON mapping (with a ``models`` list) on success, or
+    ``None`` on any failure (missing credentials, timeout, transport failure,
+    non-2xx response, malformed JSON, invalid shape, exhausted auth retry) so
+    the caller can fall back to the shipped snapshot.
+    """
+
+    async def fetch(self) -> Mapping[str, Any] | None: ...
+
+
+@runtime_checkable
+class ICodexCatalogCredentialProvider(Protocol):
+    """Minimal credential surface used by the catalog endpoint client.
+
+    Structurally satisfied by
+    :class:`src.connectors.openai_codex.credentials.CredentialManager`; allows
+    tests to substitute a lightweight fake without implementing the full
+    ``ICredentialManager`` ABC.
+    """
+
+    async def initialize(
+        self, auth_path: Path | None, *, start_watcher: bool = True
+    ) -> None: ...
+
+    async def refresh_access_token(self) -> bool: ...
+
+    def get_access_token(self) -> str | None: ...
+
+    def get_account_id(self) -> str | None: ...
+
+    async def shutdown(self) -> None: ...
+
+
+@runtime_checkable
+class ICodexCatalogDiscoveryService(Protocol):
+    """Discovers the catalog at runtime via the authenticated Codex backend.
+
+    Returns ``None`` on any failure (missing credentials, timeout, transport
+    failure, malformed output) so the caller can fall back to the shipped
+    snapshot.
     """
 
     async def discover(self) -> CodexModelCatalog | None: ...
@@ -96,7 +134,9 @@ class ICodexModelCatalogProvider(Protocol):
 
 
 __all__ = [
+    "ICodexCatalogCredentialProvider",
     "ICodexCatalogDiscoveryService",
+    "ICodexCatalogEndpointClient",
     "ICodexCatalogFallbackLoader",
     "ICodexCatalogParser",
     "ICodexModelCatalog",

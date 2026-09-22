@@ -1,21 +1,26 @@
 """Catalog discovery service.
 
-Runs ``codex debug models`` via the resolved codex binary and parses stdout into
-a :class:`CodexModelCatalog`. Returns ``None`` on any failure (binary missing,
-timeout, non-zero exit, malformed output, parse error) so the provider can fall
-back to the shipped snapshot.
+Fetches the raw catalog from the authenticated Codex backend (via
+:class:`~src.connectors.openai_codex.catalog.endpoint_client.CodexCatalogEndpointClient`)
+and parses it into a :class:`CodexModelCatalog`. Returns ``None`` on any failure
+(missing credentials, timeout, transport failure, malformed output, parse error)
+so the provider can fall back to the shipped snapshot.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import os
-import subprocess
+from pathlib import Path
 
-from src.connectors.codex_helpers import candidate_codex_executables
-from src.connectors.openai_codex.catalog.interfaces import ICodexCatalogParser
+from src.connectors.openai_codex.catalog.endpoint_client import (
+    DEFAULT_CLIENT_VERSION,
+    DEFAULT_TIMEOUT_SECONDS,
+    CodexCatalogEndpointClient,
+)
+from src.connectors.openai_codex.catalog.interfaces import (
+    ICodexCatalogEndpointClient,
+    ICodexCatalogParser,
+)
 from src.connectors.openai_codex.catalog.parser import CodexCatalogParser
 from src.connectors.openai_codex.catalog.types import CodexModelCatalog
 
@@ -23,75 +28,47 @@ logger = logging.getLogger(__name__)
 
 
 class CodexCatalogDiscoveryService:
-    """Discover the catalog at runtime by shelling out to ``codex debug models``."""
+    """Discover the catalog at runtime from the authenticated Codex backend."""
 
     def __init__(
         self,
         *,
-        codex_binary_path: str | None = None,
-        timeout_seconds: float = 10.0,
+        endpoint_client: ICodexCatalogEndpointClient | None = None,
+        client_version: str = DEFAULT_CLIENT_VERSION,
+        auth_path: Path | None = None,
+        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         parser: ICodexCatalogParser | None = None,
     ) -> None:
-        self._codex_binary_path = codex_binary_path
-        self._timeout_seconds = timeout_seconds
+        self._endpoint_client = (
+            endpoint_client
+            if endpoint_client is not None
+            else CodexCatalogEndpointClient(
+                client_version=client_version,
+                auth_path=auth_path,
+                timeout_seconds=timeout_seconds,
+            )
+        )
         self._parser = parser if parser is not None else CodexCatalogParser()
 
     async def discover(self) -> CodexModelCatalog | None:
-        candidates = candidate_codex_executables(self._codex_binary_path)
-        if not candidates:
-            logger.debug(
-                "Codex catalog discovery skipped: no codex binary found on PATH/CODEX_BIN"
-            )
-            return None
-        executable = candidates[0]
-
         try:
-            result = await asyncio.to_thread(
-                subprocess.run,
-                [executable, "debug", "models"],
-                capture_output=True,
-                text=True,
-                timeout=self._timeout_seconds,
-                check=False,
-                shell=False,
-                env=os.environ.copy(),
-            )
-        except subprocess.TimeoutExpired:
+            raw = await self._endpoint_client.fetch()
+        except Exception:  # - fall back on any discovery failure
             logger.warning(
-                "Codex catalog discovery timed out after %ss; falling back.",
-                self._timeout_seconds,
-            )
-            return None
-        except OSError as exc:
-            logger.warning("Codex catalog discovery subprocess failed: %s", exc)
-            return None
-
-        if result.returncode != 0:
-            logger.warning(
-                "Codex catalog discovery exited with code %s; falling back. stderr=%s",
-                result.returncode,
-                (result.stderr or "").strip(),
+                "Codex catalog discovery raised; falling back to snapshot.",
+                exc_info=True,
             )
             return None
 
-        stdout = result.stdout or ""
-        if not stdout.strip():
-            logger.warning(
-                "Codex catalog discovery returned empty stdout; falling back."
-            )
-            return None
-
-        try:
-            raw = json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            logger.warning("Codex catalog discovery stdout is not valid JSON: %s", exc)
+        if raw is None:
             return None
 
         try:
             return self._parser.parse(raw)
-        except Exception as exc:  # - fall back on any parse failure
+        except Exception:  # - fall back on any parse failure
             logger.warning(
-                "Codex catalog discovery parse failed: %s", exc, exc_info=True
+                "Codex catalog discovery parse failed; falling back to snapshot.",
+                exc_info=True,
             )
             return None
 

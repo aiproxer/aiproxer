@@ -882,6 +882,32 @@ class SSESerializer:
         if "reasoning_content" not in delta:
             delta["reasoning_content"] = reasoning
 
+    @staticmethod
+    def _restore_empty_content_for_kept_reasoning(
+        payload: dict[str, Any], content: StreamingContent
+    ) -> None:
+        """Preserve an explicit empty ``content`` when reasoning is kept.
+
+        ``sanitize_openai_chunk_delta_inplace`` removes ``content: ""`` whenever
+        reasoning is present. Clients that opt into ``_keep_reasoning_content``
+        still expect a stable ``content`` field, so restore it after sanitizing.
+        """
+        if not (
+            content.metadata.get("_suppress_reasoning_fields")
+            and content.metadata.get("_keep_reasoning_content")
+        ):
+            return
+        choices = payload.get("choices")
+        if not isinstance(choices, list):
+            return
+        for choice in choices:
+            if not isinstance(choice, dict):
+                continue
+            for container_key in ("delta", "message"):
+                container = choice.get(container_key)
+                if isinstance(container, dict) and container.get("reasoning_content"):
+                    container.setdefault("content", "")
+
     def _inject_tool_calls(
         self, delta: dict[str, Any], tool_calls: list[Any] | None
     ) -> None:
@@ -1167,6 +1193,7 @@ class SSESerializer:
         if chunk.metadata.finish_reason:
             response_data["choices"][0]["finish_reason"] = chunk.metadata.finish_reason
         sanitize_openai_chunk_delta_inplace(response_data)
+        self._restore_empty_content_for_kept_reasoning(response_data, content)
         parts = [f"data: {json.dumps(response_data)}\n\n"]
         if chunk.is_done:
             parts.append("data: [DONE]\n\n")
