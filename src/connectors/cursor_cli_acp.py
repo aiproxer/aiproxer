@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
@@ -99,14 +99,79 @@ def resolve_cursor_cli_model_id(
 
     mapped = cli_ids.get(advertised)
     if mapped:
-        if f"{advertised}-fast" in cli_ids:
-            return f"{mapped}[fast=false]"
         return mapped
     stripped = strip_vendor_prefix(requested_model or advertised, "cursor")
     if not stripped:
         return requested_model or advertised
     # Empty-catalog pass-through: Cursor often expects the ``cursor-`` prefix.
     return f"cursor-{stripped}"
+
+
+def _cursor_model_fast_tier(
+    model: str, *, available_cli_model_ids: Iterable[str] = ()
+) -> bool | None:
+    """Return the explicit Cursor speed tier encoded by a model id.
+
+    Cursor's parameterized picker uses ``-fast`` for the fast route. Standard
+    routes are paired with an explicit ``<model>-fast`` catalog entry. Known
+    Cursor Grok effort routes and Composer models also require confirmation
+    when discovery is unavailable. Unknown models leave normal selection alone
+    until the ACP response exposes ``fast``.
+    """
+
+    normalized = model.strip().casefold()
+    if normalized.endswith("-fast"):
+        return True
+    available = {item.strip().casefold() for item in available_cli_model_ids}
+    if f"{normalized}-fast" in available:
+        return False
+    for effort_suffix in ("-low", "-medium", "-high", "-xhigh", "-max"):
+        if normalized.endswith(effort_suffix):
+            base_model = normalized[: -len(effort_suffix)]
+            if f"{base_model}-fast" in available:
+                return False
+            if normalized.startswith("cursor-grok-"):
+                return False
+            break
+    if normalized.startswith("composer-"):
+        return False
+    return None
+
+
+def _cursor_config_option(
+    config_options: object, config_id: str
+) -> dict[str, Any] | None:
+    """Find an ACP config option in either list or mapping response shapes."""
+
+    if isinstance(config_options, list):
+        candidates = config_options
+    elif isinstance(config_options, dict):
+        direct = config_options.get(config_id)
+        if isinstance(direct, dict):
+            return direct
+        candidates = list(config_options.values())
+    else:
+        return None
+
+    for candidate in candidates:
+        if isinstance(candidate, dict) and candidate.get("id") == config_id:
+            return candidate
+    return None
+
+
+def _cursor_config_options(result: dict[str, Any]) -> object:
+    """Read ACP config options while tolerating absent optional metadata."""
+
+    return result.get("configOptions")
+
+
+def _cursor_config_option_current_value(option: dict[str, Any]) -> str | None:
+    value = option.get("currentValue")
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return value.casefold()
+    return None
 
 
 @dataclass(frozen=True)
@@ -506,6 +571,8 @@ class CursorCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
                     ),
                     details={"error_code": "cursor_cli_acp_workspace_invalid"},
                 )
+            # Optional instance default only. Unconfigured backends stay unbound
+            # so each request/session workspace can spawn its own ACP child.
             self._default_project_dir = workspace
             exe_kw = kwargs.get("cursor_cli_executable") or kwargs.get(
                 "agent_executable"
@@ -727,25 +794,6 @@ class CursorCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
         extra_dict = cast(dict[str, Any] | None, extra_body)
         options = cast(dict[str, Any] | None, request.options)
         hint = first_workspace_hint_str(extra_dict, options)
-        if self._is_responses_text_only_request(request):
-            if hint is not None:
-                raise BackendError(
-                    message=(
-                        "cursor-cli-acp Responses requests do not accept per-request "
-                        "workspace selection; configure one trusted absolute workspace "
-                        "for this backend instance"
-                    ),
-                    details={"code": "cursor_cli_acp_dynamic_workspace_forbidden"},
-                )
-            if self._default_project_dir is None:
-                raise ConfigurationError(
-                    message=(
-                        "cursor-cli-acp Responses requests require one trusted "
-                        "absolute workspace configured for the backend instance"
-                    ),
-                    details={"error_code": "cursor_cli_acp_workspace_required"},
-                )
-            return self._default_project_dir
 
         request_workspace = first_usable_workspace_dir(
             extra_dict,
@@ -766,11 +814,33 @@ class CursorCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
                     "workspace": hint,
                 },
             )
-        if self._default_project_dir is None:
-            raise ConfigurationError(
-                message="cursor-cli-acp has no trusted workspace configured"
-            )
-        return self._default_project_dir
+        return self._resolve_fallback_workspace()
+
+    def _resolve_process_cwd_workspace(self) -> Path | None:
+        """Last-resort spawn directory when the request/session named none."""
+
+        try:
+            cwd = Path.cwd().expanduser().resolve()
+        except (OSError, RuntimeError):
+            return None
+        if self._is_usable_directory(cwd):
+            return cwd
+        return None
+
+    def _resolve_fallback_workspace(self) -> Path:
+        if self._default_project_dir is not None:
+            return self._default_project_dir
+        cwd_workspace = self._resolve_process_cwd_workspace()
+        if cwd_workspace is not None:
+            return cwd_workspace
+        raise ConfigurationError(
+            message=(
+                "cursor-cli-acp has no workspace to spawn in. Send an absolute "
+                "session project_dir or request project_dir/workspace_path/cwd/"
+                "project, or set extra.workspace_path / CURSOR_CLI_WORKSPACE."
+            ),
+            details={"error_code": "cursor_cli_acp_workspace_required"},
+        )
 
     def _build_runtime_key(
         self,
@@ -907,6 +977,7 @@ class CursorCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
                 "clientCapabilities": {
                     "fs": {"readTextFile": False, "writeTextFile": False},
                     "terminal": False,
+                    "_meta": {"parameterizedModelPicker": True},
                 },
                 "clientInfo": {
                     "name": "llm-interactive-proxy",
@@ -948,6 +1019,92 @@ class CursorCliAcpConnector(BaseAcpConnector[ACPProcessRuntime]):
             )
 
         runtime.session_id = session_id
+
+        requested_fast = _cursor_model_fast_tier(
+            runtime.model, available_cli_model_ids=self._model_cli_ids.values()
+        )
+        fast_option = _cursor_config_option(
+            _cursor_config_options(session_result), "fast"
+        )
+        if requested_fast is None and fast_option is not None:
+            # The parameterized picker exposes the speed switch even when the
+            # catalog did not include a distinct standard route. Keep the
+            # default request on standard speed unless the caller selected an
+            # explicit ``-fast`` model.
+            requested_fast = False
+
+        if requested_fast is not None:
+            if fast_option is None:
+                raise BackendError(
+                    message=(
+                        "Cursor ACP did not expose the parameterized fast option "
+                        f"for model {runtime.model!r}"
+                    ),
+                    details={
+                        "code": "cursor_speed_tier_unavailable",
+                        "model": runtime.model,
+                        "requested_fast": requested_fast,
+                    },
+                )
+
+            requested_value = "true" if requested_fast else "false"
+            set_config_id = await self._send_jsonrpc_message(
+                runtime,
+                "session/set_config_option",
+                {
+                    "sessionId": session_id,
+                    "configId": "fast",
+                    "value": requested_value,
+                },
+            )
+            set_config_response = await self._await_response(runtime, set_config_id)
+            if set_config_response.is_error:
+                error_message = (
+                    set_config_response.error.message
+                    if set_config_response.error is not None
+                    else "unknown ACP error"
+                )
+                raise BackendError(
+                    message=(
+                        "Cursor ACP rejected the requested fast tier "
+                        f"{requested_value!r}: {error_message}"
+                    ),
+                    details={
+                        "code": "cursor_speed_tier_rejected",
+                        "model": runtime.model,
+                        "requested_fast": requested_fast,
+                        "error": (
+                            set_config_response.error.model_dump()
+                            if set_config_response.error is not None
+                            else None
+                        ),
+                    },
+                )
+
+            set_config_result = set_config_response.result or {}
+            confirmed_option = _cursor_config_option(
+                _cursor_config_options(set_config_result), "fast"
+            )
+            effective_value = (
+                _cursor_config_option_current_value(confirmed_option)
+                if confirmed_option is not None
+                else None
+            )
+            if effective_value != requested_value:
+                raise BackendError(
+                    message=(
+                        "Cursor ACP did not confirm the requested fast tier: "
+                        f"requested {requested_value!r}, effective {effective_value!r}"
+                    ),
+                    details={
+                        "code": "cursor_speed_tier_mismatch",
+                        "model": runtime.model,
+                        "requested_fast": requested_fast,
+                        "requested_value": requested_value,
+                        "effective_value": effective_value,
+                    },
+                )
+
         runtime.initialized = True
 
     def _permission_option_id(self) -> str:

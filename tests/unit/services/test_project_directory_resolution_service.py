@@ -823,6 +823,48 @@ class TestProjectDirectoryResolutionService:
         assert session.state.project_dir == win_path
         mock_backend_service.call_completion.assert_not_called()
 
+    async def test_retries_opencode_working_directory_after_failed_first_attempt(
+        self, mock_backend_service, mock_session_service, session, tmp_path: Path
+    ) -> None:
+        """A short title prompt must not freeze an empty workspace for later OpenCode turns."""
+        project_root = tmp_path / "later-turn-root"
+        project_root.mkdir(parents=True)
+        win_path = str(project_root.resolve())
+        config = create_app_config(
+            "deterministic",
+            filesystem_mode="disabled",
+            disable_default_openrouter_fallback=True,
+        )
+        service = ProjectDirectoryResolutionService(
+            config, mock_backend_service, mock_session_service
+        )
+
+        first_request = ChatRequest(
+            model="cursor-cli-acp:cursor/grok-4.6-high",
+            agent="opencode/1.18.32 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
+            messages=[ChatMessage(role="user", content="Generate a brief title")],
+        )
+        await service.maybe_resolve_project_directory(session, first_request)
+        assert session.state.project_dir is None
+        assert session.state.project_dir_resolution_attempted is True
+
+        later_request = ChatRequest(
+            model="cursor-cli-acp:cursor/grok-4.6-high",
+            agent="opencode/1.18.32 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14",
+            messages=[
+                ChatMessage(
+                    role="system",
+                    content=f"Working directory: {win_path}\n",
+                ),
+                ChatMessage(role="user", content="Continue in this repo."),
+            ],
+            tools=[{"type": "function", "function": {"name": "bash"}}],
+        )
+        await service.maybe_resolve_project_directory(session, later_request)
+
+        assert session.state.project_dir == win_path
+        mock_backend_service.call_completion.assert_not_called()
+
     async def test_opencode_working_directory_uses_session_agent_when_request_has_no_agent(
         self, mock_backend_service, mock_session_service, session, tmp_path: Path
     ) -> None:

@@ -227,6 +227,7 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
         self._turn_pacing_delay_seconds: float = 0.0
         self._runtime_pool_lock = asyncio.Lock()
         self._runtimes: dict[tuple[str, str, str], RuntimeT] = {}
+        self._shutdown_requested = False
 
     @property
     def has_static_credentials(self) -> bool:
@@ -515,6 +516,7 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
             )
 
         async with self._runtime_pool_lock:
+            self._raise_if_shutting_down()
             runtime = self._runtimes.get(runtime_key)
             if runtime is None:
                 runtime = self._create_runtime(
@@ -597,6 +599,8 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
         await self._kill_runtime(runtime)
 
         async with self._runtime_pool_lock:
+            if self._shutdown_requested:
+                return runtime
             current = self._runtimes.get(runtime_key)
             if current is runtime:
                 replacement = self._create_runtime(
@@ -616,11 +620,13 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
     async def _spawn_process(self, runtime: RuntimeT) -> None:
         assert runtime.process_lock is not None
         async with runtime.process_lock:
+            self._raise_if_shutting_down()
             process = runtime.process
             if process is not None and process.poll() is None:
                 return
 
             cmd = await self._build_subprocess_command(runtime)
+            self._raise_if_shutting_down()
 
             new_process: subprocess.Popen[bytes] | None = None
             try:
@@ -636,6 +642,9 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
                         subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
                     ),
                 )
+                if self._shutdown_requested:
+                    await self._terminate_process(new_process)
+                    self._raise_if_shutting_down()
                 runtime.process = new_process
                 runtime.stderr_drain_stop_event.clear()
                 # Clear diagnostics before the reader starts so bytes emitted
@@ -671,6 +680,20 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
                 runtime.acp_subprocess_identity = capture_acp_subprocess_identity(
                     new_process, cmd
                 )
+            except ServiceUnavailableError:
+                if new_process is not None:
+                    self._stop_stderr_drain(runtime)
+                    self._cleanup_process(new_process)
+                    self._join_stderr_drain_thread(runtime)
+                runtime.process = None
+                runtime.initialized = False
+                self._reset_protocol_runtime_state(runtime)
+                runtime.history_state = None
+                runtime.process_cwd = None
+                runtime.acp_subprocess_identity = None
+                with runtime.stderr_tail_lock:
+                    runtime.stderr_tail.clear()
+                raise
             except Exception as exc:
                 if new_process is not None:
                     self._stop_stderr_drain(runtime)
@@ -2471,7 +2494,16 @@ class BaseAcpConnector(LLMBackend, UsageCalculationMixin, ABC, Generic[RuntimeT]
             # else: ``_cancel_active_request`` releases after teardown.
 
     async def shutdown(self) -> None:
+        async with self._runtime_pool_lock:
+            self._shutdown_requested = True
         await self._kill_all_runtimes()
+
+    def _raise_if_shutting_down(self) -> None:
+        if self._shutdown_requested:
+            raise ServiceUnavailableError(
+                message=f"{self.backend_type} is shutting down",
+                details={"code": "acp_backend_shutting_down"},
+            )
 
     def __del__(self) -> None:
         runtimes = getattr(self, "_runtimes", None)

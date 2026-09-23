@@ -8,17 +8,23 @@
 # this connector is OAuth-style and is not loaded in production multi-user.
 connector: cursor-cli-acp
 extra:
-  # Required for /v1/responses: set one explicit absolute trusted workspace
-  # here or through CURSOR_CLI_WORKSPACE. Legacy /v1/chat/completions requests
-  # may instead use the absolute project directory resolved into session state.
-  # Relative paths are rejected. Use a separate backend instance per project
-  # for Responses routes.
+  # Optional default workspace when a request/session does not name one.
+  # Distinct session/request directories spawn separate ACP children
+  # (same pooling as other ACP connectors). Relative paths are rejected.
   # workspace_path: "C:\\absolute\\trusted\\project"
   model: "composer-2"
   # Responses compatibility is text-only: Cursor-owned tool permissions are
   # always rejected and this backend must not be used as a Codex Executor.
   auto_accept: false
-  trust_workspace: false
+  # API model examples: cursor-cli-acp:cursor/grok-4.6-high (standard) or
+  # cursor-cli-acp:cursor/grok-4.6-high-fast (fast). Composer 2.5 uses the
+  # same base/-fast suffix pair. Do not append [fast=false] to an API slug.
+  # The connector selects fast=false or fast=true through ACP before the first
+  # prompt and verifies the effective value.
+  # ACP is headless and cannot show Cursor's interactive trust prompt.
+  # Pass --trust so each spawned child can use its target directory the same
+  # way an already-trusted interactive `agent` session would.
+  trust_workspace: true
   process_timeout: 300
   idle_timeout: 120
   # Seconds to reuse `agent --list-models` output before re-running subprocess (0 = always refresh).

@@ -758,6 +758,7 @@ class TestSessionEnricher:
         session.state.client_os = None
         session.state.vtc_enabled = False
         session.state.project_dir_resolution_attempted = True  # Already attempted
+        session.state.project_dir = r"C:\already\resolved"
 
         mock_session_manager.get_session.return_value = session
         mock_session_manager.update_session_agent.return_value = session
@@ -771,6 +772,38 @@ class TestSessionEnricher:
 
         # Assert
         project_dir_service.maybe_resolve_project_directory.assert_not_called()
+
+    async def test_project_directory_retried_when_first_attempt_left_dir_empty(
+        self,
+        enricher: SessionEnricher,
+        mock_session_manager: ISessionManager,
+        mock_app_state: IApplicationState,
+    ):
+        context = RequestContext(
+            headers={}, cookies={}, state={}, app_state=MagicMock()
+        )
+        request = ChatRequest(
+            model="gpt-4",
+            messages=[ChatMessage(role="user", content="Working directory: C:\\repo")],
+        )
+
+        session = MagicMock(spec=Session)
+        session.agent = None
+        session.state = MagicMock(spec=SessionState)
+        session.state.client_os = None
+        session.state.vtc_enabled = False
+        session.state.project_dir_resolution_attempted = True
+        session.state.project_dir = None
+
+        mock_session_manager.get_session.return_value = session
+        mock_session_manager.update_session_agent.return_value = session
+
+        project_dir_service = AsyncMock()
+        mock_app_state.get_service.return_value = project_dir_service
+
+        await enricher.enrich(context, request)
+
+        project_dir_service.maybe_resolve_project_directory.assert_called_once()
 
     async def test_project_directory_skipped_for_acp_responses_text_only_mode(
         self,

@@ -22,7 +22,11 @@ from src.connectors.contracts import (
     ConnectorChatCompletionsRequest,
     ConnectorRequestContext,
 )
-from src.core.common.exceptions import APITimeoutError, BackendError
+from src.core.common.exceptions import (
+    APITimeoutError,
+    BackendError,
+    ServiceUnavailableError,
+)
 from src.core.domain.chat import CanonicalChatRequest, ChatMessage
 from src.core.domain.responses import ProcessedResponse, ResponseEnvelope
 
@@ -1206,6 +1210,106 @@ async def test_kill_all_runtimes_next_acquire_creates_new_runtime_object(
     r_after = await connector._acquire_runtime(_make_request(session_id="recycle"))
     assert r_after is not r_before
     assert r_after.history_state is None
+
+
+def _live_process(pid: int) -> MagicMock:
+    process = MagicMock()
+    process.pid = pid
+    process.poll.return_value = None
+    return process
+
+
+@pytest.mark.asyncio
+async def test_shutdown_terminates_every_pooled_runtime(
+    connector: DummyAcpConnector,
+) -> None:
+    connector._default_project_dir = Path("/tmp/dummy")
+    first = await connector._acquire_runtime(_make_request(session_id="ws-a"))
+    second = await connector._acquire_runtime(_make_request(session_id="ws-b"))
+    proc_a = _live_process(11)
+    proc_b = _live_process(22)
+    first.process = proc_a
+    second.process = proc_b
+
+    with patch.object(connector, "_terminate_process", AsyncMock()) as terminate:
+        await connector.shutdown()
+
+    assert {call.args[0] for call in terminate.await_args_list} == {proc_a, proc_b}
+    assert connector._runtimes == {}
+    assert first.process is None
+    assert second.process is None
+
+
+@pytest.mark.asyncio
+async def test_shutdown_is_idempotent(connector: DummyAcpConnector) -> None:
+    connector._default_project_dir = Path("/tmp/dummy")
+    runtime = await connector._acquire_runtime(_make_request())
+    runtime.process = _live_process(33)
+
+    with patch.object(connector, "_terminate_process", AsyncMock()) as terminate:
+        await connector.shutdown()
+        await connector.shutdown()
+
+    terminate.assert_awaited_once()
+    assert connector._runtimes == {}
+
+
+@pytest.mark.asyncio
+async def test_acquire_runtime_after_shutdown_does_not_respawn(
+    connector: DummyAcpConnector,
+) -> None:
+    connector._default_project_dir = Path("/tmp/dummy")
+    await connector.shutdown()
+
+    with pytest.raises(ServiceUnavailableError) as exc_info:
+        await connector._acquire_runtime(_make_request())
+
+    assert exc_info.value.details.get("code") == "acp_backend_shutting_down"
+    assert connector._runtimes == {}
+
+
+@pytest.mark.asyncio
+async def test_spawn_after_shutdown_does_not_start_child(
+    connector: DummyAcpConnector,
+) -> None:
+    runtime = connector._create_runtime(Path("/tmp/ws"), "m")
+    await connector.shutdown()
+
+    with (
+        patch(
+            "src.connectors.acp_core.base_connector.subprocess.Popen",
+        ) as popen,
+        pytest.raises(ServiceUnavailableError),
+    ):
+        await connector._spawn_process(runtime)
+
+    popen.assert_not_called()
+    assert runtime.process is None
+
+
+@pytest.mark.asyncio
+async def test_spawn_terminates_child_if_shutdown_starts_during_popen(
+    connector: DummyAcpConnector,
+) -> None:
+    runtime = connector._create_runtime(Path("/tmp/ws"), "m")
+    process = _live_process(44)
+
+    def _popen(*_args: Any, **_kwargs: Any) -> MagicMock:
+        connector._shutdown_requested = True
+        return process
+
+    with (
+        patch(
+            "src.connectors.acp_core.base_connector.subprocess.Popen",
+            side_effect=_popen,
+        ),
+        patch.object(connector, "_terminate_process", AsyncMock()) as terminate,
+        pytest.raises(ServiceUnavailableError),
+    ):
+        await connector._spawn_process(runtime)
+
+    terminate.assert_awaited_once_with(process)
+    assert runtime.process is None
 
 
 @pytest.mark.asyncio

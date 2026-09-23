@@ -2121,6 +2121,13 @@ class BackendCompletionFlow(IBackendCompletionFlow):
             elif details_code == "policy_rejected":
                 status_code = 403
 
+        logger.warning(
+            "Backend %s produced terminal HTTP %s: %s",
+            provider,
+            status_code,
+            normalized_error,
+        )
+
         async def _iterator():
             terminal_chunk = await handle_streaming_error(
                 normalized_error,

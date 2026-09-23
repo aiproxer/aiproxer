@@ -921,30 +921,17 @@ class ProjectDirectoryResolutionService:
                 logger.debug("Project directory resolution is disabled")
             return
 
-        if getattr(session.state, "project_dir_resolution_attempted", False):
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    "Project directory resolution already attempted for this session"
-                )
-            return
-
-        if session.history:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    "Session has history, skipping project directory resolution"
-                )
-            return
-
         existing_dir = getattr(session.state, "project_dir", None)
         if existing_dir:
-            await self._persist_state(
-                session,
-                directory=None,
-                message=(
-                    "Project directory auto-detection skipped: directory already set to"
-                    f" {existing_dir}"
-                ),
-            )
+            if not getattr(session.state, "project_dir_resolution_attempted", False):
+                await self._persist_state(
+                    session,
+                    directory=None,
+                    message=(
+                        "Project directory auto-detection skipped: directory already set to"
+                        f" {existing_dir}"
+                    ),
+                )
             return
 
         extra_body = getattr(request, "extra_body", None)
@@ -965,15 +952,6 @@ class ProjectDirectoryResolutionService:
                 )
                 return
 
-        skip_reason = self._resolution_skip_reason(request)
-        if skip_reason:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    "Skipping project directory auto-detection for request: %s",
-                    skip_reason,
-                )
-            return
-
         authoritative_dir = (
             self._try_authoritative_directory_from_trusted_message_bodies(
                 request, session
@@ -988,6 +966,29 @@ class ProjectDirectoryResolutionService:
                     f"(authoritative cwd line in trusted message): {authoritative_dir}"
                 ),
             )
+            return
+
+        if getattr(session.state, "project_dir_resolution_attempted", False):
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Project directory resolution already attempted for this session"
+                )
+            return
+
+        if session.history:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Session has history, skipping project directory resolution"
+                )
+            return
+
+        skip_reason = self._resolution_skip_reason(request)
+        if skip_reason:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Skipping project directory auto-detection for request: %s",
+                    skip_reason,
+                )
             return
 
         startup_prompt_text = self._extract_trusted_startup_prompt(request, session)

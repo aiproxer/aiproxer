@@ -11,12 +11,13 @@ import httpx
 import pytest
 from pydantic.types import JsonValue
 from src.connectors.acp_core.base_connector import BaseAcpConnector
-from src.connectors.acp_core.types import ACPNotification
+from src.connectors.acp_core.types import ACPError, ACPNotification
 from src.connectors.contracts import ConnectorChatCompletionsRequest
 from src.connectors.cursor_cli_acp import (
     CursorCliAcpConnector,
     CursorCliConfiguredModelEnumerator,
     CursorCliModelCatalog,
+    _cursor_model_fast_tier,
     build_cursor_agent_acp_command,
     discover_cursor_cli_model_catalog,
     parse_agent_models_listing,
@@ -355,6 +356,36 @@ class TestCursorCliAcpModelCache:
 
 
 class TestCursorCliAcpHelpers:
+    @pytest.mark.parametrize(
+        ("model", "fast_sibling"),
+        [
+            ("cursor-grok-4.6-low", "cursor-grok-4.6-low-fast"),
+            ("cursor-grok-4.6-medium", "cursor-grok-4.6-medium-fast"),
+            ("cursor-grok-4.6-high", "cursor-grok-4.6-high-fast"),
+            ("cursor-grok-4.6-high", "cursor-grok-4.6-fast"),
+            ("cursor-grok-4.6-xhigh", "cursor-grok-4.6-xhigh-fast"),
+            ("composer-2.5", "composer-2.5-fast"),
+        ],
+    )
+    def test_paired_standard_model_selects_standard_speed(
+        self, model: str, fast_sibling: str
+    ) -> None:
+        assert (
+            _cursor_model_fast_tier(
+                model, available_cli_model_ids=[model, fast_sibling]
+            )
+            is False
+        )
+
+    def test_fast_model_selects_fast_speed(self) -> None:
+        assert _cursor_model_fast_tier("composer-2.5-fast") is True
+
+    @pytest.mark.parametrize("model", ["cursor-grok-4.6-high", "composer-2.5"])
+    def test_known_cursor_standard_models_require_confirmation_without_catalog(
+        self, model: str
+    ) -> None:
+        assert _cursor_model_fast_tier(model) is False
+
     def test_parse_agent_models_listing(self) -> None:
         raw = """Loading models…
 Available models
@@ -444,7 +475,101 @@ class TestCursorCliAcpInitialization:
         assert connector.is_backend_functional() is True
         assert connector._default_project_dir is None
         assert runtime.project_dir == temp_workspace.resolve()
-        discover_models.assert_awaited_once_with()
+        discover_models.assert_awaited_once()
+
+    async def test_initialize_without_workspace_leaves_default_unset(
+        self,
+        connector: CursorCliAcpConnector,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        project = tmp_path / "already-trusted-repo"
+        project.mkdir()
+        monkeypatch.chdir(project)
+        fake = str(project / "fake-agent")
+        Path(fake).write_text("noop", encoding="utf-8")
+        with (
+            patch.object(connector, "_check_agent_available", return_value=True),
+            patch.object(connector, "_discover_models", return_value=["cursor/a"]),
+        ):
+            await connector.initialize(cursor_cli_executable=fake)
+
+        assert connector.is_backend_functional() is True
+        assert connector._default_project_dir is None
+
+    async def test_different_workspaces_spawn_separate_runtimes(
+        self, connector: CursorCliAcpConnector, tmp_path: Path
+    ) -> None:
+        first = tmp_path / "worktree-a"
+        second = tmp_path / "worktree-b"
+        first.mkdir()
+        second.mkdir()
+        fake = str(tmp_path / "fake-agent")
+        Path(fake).write_text("noop", encoding="utf-8")
+        discover_models = AsyncMock(return_value=["cursor/composer-2"])
+        with (
+            patch.object(connector, "_check_agent_available", return_value=True),
+            patch.object(connector, "_discover_models", discover_models),
+        ):
+            await connector.initialize(cursor_cli_executable=fake)
+            runtime_a = await connector._acquire_runtime(
+                _make_request(options={"project_dir": str(first)})
+            )
+            runtime_b = await connector._acquire_runtime(
+                _make_request(options={"project_dir": str(second)})
+            )
+
+        assert runtime_a is not runtime_b
+        assert runtime_a.project_dir == first.resolve()
+        assert runtime_b.project_dir == second.resolve()
+        assert len(connector._runtimes) == 2
+
+    def test_legacy_request_falls_back_to_process_cwd(
+        self,
+        connector: CursorCliAcpConnector,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        project = tmp_path / "cli-cwd"
+        project.mkdir()
+        monkeypatch.chdir(project)
+        connector._default_project_dir = None
+
+        resolved = connector._resolve_project_dir_for_request(_make_request())
+
+        assert resolved == project.resolve()
+
+    def test_request_workspace_overrides_instance_default(
+        self, connector: CursorCliAcpConnector, tmp_path: Path
+    ) -> None:
+        instance_default = tmp_path / "instance-default"
+        request_dir = tmp_path / "worktree"
+        instance_default.mkdir()
+        request_dir.mkdir()
+        connector._default_project_dir = instance_default.resolve()
+
+        resolved = connector._resolve_project_dir_for_request(
+            _make_request(options={"project_dir": str(request_dir)})
+        )
+
+        assert resolved == request_dir.resolve()
+
+    def test_responses_request_uses_process_cwd_when_unconfigured(
+        self,
+        connector: CursorCliAcpConnector,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        project = tmp_path / "responses-cwd"
+        project.mkdir()
+        monkeypatch.chdir(project)
+        connector._default_project_dir = None
+
+        resolved = connector._resolve_project_dir_for_request(
+            _make_request(extra_body={ACP_RESPONSES_TEXT_ONLY_MODE_KEY: True})
+        )
+
+        assert resolved == project.resolve()
 
     async def test_initialize_rejects_relative_dot_workspace_path(
         self, connector: CursorCliAcpConnector, temp_workspace: Path
@@ -490,21 +615,18 @@ class TestCursorCliAcpInitialization:
 
 
 class TestCursorCliAcpRuntimeReuse:
-    def test_responses_request_cannot_use_dynamic_legacy_workspace(
+    def test_responses_request_uses_dynamic_workspace(
         self, connector: CursorCliAcpConnector, temp_workspace: Path
     ) -> None:
+        connector._default_project_dir = None
         request = _make_request(
             extra_body={ACP_RESPONSES_TEXT_ONLY_MODE_KEY: True},
             options={"project_dir": str(temp_workspace)},
         )
 
-        with pytest.raises(BackendError) as exc_info:
-            connector._resolve_project_dir_for_request(request)
+        resolved = connector._resolve_project_dir_for_request(request)
 
-        assert (
-            exc_info.value.details.get("code")
-            == "cursor_cli_acp_dynamic_workspace_forbidden"
-        )
+        assert resolved == temp_workspace.resolve()
 
     def test_responses_request_uses_static_trusted_workspace(
         self, connector: CursorCliAcpConnector, temp_workspace: Path
@@ -592,6 +714,21 @@ class TestCursorCliAcpRuntimeReuse:
 
         assert first == second
 
+    def test_runtime_key_is_scoped_to_workspace(
+        self, connector: CursorCliAcpConnector, tmp_path: Path
+    ) -> None:
+        first = tmp_path / "worktree-a"
+        second = tmp_path / "worktree-b"
+        first.mkdir()
+        second.mkdir()
+
+        key_a = connector._build_runtime_key(first, "composer-2", "default")
+        key_b = connector._build_runtime_key(second, "composer-2", "default")
+
+        assert key_a != key_b
+        assert key_a[0] == str(first)
+        assert key_b[0] == str(second)
+
     def test_responses_text_only_runtime_is_isolated_from_legacy_chat(
         self, connector: CursorCliAcpConnector, temp_workspace: Path
     ) -> None:
@@ -646,6 +783,35 @@ class TestCursorCliAcpRuntimeReuse:
 
         assert first == first_retry
         assert first != second
+
+    async def test_shutdown_terminates_runtimes_for_every_workspace(
+        self, connector: CursorCliAcpConnector, tmp_path: Path
+    ) -> None:
+        first = tmp_path / "worktree-a"
+        second = tmp_path / "worktree-b"
+        first.mkdir()
+        second.mkdir()
+        runtime_a = connector._create_runtime(first, "composer-2")
+        runtime_b = connector._create_runtime(second, "composer-2")
+        proc_a = MagicMock()
+        proc_a.poll.return_value = None
+        proc_b = MagicMock()
+        proc_b.poll.return_value = None
+        runtime_a.process = proc_a
+        runtime_b.process = proc_b
+        key_a = connector._build_runtime_key(first, "composer-2", "default")
+        key_b = connector._build_runtime_key(second, "composer-2", "default")
+        async with connector._runtime_pool_lock:
+            connector._runtimes[key_a] = runtime_a
+            connector._runtimes[key_b] = runtime_b
+
+        with patch.object(connector, "_terminate_process", AsyncMock()) as terminate:
+            await connector.shutdown()
+
+        assert {call.args[0] for call in terminate.await_args_list} == {proc_a, proc_b}
+        assert connector._runtimes == {}
+        assert runtime_a.process is None
+        assert runtime_b.process is None
 
     async def test_responses_text_only_runtime_command_uses_ask_mode(
         self, connector: CursorCliAcpConnector, temp_workspace: Path
@@ -863,7 +1029,7 @@ class TestCursorCliAcpProtocol:
             patch.object(
                 connector,
                 "_send_jsonrpc_message",
-                AsyncMock(side_effect=[1, 2, 3]),
+                AsyncMock(side_effect=[1, 2, 3, 4]),
             ) as send_jsonrpc,
             patch.object(
                 connector,
@@ -871,7 +1037,21 @@ class TestCursorCliAcpProtocol:
                 AsyncMock(
                     side_effect=[
                         ACPNotification(id=1, result={"protocolVersion": 1}),
-                        ACPNotification(id=2, result={"sessionId": "sid-1"}),
+                        ACPNotification(
+                            id=2,
+                            result={
+                                "sessionId": "sid-1",
+                                "configOptions": [{"id": "fast"}],
+                            },
+                        ),
+                        ACPNotification(
+                            id=3,
+                            result={
+                                "configOptions": [
+                                    {"id": "fast", "currentValue": "false"}
+                                ]
+                            },
+                        ),
                     ]
                 ),
             ),
@@ -880,7 +1060,7 @@ class TestCursorCliAcpProtocol:
                 await connector._prepare_turn_request_locked(runtime, _make_request())
             )
 
-        assert prompt_request_id == 3
+        assert prompt_request_id == 4
         assert requested_model == "cursor/composer-2"
         assert runtime.session_id == "sid-1"
         assert runtime.initialized is True
@@ -889,8 +1069,228 @@ class TestCursorCliAcpProtocol:
         assert methods == [
             "initialize",
             "session/new",
+            "session/set_config_option",
             "session/prompt",
         ]
+        initialize_params = send_jsonrpc.await_args_list[0].args[2]
+        assert initialize_params["clientCapabilities"]["_meta"] == {
+            "parameterizedModelPicker": True
+        }
+
+    async def test_high_model_selects_standard_speed_before_prompt(
+        self, connector: CursorCliAcpConnector, temp_workspace: Path
+    ) -> None:
+        runtime = connector._create_runtime(
+            temp_workspace, "cursor-grok-4.6-high", "speed-standard"
+        )
+        runtime.process = MagicMock()
+
+        with (
+            patch.object(connector, "_spawn_process", AsyncMock()),
+            patch.object(
+                connector,
+                "_send_jsonrpc_message",
+                AsyncMock(side_effect=[1, 2, 3, 4]),
+            ) as send_jsonrpc,
+            patch.object(
+                connector,
+                "_await_response",
+                AsyncMock(
+                    side_effect=[
+                        ACPNotification(id=1, result={"protocolVersion": 1}),
+                        ACPNotification(
+                            id=2,
+                            result={
+                                "sessionId": "sid-standard",
+                                "configOptions": [
+                                    {"id": "fast", "currentValue": "true"}
+                                ],
+                            },
+                        ),
+                        ACPNotification(
+                            id=3,
+                            result={
+                                "configOptions": [
+                                    {"id": "fast", "currentValue": "false"}
+                                ]
+                            },
+                        ),
+                    ]
+                ),
+            ),
+        ):
+            prompt_request_id, _ = await connector._prepare_turn_request_locked(
+                runtime, _make_request(model="cursor/grok-4.6-high")
+            )
+
+        assert prompt_request_id == 4
+        methods = [call.args[1] for call in send_jsonrpc.await_args_list]
+        assert methods == [
+            "initialize",
+            "session/new",
+            "session/set_config_option",
+            "session/prompt",
+        ]
+        set_params = send_jsonrpc.await_args_list[2].args[2]
+        assert set_params == {
+            "sessionId": "sid-standard",
+            "configId": "fast",
+            "value": "false",
+        }
+
+    async def test_fast_model_selects_fast_speed(
+        self, connector: CursorCliAcpConnector, temp_workspace: Path
+    ) -> None:
+        runtime = connector._create_runtime(temp_workspace, "cursor-grok-4.6-fast")
+        runtime.process = MagicMock()
+
+        with (
+            patch.object(
+                connector, "_send_jsonrpc_message", AsyncMock(side_effect=[1, 2, 3])
+            ) as send_jsonrpc,
+            patch.object(
+                connector,
+                "_await_response",
+                AsyncMock(
+                    side_effect=[
+                        ACPNotification(id=1, result={"protocolVersion": 1}),
+                        ACPNotification(
+                            id=2,
+                            result={
+                                "sessionId": "sid-fast",
+                                "configOptions": {"fast": {"id": "fast"}},
+                            },
+                        ),
+                        ACPNotification(
+                            id=3,
+                            result={
+                                "configOptions": {
+                                    "fast": {"id": "fast", "currentValue": True}
+                                }
+                            },
+                        ),
+                    ]
+                ),
+            ),
+        ):
+            await connector._perform_handshake(runtime)
+
+        assert send_jsonrpc.await_args_list[2].args[2]["value"] == "true"
+        assert runtime.initialized is True
+
+    async def test_speed_tier_fails_when_fast_option_is_missing(
+        self, connector: CursorCliAcpConnector, temp_workspace: Path
+    ) -> None:
+        runtime = connector._create_runtime(temp_workspace, "cursor-grok-4.6-high")
+        runtime.process = MagicMock()
+
+        with (
+            patch.object(
+                connector, "_send_jsonrpc_message", AsyncMock(side_effect=[1, 2])
+            ),
+            patch.object(
+                connector,
+                "_await_response",
+                AsyncMock(
+                    side_effect=[
+                        ACPNotification(id=1, result={"protocolVersion": 1}),
+                        ACPNotification(id=2, result={"sessionId": "sid-no-fast"}),
+                    ]
+                ),
+            ),
+            pytest.raises(
+                BackendError, match="did not expose the parameterized fast option"
+            ) as exc_info,
+        ):
+            await connector._perform_handshake(runtime)
+
+        assert exc_info.value.details["code"] == "cursor_speed_tier_unavailable"
+        assert runtime.initialized is False
+
+    async def test_speed_tier_fails_when_cursor_rejects_selection(
+        self, connector: CursorCliAcpConnector, temp_workspace: Path
+    ) -> None:
+        runtime = connector._create_runtime(temp_workspace, "cursor-grok-4.6-high")
+        runtime.process = MagicMock()
+
+        with (
+            patch.object(
+                connector, "_send_jsonrpc_message", AsyncMock(side_effect=[1, 2, 3])
+            ),
+            patch.object(
+                connector,
+                "_await_response",
+                AsyncMock(
+                    side_effect=[
+                        ACPNotification(id=1, result={"protocolVersion": 1}),
+                        ACPNotification(
+                            id=2,
+                            result={
+                                "sessionId": "sid-reject",
+                                "configOptions": [{"id": "fast"}],
+                            },
+                        ),
+                        ACPNotification(
+                            id=3,
+                            error=ACPError(code=-32602, message="unsupported option"),
+                        ),
+                    ]
+                ),
+            ),
+            pytest.raises(
+                BackendError, match="rejected the requested fast tier"
+            ) as exc_info,
+        ):
+            await connector._perform_handshake(runtime)
+
+        assert exc_info.value.details["code"] == "cursor_speed_tier_rejected"
+        assert runtime.initialized is False
+
+    async def test_speed_tier_fails_when_cursor_confirms_mismatch(
+        self, connector: CursorCliAcpConnector, temp_workspace: Path
+    ) -> None:
+        runtime = connector._create_runtime(temp_workspace, "cursor-grok-4.6-high")
+        runtime.process = MagicMock()
+
+        with (
+            patch.object(
+                connector, "_send_jsonrpc_message", AsyncMock(side_effect=[1, 2, 3])
+            ),
+            patch.object(
+                connector,
+                "_await_response",
+                AsyncMock(
+                    side_effect=[
+                        ACPNotification(id=1, result={"protocolVersion": 1}),
+                        ACPNotification(
+                            id=2,
+                            result={
+                                "sessionId": "sid-mismatch",
+                                "configOptions": [
+                                    {"id": "fast", "currentValue": "true"}
+                                ],
+                            },
+                        ),
+                        ACPNotification(
+                            id=3,
+                            result={
+                                "configOptions": [
+                                    {"id": "fast", "currentValue": "true"}
+                                ]
+                            },
+                        ),
+                    ]
+                ),
+            ),
+            pytest.raises(
+                BackendError, match="did not confirm the requested fast tier"
+            ) as exc_info,
+        ):
+            await connector._perform_handshake(runtime)
+
+        assert exc_info.value.details["code"] == "cursor_speed_tier_mismatch"
+        assert exc_info.value.details["effective_value"] == "true"
+        assert runtime.initialized is False
 
     async def test_prepare_prompt_records_standalone_responses_marker(
         self, connector: CursorCliAcpConnector, temp_workspace: Path
@@ -911,7 +1311,7 @@ class TestCursorCliAcpProtocol:
             patch.object(
                 connector,
                 "_send_jsonrpc_message",
-                AsyncMock(side_effect=[1, 2, 3]),
+                AsyncMock(side_effect=[1, 2, 3, 4]),
             ),
             patch.object(
                 connector,
@@ -919,7 +1319,21 @@ class TestCursorCliAcpProtocol:
                 AsyncMock(
                     side_effect=[
                         ACPNotification(id=1, result={"protocolVersion": 1}),
-                        ACPNotification(id=2, result={"sessionId": "sid-1"}),
+                        ACPNotification(
+                            id=2,
+                            result={
+                                "sessionId": "sid-1",
+                                "configOptions": [{"id": "fast"}],
+                            },
+                        ),
+                        ACPNotification(
+                            id=3,
+                            result={
+                                "configOptions": [
+                                    {"id": "fast", "currentValue": "false"}
+                                ]
+                            },
+                        ),
                     ]
                 ),
             ),
@@ -1368,7 +1782,9 @@ class TestCursorCliDualAuthDiscovery:
             == "cursor-grok-4.5-high"
         )
 
-    def test_resolve_cursor_cli_model_id_explicitly_disables_fast_variant(self) -> None:
+    def test_resolve_cursor_cli_model_id_uses_catalog_id_when_fast_variant_exists(
+        self,
+    ) -> None:
         cli_ids = {
             "cursor/composer-2.5": "composer-2.5",
             "cursor/composer-2.5-fast": "composer-2.5-fast",
@@ -1380,7 +1796,7 @@ class TestCursorCliDualAuthDiscovery:
                 cli_ids=cli_ids,
                 requested_model="composer-2.5",
             )
-            == "composer-2.5[fast=false]"
+            == "composer-2.5"
         )
         assert (
             resolve_cursor_cli_model_id(

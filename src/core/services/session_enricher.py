@@ -145,14 +145,24 @@ class SessionEnricher(ISessionEnricher):
             isinstance(extra_body, dict)
             and extra_body.get(ACP_RESPONSES_TEXT_ONLY_MODE_KEY) is True
         )
+        raw_project_dir = (
+            getattr(session.state, "project_dir", None)
+            if hasattr(session, "state")
+            else None
+        )
+        project_dir_already_resolved = isinstance(raw_project_dir, str) and bool(
+            raw_project_dir.strip()
+        )
 
         # Auto-detect project directory if needed. Responses-to-ACP requests use
         # the connector's validated static workspace and must never infer a host
-        # path from prompt text.
+        # path from prompt text. A failed first attempt (for example an OpenCode
+        # title request with no cwd) must not block a later request that does
+        # include an authoritative workspace line.
         if (
             self._app_state is not None
             and hasattr(session, "state")
-            and not getattr(session.state, "project_dir_resolution_attempted", False)
+            and not project_dir_already_resolved
             and not uses_static_acp_workspace
         ):
             try:
