@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
 from src.core.config.app_config import BackendConfig
 from src.core.services.configured_backend_model_enumerators import (
+    ClineConfiguredModelEnumerator,
     CodexAppServerConfiguredModelEnumerator,
     ExplicitConfiguredModelEnumerator,
     OpenAICodexConfiguredModelEnumerator,
@@ -333,3 +334,57 @@ async def test_opencode_zen_enumerator_timeout_does_not_log_exc_info(
     assert len(matching_records) > 0
     for record in matching_records:
         assert record.exc_info is None
+
+
+@pytest.mark.asyncio
+async def test_cline_enumerator_advertises_virtual_free_route_without_network(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enumerator = ClineConfiguredModelEnumerator()
+    monkeypatch.setattr(
+        enumerator, "_fetch_live_free_models", AsyncMock(return_value=[])
+    )
+
+    result = await enumerator.enumerate("cline", BackendConfig(connector="cline"))
+
+    assert result.status == "available"
+    assert result.source == "cline_curated"
+    assert result.models[0] == "cline-free/free"
+    assert "cline-free/gemini-3.8-flash" in result.models
+    assert not result.instance_pinned
+
+
+@pytest.mark.asyncio
+async def test_cline_enumerator_merges_live_recommended_free_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enumerator = ClineConfiguredModelEnumerator()
+    config = BackendConfig(connector="cline")
+
+    class MockTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "free": [
+                        {"id": "cline-free/gemini-3.8-flash"},
+                        {"id": "stealth/space-bunny-alpha"},
+                    ]
+                },
+            )
+
+    real_async_client = httpx.AsyncClient
+
+    def _mock_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = MockTransport()
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _mock_client)
+
+    result = await enumerator.enumerate("cline", config)
+
+    assert result.status == "available"
+    assert result.source == "cline_recommended"
+    assert result.models[0] == "cline-free/free"
+    assert "cline-free/gemini-3.8-flash" in result.models
+    assert "stealth/space-bunny-alpha" in result.models

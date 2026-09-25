@@ -68,6 +68,7 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             )
             from src.core.interfaces.resilience_interface import IResilienceCoordinator
             from src.core.services.configured_backend_model_enumerators import (
+                ClineConfiguredModelEnumerator,
                 CodexAppServerConfiguredModelEnumerator,
                 ExplicitConfiguredModelEnumerator,
                 OpenAICodexConfiguredModelEnumerator,
@@ -133,6 +134,11 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             enumerators.register(
                 "opencode-zen",
                 OpencodeZenConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "cline",
+                ClineConfiguredModelEnumerator(),
                 timeout_seconds=None,
             )
             enumerators.register(

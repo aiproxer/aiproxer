@@ -371,7 +371,116 @@ class OpencodeZenConfiguredModelEnumerator:
         )
 
 
+_CLINE_DEFAULT_API_HOST = "https://api.cline.bot"
+_CLINE_FREE_VIRTUAL_MODEL = "cline-free/free"
+_CLINE_FREE_FALLBACK_MODELS: tuple[str, ...] = (
+    "cline-free/gemini-3.8-flash",
+    "cline-free/deepseek-v4.1-flash",
+    "cline-free/muse-spark-1.3-contributor",
+    "cline-free/mimo-v2.6-flash",
+    "stealth/space-bunny-alpha",
+)
+
+
+class ClineConfiguredModelEnumerator:
+    """Startup-safe catalog for the optional Cline OAuth connector.
+
+    Advertises the synthetic ``cline-free/free`` waterfall route plus curated
+    free models so model-only selectors resolve before the connector is
+    activated. Without this, the proxy returns HTTP 404 ``unknown_model`` for
+    ``cline-free/free`` because it is not an explicit ``backend:model`` selector.
+    """
+
+    def _resolve_api_host(self, config: BackendConfig) -> str:
+        extra = config.extra or {}
+        explicit = (
+            config.api_url
+            or extra.get("api_base_url")
+            or extra.get("cline_api_base_url")
+            or extra.get("api_host")
+        )
+        if isinstance(explicit, str) and explicit.strip():
+            host = explicit.strip().rstrip("/")
+            if host.endswith("/api/v1"):
+                return host[: -len("/api/v1")]
+            return host
+        return _CLINE_DEFAULT_API_HOST
+
+    def _base_models(self, config: BackendConfig) -> list[str]:
+        models: list[str] = [_CLINE_FREE_VIRTUAL_MODEL]
+        configured = config.models or (config.extra or {}).get("models")
+        if isinstance(configured, list | tuple):
+            for raw in configured:
+                name = str(raw).strip()
+                if name and name not in models:
+                    models.append(name)
+        for fallback in _CLINE_FREE_FALLBACK_MODELS:
+            if fallback not in models:
+                models.append(fallback)
+        return models
+
+    async def _fetch_live_free_models(self, api_host: str) -> list[str]:
+        url = f"{api_host.rstrip('/')}/api/v1/ai/cline/recommended-models"
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    url,
+                    headers={
+                        "Accept": "application/json",
+                        "HTTP-Referer": "https://cline.bot",
+                        "X-Title": "Cline",
+                    },
+                )
+            if response.status_code != 200:
+                return []
+            payload = response.json()
+        except (httpx.TransportError, TimeoutError, ConnectionError, ValueError):
+            return []
+        except Exception:
+            logger.debug(
+                "Cline recommended-models discovery failed",
+                exc_info=True,
+            )
+            return []
+
+        free_entries = payload.get("free") if isinstance(payload, dict) else None
+        if not isinstance(free_entries, list):
+            return []
+        models: list[str] = []
+        seen: set[str] = set()
+        for item in free_entries:
+            raw_id = ""
+            if isinstance(item, dict):
+                raw_id = str(item.get("id") or "").strip()
+            elif isinstance(item, str):
+                raw_id = item.strip()
+            if raw_id and raw_id not in seen:
+                seen.add(raw_id)
+                models.append(raw_id)
+        return models
+
+    async def enumerate(
+        self, instance_name: str, config: BackendConfig
+    ) -> BackendModelEnumeration:
+        models = self._base_models(config)
+        live_models = await self._fetch_live_free_models(self._resolve_api_host(config))
+        source = "cline_curated"
+        if live_models:
+            source = "cline_recommended"
+            for live_model in live_models:
+                if live_model not in models:
+                    models.append(live_model)
+        return BackendModelEnumeration.available(
+            instance_name=instance_name,
+            connector="cline",
+            models=models,
+            source=source,
+            instance_pinned=False,
+        )
+
+
 __all__ = [
+    "ClineConfiguredModelEnumerator",
     "CodexAppServerConfiguredModelEnumerator",
     "ExplicitConfiguredModelEnumerator",
     "OpencodeZenConfiguredModelEnumerator",

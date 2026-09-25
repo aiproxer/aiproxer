@@ -1020,7 +1020,7 @@ class OpenAIConnector(LLMBackend):
                 if context.client_host:
                     stream_extra[_LLM_PROXY_CLIENT_HOST_KEY] = context.client_host
             streaming_domain_request = domain_request.model_copy(
-                update={"extra_body": stream_extra}
+                update={"extra_body": stream_extra, "model": effective_model}
             )
             # Get raw stream from backend via StreamProducer protocol
             raw_stream = self.stream_completion(streaming_domain_request)

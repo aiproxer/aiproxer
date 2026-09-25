@@ -6,6 +6,7 @@ from src.core.common.exceptions import RoutingError
 from src.core.config.app_config import BackendConfig, ModelAliasRule, RoutingConfig
 from src.core.interfaces.resilience_interface import ActionType, ResilienceDecision
 from src.core.services.backend_routing_service import BackendRoutingService
+from src.core.services.model_capability_index import ModelCapabilityIndex
 
 
 @pytest.fixture
@@ -212,6 +213,23 @@ class TestBackendRoutingService:
         assert exc.value.details is not None
         assert exc.value.details.get("code") == "unknown_model"
         assert exc.value.details.get("model") == "vendor/unknown-model"
+
+    def test_model_only_cline_free_virtual_route_resolves_to_cline(self) -> None:
+        """The synthetic cline-free/free route must be model-only discoverable."""
+        snapshot = ModelCapabilityIndex.build_snapshot(
+            {"cline": ["cline-free/free", "cline-free/gemini-3.8-flash"]},
+            generation=1,
+        )
+        index = ModelCapabilityIndex(snapshot=snapshot)
+        provider = Mock()
+        provider.iter_backend_names.return_value = ["cline"]
+        provider.get_backend_config.return_value = BackendConfig(connector="cline")
+        service = BackendRoutingService(
+            provider, RoutingConfig(), capability_index=index
+        )
+
+        assert service.resolve_model_only_backend("cline-free/free") == "cline"
+        assert service.resolve_model_only_backend("cline:cline-free/free") == "cline"
 
     def test_model_only_unknown_raises_when_model_catalog_unavailable(
         self, mock_config_provider_without_model_hints

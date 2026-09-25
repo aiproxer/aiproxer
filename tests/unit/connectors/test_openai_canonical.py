@@ -312,6 +312,41 @@ class TestOpenAICanonicalAPI:
                 mock_stream.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_streaming_uses_effective_model_not_domain_selector(
+        self, openai_connector, canonical_request
+    ):
+        """stream_completion must POST the resolved model, not the original selector."""
+        streaming_request = CanonicalChatRequest(
+            model="cline:cline-free/free?reasoning_effort=xhigh",
+            messages=[ChatMessage(role="user", content="Hello")],
+            stream=True,
+        )
+        canonical_request.request = streaming_request
+        canonical_request.effective_model = "cline-free/gemini-3.8-flash"
+
+        with (
+            patch(
+                "src.core.ports.streaming_integration.integrate_streaming_pipeline",
+                new_callable=AsyncMock,
+                return_value=StreamingResponseEnvelope(
+                    content=AsyncMock(),
+                    media_type="text/event-stream",
+                    headers={},
+                ),
+            ),
+            patch.object(
+                openai_connector,
+                "stream_completion",
+                new_callable=AsyncMock,
+            ) as mock_stream,
+        ):
+            mock_stream.return_value = AsyncMock()
+            await openai_connector.chat_completions(canonical_request)
+
+        called_request = mock_stream.call_args[0][0]
+        assert called_request.model == "cline-free/gemini-3.8-flash"
+
+    @pytest.mark.asyncio
     async def test_canonical_api_non_streaming_path(
         self, openai_connector, canonical_request
     ):
