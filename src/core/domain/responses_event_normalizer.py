@@ -127,19 +127,33 @@ class ResponsesEventNormalizer:
         self._gemini_text_fragments: list[str] = []
         # item.id / call_id -> function name from output_item.added
         self._function_names_by_item_id: dict[str, str] = {}
+        # Completed function_call items from legacy chat reconstruction; included
+        # in RESPONSE_COMPLETED.output so OpenCode can link function_call_output.
+        self._legacy_function_call_items: list[dict[str, Any]] = []
 
     @staticmethod
     def _build_output_text_part(text: str) -> dict[str, Any]:
         return {"type": "output_text", "text": text}
 
     @staticmethod
-    def _build_function_call_item(item_id: str, arguments: str) -> dict[str, Any]:
-        return {
+    def _build_function_call_item(
+        item_id: str,
+        arguments: str,
+        *,
+        name: str = "",
+        call_id: str | None = None,
+    ) -> dict[str, Any]:
+        resolved_call_id = call_id or item_id
+        item: dict[str, Any] = {
             "id": item_id,
             "type": "function_call",
             "status": "completed",
+            "call_id": resolved_call_id,
             "arguments": arguments,
         }
+        if isinstance(name, str) and name.strip():
+            item["name"] = name
+        return item
 
     @staticmethod
     def _build_message_item(item_id: str, text: str) -> dict[str, Any]:
@@ -414,7 +428,7 @@ class ResponsesEventNormalizer:
             for idx, tc_el in enumerate(tool_calls_list):
                 if not isinstance(tc_el, dict):
                     continue
-                call_id = tc_el.get("id")
+                call_id = tc_el.get("id") or tc_el.get("call_id")
                 call_id_s = str(call_id) if call_id is not None else f"call_{idx}"
                 fn = tc_el.get("function")
                 fn_d = fn if isinstance(fn, dict) else {}
@@ -422,6 +436,13 @@ class ResponsesEventNormalizer:
                 name_s = str(name_val) if isinstance(name_val, str) else ""
                 args_val = fn_d.get("arguments")
                 args_s = args_val if isinstance(args_val, str) else ""
+                # OpenCode rejects completed function_call items with empty args.
+                # Wait for a domain chunk that carries the final arguments payload.
+                if not args_s.strip():
+                    continue
+                if not name_s.strip():
+                    # Never emit unnamed tool calls on the Responses wire.
+                    continue
                 if name_s:
                     self._remember_function_name(
                         item_id=call_id_s, call_id=call_id_s, name=name_s
@@ -437,35 +458,42 @@ class ResponsesEventNormalizer:
                         item={
                             "id": call_id_s,
                             "type": "function_call",
+                            "status": "in_progress",
                             "name": name_s,
                             "call_id": call_id_s,
                             "arguments": "",
                         },
                     )
                 )
-                if args_s:
-                    events.append(
-                        self._next(
-                            type=ResponsesSemanticEventType.TOOL_CALL_ARGS_DELTA,
-                            response_id=rid,
-                            output_index=idx,
-                            content_index=0,
-                            item_id=call_id_s,
-                            name=name_s or None,
-                            delta=args_s,
-                        )
+                events.append(
+                    self._next(
+                        type=ResponsesSemanticEventType.TOOL_CALL_ARGS_DELTA,
+                        response_id=rid,
+                        output_index=idx,
+                        content_index=0,
+                        item_id=call_id_s,
+                        name=name_s or None,
+                        delta=args_s,
                     )
-                    events.append(
-                        self._next(
-                            type=ResponsesSemanticEventType.TOOL_CALL_ARGS_DONE,
-                            response_id=rid,
-                            output_index=idx,
-                            content_index=0,
-                            item_id=call_id_s,
-                            name=name_s or None,
-                            text=args_s,
-                        )
+                )
+                events.append(
+                    self._next(
+                        type=ResponsesSemanticEventType.TOOL_CALL_ARGS_DONE,
+                        response_id=rid,
+                        output_index=idx,
+                        content_index=0,
+                        item_id=call_id_s,
+                        name=name_s or None,
+                        text=args_s,
                     )
+                )
+                done_item = self._build_function_call_item(
+                    call_id_s,
+                    args_s,
+                    name=name_s,
+                    call_id=call_id_s,
+                )
+                self._legacy_function_call_items.append(dict(done_item))
                 events.append(
                     self._next(
                         type=ResponsesSemanticEventType.OUTPUT_ITEM_DONE,
@@ -473,12 +501,8 @@ class ResponsesEventNormalizer:
                         output_index=idx,
                         content_index=0,
                         item_id=call_id_s,
-                        item={
-                            "id": call_id_s,
-                            "type": "function_call",
-                            "name": name_s,
-                            "arguments": args_s,
-                        },
+                        name=name_s or None,
+                        item=done_item,
                     )
                 )
 
@@ -503,12 +527,14 @@ class ResponsesEventNormalizer:
                 )
                 return events
             text = "".join(self._openai_legacy_text_fragments)
+            output: list[dict[str, Any]] = []
             if self._openai_legacy_text_started:
                 completed_item = self._build_message_item(item_id_text, text)
                 events.extend(self._finalize_openai_legacy_text(rid))
-                output = [completed_item]
-            else:
-                output = []
+                output.append(completed_item)
+            # Include function_call items so clients linking via
+            # response.completed.output (and OpenCode tool loops) see call_id.
+            output.extend(dict(item) for item in self._legacy_function_call_items)
             events.append(
                 self._next(
                     type=ResponsesSemanticEventType.RESPONSE_COMPLETED,
@@ -662,6 +688,15 @@ class ResponsesEventNormalizer:
                     item_done = dict(item_done)
                     item_done["name"] = resolved
                     name_raw = resolved
+            # Ensure function_call items always expose call_id for OpenCode
+            # function_call_output linking (item.id may be fc_..., call_id call_...).
+            if str(item_done.get("type") or "") == "function_call":
+                item_done = dict(item_done)
+                if not (
+                    isinstance(item_done.get("call_id"), str)
+                    and str(item_done.get("call_id")).strip()
+                ):
+                    item_done["call_id"] = call_id_s or item_id_s
             return [
                 self._next(
                     type=ResponsesSemanticEventType.OUTPUT_ITEM_DONE,

@@ -195,7 +195,7 @@ def test_partial_tool_call_events_are_buffered_until_output_item_done() -> None:
             "response": {"id": response_id, "model": "gpt-5.4"},
         }
     )
-    responses_to_domain_stream_chunk(
+    added = responses_to_domain_stream_chunk(
         {
             "type": "response.output_item.added",
             "output_index": 1,
@@ -207,6 +207,8 @@ def test_partial_tool_call_events_are_buffered_until_output_item_done() -> None:
             },
         }
     )
+    # OpenCode rejects empty-arg completed tool items; added must only cache name.
+    assert added["choices"][0]["delta"] == {}
 
     partial = responses_to_domain_stream_chunk(
         {

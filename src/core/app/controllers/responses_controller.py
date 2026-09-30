@@ -590,10 +590,17 @@ class ResponsesController:
                 backend or "unknown",
             )
         wire_payload, _flags = projector.project(domain, prior_items)
+        # Surface tools on the canonical request so RequestSideEffects /
+        # streaming tool registry / middleware see OpenCode (and other)
+        # client tool schemas. The native wire body remains authoritative
+        # in extra_body[RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY].
         canonical = CanonicalChatRequest(
             model=explicit_model,
             messages=[ChatMessage(role="user", content=".")],
             stream=bool(domain.stream),
+            tools=list(domain.tools) if domain.tools else None,
+            tool_choice=domain.tool_choice,
+            parallel_tool_calls=domain.parallel_tool_calls,
             extra_body={RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY: wire_payload},
         )
         return domain, canonical, stream_source, instructions

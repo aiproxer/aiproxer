@@ -407,7 +407,9 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
 
     if event_type == "response.function_call_arguments.delta":
         item_id = chunk.get("item_id")
-        call_id = item_id or chunk.get("call_id")
+        # Prefer SIWC/OpenAI call_id (call_...) over item_id (fc_...); OpenCode
+        # links function_call_output by call_id.
+        call_id = chunk.get("call_id") or item_id
         wire_name = chunk.get("name")
         wire_name_str = wire_name.strip() if isinstance(wire_name, str) else ""
         name = _resolve_function_call_name(chunk)
@@ -432,9 +434,19 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
                     else (call_id if isinstance(call_id, str) else None)
                 ),
             )
-        # Accumulate arguments fragments for later use in done events
-        if call_id and arguments_fragment:
-            accumulate_tool_call_arguments(call_id, arguments_fragment)
+        # Accumulate under call_id and item_id — SIWC often keys deltas by
+        # item_id (fc_...) while output_item.done prefers call_id (call_...).
+        if arguments_fragment:
+            accum_keys: list[str] = []
+            for accum_key in (call_id, item_id):
+                if (
+                    isinstance(accum_key, str)
+                    and accum_key
+                    and accum_key not in accum_keys
+                ):
+                    accum_keys.append(accum_key)
+            for accum_key in accum_keys:
+                accumulate_tool_call_arguments(accum_key, arguments_fragment)
         # If the provider still hasn't supplied a tool name, never emit a partial
         # tool-call delta. Strict clients reject unnamed function chunks.
         if not str(name).strip():
@@ -467,7 +479,7 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
 
     if event_type == "response.function_call_arguments.done":
         item_id = chunk.get("item_id")
-        call_id = item_id or chunk.get("call_id")
+        call_id = chunk.get("call_id") or item_id
         name = _resolve_function_call_name(chunk)
         arguments = chunk.get("arguments")
         # Re-cache under both ids so output_item.done / client mapping stay named.
@@ -529,24 +541,42 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
                 )
 
             arguments = item.get("arguments", "{}")
+            item_id_for_call = (
+                str(item.get("id")) if item.get("id") is not None else None
+            )
             call_id = (
                 item.get("call_id") or item.get("id") or f"call_{uuid.uuid4().hex[:8]}"
             )
             # If arguments is None, empty, just "{}", or empty dict, try accumulated
             # arguments from deltas (API sometimes omits payload on output_item.done).
+            lookup_keys = [
+                k
+                for k in (call_id, item_id_for_call)
+                if isinstance(k, str) and k
+            ]
+            # Dedupe while preserving order
+            seen_keys: set[str] = set()
+            ordered_keys: list[str] = []
+            for k in lookup_keys:
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    ordered_keys.append(k)
             if _needs_accumulated_tool_arguments(arguments):
-                if call_id:
-                    accumulated = get_accumulated_tool_call_arguments(call_id)
-                    clear_tool_call_arguments(call_id)
+                accumulated = ""
+                for key in ordered_keys:
+                    accumulated = get_accumulated_tool_call_arguments(key)
                     if accumulated and accumulated != "{}":
-                        arguments = accumulated
-                    else:
-                        arguments = "{}"
+                        break
+                for key in ordered_keys:
+                    clear_tool_call_arguments(key)
+                if accumulated and accumulated != "{}":
+                    arguments = accumulated
                 else:
                     arguments = "{}"
-            elif call_id:
+            else:
                 # We have arguments from the item, clear accumulated state
-                clear_tool_call_arguments(call_id)
+                for key in ordered_keys:
+                    clear_tool_call_arguments(key)
             if not isinstance(arguments, str):
                 arguments = json.dumps(arguments) if arguments else "{}"
             tool_name = _resolve_function_call_name(chunk, item=item)
@@ -747,24 +777,12 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
             _cache_function_call_name_aliases(
                 name, item_id=item_id, call_id=str(call_id) if call_id else None
             )
-            if _should_buffer_partial_tool_call(str(name)):
-                return _build_chunk()
-            emit_name = _openai_client_shell_tool_name(name)
-
-            tool_index = assign_tool_call_index(
-                chunk_id, chunk.get("output_index"), call_id
-            )
-            delta = {
-                "tool_calls": [
-                    {
-                        "index": tool_index,
-                        "id": call_id,
-                        "type": "function",
-                        "function": {"name": emit_name, "arguments": ""},
-                    }
-                ]
-            }
-            return _build_chunk(delta)
+            # Never emit a tool-call domain chunk from output_item.added.
+            # Arguments are still empty; OpenCode/@ai-sdk validate immediately and
+            # disconnect on empty-arg completed function_call items synthesized by
+            # the Responses semantic legacy path. Name caching above is enough;
+            # the complete call is emitted on output_item.done.
+            return _build_chunk()
         return _build_chunk()
 
     if event_type in {

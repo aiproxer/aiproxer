@@ -73,6 +73,17 @@ class RequestSideEffects(IRequestSideEffects):
         try:
             allowed_tools: list[str] = []
             tools = getattr(request, "tools", None)
+            # Native /v1/responses turns historically stashed tools only inside
+            # extra_body[responses_native_projected_payload]; fall back there so
+            # OpenCode tools still register when canonical.tools was omitted.
+            if not tools:
+                extra_body = getattr(request, "extra_body", None)
+                if isinstance(extra_body, dict):
+                    native = extra_body.get("responses_native_projected_payload")
+                    if isinstance(native, dict):
+                        native_tools = native.get("tools")
+                        if isinstance(native_tools, list) and native_tools:
+                            tools = native_tools
             if tools:
                 for tool in tools:
                     if isinstance(tool, dict):
