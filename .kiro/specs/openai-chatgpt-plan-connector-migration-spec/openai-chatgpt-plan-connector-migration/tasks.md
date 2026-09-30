@@ -150,7 +150,7 @@
 ## Phase 6: Operator UX, Automated Conformance and Coexistence Proof
 
 - [ ] 6. Make the new connector operationally usable and prove it automatically before real-service testing
-- [ ] 6.1 Add profile-management CLI/script and user-safe diagnostics (P)
+- [x] 6.1 Add profile-management CLI/script and user-safe diagnostics (P)
   - Implement list/add/show/reauthorize/refresh/signout/remove plus protected import/export operations described in `design.md`.
   - Ensure list/show never print access, refresh, ID tokens, authorization codes or PKCE verifiers.
   - Provide actionable states for missing plan scope, needs reauth, signed out, model discovery unavailable and ambiguous profile selection.
@@ -304,4 +304,5 @@
 - Task 5.1: connector.responses forces request stream=True into OpenAIResponsesConnector; non-streaming clients accumulate via ChatGPTPlanStreamAccumulator (raises ChatGPTPlanStreamError on failed/incomplete/missing completed). Generic translator maps response.incomplete to error chunk code=response_incomplete.
 - Task 5.2: `errors.ChatGPTPlanErrorMapper` maps SIWC codes to typed errors; connector does one force_refresh+retry on refresh-eligible 401; no profile rotation; capability rejections are non-retryable; `ChatGPTPlanStreamError` preserved.
 - Task 5.3: connector `_get_log_extra` adds safe `profile_id` / `profile_identity_fingerprint`; `redact_chatgpt_plan_mapping` fully masks Authorization/PKCE/auth codes for capture; streaming cancel_callback and accumulated usage covered by observability tests.
+- Task 6.1: `scripts/manage_openai_chatgpt_plan_profiles.py` supports list/add/show/reauthorize/refresh/signout/remove/export/import; list/show omit token values and print actionable status details.
 
