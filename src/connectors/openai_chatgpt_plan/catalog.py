@@ -98,6 +98,9 @@ def _listable_model_id(item: object) -> str | None:
     if not isinstance(item, Mapping):
         return None
     raw_id = item.get("id")
+    # Live SIWC /v1/models entries identify models by `slug`, not OpenAI `id`.
+    if not isinstance(raw_id, str) or not raw_id.strip():
+        raw_id = item.get("slug")
     if not isinstance(raw_id, str):
         return None
     model_id = raw_id.strip()
@@ -109,6 +112,9 @@ def _listable_model_id(item: object) -> str | None:
     for flag_name in ("visible", "listed", "listable"):
         if item.get(flag_name) is False:
             return None
+    visibility = item.get("visibility")
+    if isinstance(visibility, str) and visibility.strip().lower() == "hide":
+        return None
     permissions = item.get("permission")
     if isinstance(permissions, list) and permissions:
         allowed = [
@@ -128,7 +134,11 @@ def _parse_listable_model_ids(payload: object) -> list[str]:
             details={"reason": "invalid_payload"},
             status_code=503,
         )
-    data = payload.get("data")
+    # Live SIWC GET /v1/models uses `models`; API-key style OpenAI uses `data`.
+    if "models" in payload:
+        data = payload.get("models")
+    else:
+        data = payload.get("data")
     if data is None:
         return []
     if not isinstance(data, list):

@@ -100,6 +100,7 @@ def _profile(**overrides: Any) -> Any:
 def _models_payload(
     *model_ids: str,
     extra: list[dict[str, Any]] | None = None,
+    list_key: str = "data",
 ) -> dict[str, Any]:
     data: list[dict[str, Any]] = [
         {"id": model_id, "object": "model", "owned_by": "openai"}
@@ -107,7 +108,7 @@ def _models_payload(
     ]
     if extra:
         data.extend(extra)
-    return {"object": "list", "data": data}
+    return {"object": "list", list_key: data}
 
 
 class _FakeTokenManager:
@@ -341,6 +342,75 @@ class TestChatGPTPlanModelCatalogDiscovery:
 
         assert models == ["gpt-4o", "gpt-4.1"]
         assert token_manager.calls == [PROFILE_ID]
+
+    @pytest.mark.asyncio
+    async def test_parses_siwc_models_list_key_like_live_body(
+        self, tmp_path: Path
+    ) -> None:
+        """Live SIWC GET /v1/models uses `models` + `slug` (not API-key `data`/`id`)."""
+        payload = {
+            "models": [
+                {"slug": "gpt-6-astra", "visibility": "list"},
+                {"slug": "gpt-reserve", "visibility": "hide"},
+                {"slug": "gpt-5.6-sol", "visibility": "list"},
+                {"slug": "gpt-5.6-terra", "visibility": "list"},
+                {"slug": "gpt-5.6-luna", "visibility": "list"},
+                {"slug": "gpt-5.5", "visibility": "list"},
+                {"slug": "codex-auto-review", "visibility": "hide"},
+            ]
+        }
+        capture = _ModelsCapture(payload)
+        catalog, store, token_manager, capture, client = await _catalog(
+            tmp_path, capture
+        )
+        try:
+            await store.save_atomic(_profile())
+            models = await catalog.list_models(PROFILE_ID)
+        finally:
+            await client.aclose()
+
+        assert models == [
+            "gpt-6-astra",
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-5.5",
+        ]
+        assert "gpt-5.5" in models
+        assert "gpt-reserve" not in models
+        assert "codex-auto-review" not in models
+        assert token_manager.calls == [PROFILE_ID]
+        assert len(capture.models_gets) == 1
+
+    def test_parse_listable_model_ids_prefers_models_key_falls_back_to_data(
+        self,
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.catalog import (
+            _parse_listable_model_ids,
+        )
+
+        siwc = {
+            "models": [
+                {"slug": "gpt-5.5", "visibility": "list"},
+                {"slug": "gpt-reserve", "visibility": "hide"},
+                {"slug": "o3-mini", "visibility": "list"},
+            ]
+        }
+        assert _parse_listable_model_ids(siwc) == ["gpt-5.5", "o3-mini"]
+
+        api_key_style = {
+            "object": "list",
+            "data": [{"id": "gpt-4o", "object": "model"}],
+        }
+        assert _parse_listable_model_ids(api_key_style) == ["gpt-4o"]
+
+        both = {
+            "models": [{"slug": "from-models", "visibility": "list"}],
+            "data": [{"id": "from-data", "object": "model"}],
+        }
+        assert _parse_listable_model_ids(both) == ["from-models"]
+
+        assert _parse_listable_model_ids({"object": "list"}) == []
 
     @pytest.mark.asyncio
     async def test_cache_hit_does_not_call_models_or_token_manager_again(
