@@ -8,7 +8,7 @@ from typing import Any, Protocol
 
 from src.connectors.contracts import ConnectorResponsesRequest
 from src.connectors.openai_responses import OpenAIResponsesConnector
-from src.core.common.exceptions import AuthenticationError
+from src.core.common.exceptions import AuthenticationError, LLMProxyError
 from src.core.domain.backend_capability_descriptor import BackendCapabilityDescriptor
 from src.core.domain.responses import ResponseEnvelope, StreamingResponseEnvelope
 from src.core.domain.responses_native_wiring import (
@@ -48,6 +48,10 @@ class _ChatGPTPlanModelLister(Protocol):
 
 class _ChatGPTPlanAccessTokenSource(Protocol):
     async def get_access_token(self, profile_id: str) -> str: ...
+
+    async def force_refresh(self, profile_id: str) -> Any: ...
+
+    async def mark_needs_reauth(self, profile_id: str, reason: str) -> None: ...
 
 
 def _looks_like_codex_user_agent(value: str) -> bool:
@@ -127,8 +131,7 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
         headers = super().get_headers(identity=identity)
         return _strip_codex_outbound_headers(headers)
 
-    async def _chatgpt_plan_access_token(self) -> str:
-        profile_id = self._chatgpt_plan_profile_id
+    def _require_token_manager(self) -> _ChatGPTPlanAccessTokenSource:
         manager = self._chatgpt_plan_token_manager
         if manager is None:
             catalog = self._chatgpt_plan_model_catalog
@@ -136,15 +139,39 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
             if nested is not None:
                 manager = nested
                 self._chatgpt_plan_token_manager = nested
-        if not profile_id:
-            raise AuthenticationError(
-                message="ChatGPT-plan profile is not selected.",
-            )
         if manager is None:
             raise AuthenticationError(
                 message="ChatGPT-plan token manager is not bound.",
             )
+        return manager
+
+    async def _chatgpt_plan_access_token(self) -> str:
+        profile_id = self._chatgpt_plan_profile_id
+        if not profile_id:
+            raise AuthenticationError(
+                message="ChatGPT-plan profile is not selected.",
+            )
+        manager = self._require_token_manager()
         return await manager.get_access_token(profile_id)
+
+    async def _chatgpt_plan_force_refresh(self) -> None:
+        profile_id = self._chatgpt_plan_profile_id
+        if not profile_id:
+            raise AuthenticationError(
+                message="ChatGPT-plan profile is not selected.",
+            )
+        manager = self._require_token_manager()
+        await manager.force_refresh(profile_id)
+
+    async def _chatgpt_plan_mark_needs_reauth(self, reason: str) -> None:
+        profile_id = self._chatgpt_plan_profile_id
+        if not profile_id:
+            return
+        try:
+            manager = self._require_token_manager()
+        except AuthenticationError:
+            return
+        await manager.mark_needs_reauth(profile_id, reason)
 
     def _projected_generic_payload(
         self, request: ConnectorResponsesRequest, extra_body: dict[str, Any]
@@ -157,14 +184,30 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
         )
         return self.translation_service.from_domain_to_responses_request(domain_request)
 
+    async def _chatgpt_plan_run_projected(
+        self,
+        request: ConnectorResponsesRequest,
+        *,
+        downstream_stream_requested: bool,
+    ) -> ResponseEnvelope | StreamingResponseEnvelope:
+        from src.connectors.openai_chatgpt_plan.stream_accumulator import (
+            ChatGPTPlanStreamAccumulator,
+        )
+
+        result = await super().responses(request)
+        if downstream_stream_requested:
+            return result
+        if isinstance(result, StreamingResponseEnvelope):
+            accumulator = ChatGPTPlanStreamAccumulator(backend_type=self.backend_type)
+            return await accumulator.accumulate(result)
+        return result
+
     async def responses(
         self, request: ConnectorResponsesRequest
     ) -> ResponseEnvelope | StreamingResponseEnvelope:
+        from src.connectors.openai_chatgpt_plan.errors import ChatGPTPlanErrorMapper
         from src.connectors.openai_chatgpt_plan.request_policy import (
             ChatGPTPlanRequestPolicy,
-        )
-        from src.connectors.openai_chatgpt_plan.stream_accumulator import (
-            ChatGPTPlanStreamAccumulator,
         )
 
         request_data = request.request
@@ -196,16 +239,34 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
             request=forwarded_request,
             options=options,
         )
-        result = await super().responses(forwarded)
 
-        if projected.downstream_stream_requested:
-            return result
-
-        if isinstance(result, StreamingResponseEnvelope):
-            accumulator = ChatGPTPlanStreamAccumulator(backend_type=self.backend_type)
-            return await accumulator.accumulate(result)
-
-        return result
+        mapper = ChatGPTPlanErrorMapper()
+        profile_id = self._chatgpt_plan_profile_id
+        try:
+            return await self._chatgpt_plan_run_projected(
+                forwarded,
+                downstream_stream_requested=projected.downstream_stream_requested,
+            )
+        except Exception as first_exc:
+            mapped = mapper.map_exception(first_exc, profile_id=profile_id)
+            if not mapper.should_refresh_and_retry(mapped, already_retried=False):
+                raise mapped from first_exc
+            try:
+                await self._chatgpt_plan_force_refresh()
+                self.api_key = await self._chatgpt_plan_access_token()
+                return await self._chatgpt_plan_run_projected(
+                    forwarded,
+                    downstream_stream_requested=projected.downstream_stream_requested,
+                )
+            except Exception as second_exc:
+                mapped_second = mapper.map_exception(second_exc, profile_id=profile_id)
+                if isinstance(mapped_second, LLMProxyError) and int(
+                    getattr(mapped_second, "status_code", 401) or 401
+                ) in {401, 403}:
+                    await self._chatgpt_plan_mark_needs_reauth(
+                        str(getattr(mapped_second, "code", None) or "auth_retry_failed")
+                    )
+                raise mapped_second from second_exc
 
     async def get_available_models_async(self) -> list[str]:
         catalog = self._chatgpt_plan_model_catalog

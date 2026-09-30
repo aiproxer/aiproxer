@@ -132,7 +132,7 @@
   - Treat `response.failed` and `response.incomplete` as terminal non-success outcomes and preserve safe provider details.
   - _Requirements: 6.2, 7.1, 7.2, 8.7_
 
-- [ ] 5.2 Implement SIWC auth/subscription/capability error mapping and bounded retry
+- [x] 5.2 Implement SIWC auth/subscription/capability error mapping and bounded retry
   - Map documented subscription-sharing/authorization/capability error codes into actionable typed AIProxer errors while preserving safe upstream codes.
   - On access-token auth failure, perform at most one appropriate refresh-and-retry; if refresh is terminally invalid, mark the selected profile `needs_reauth`.
   - Do not retry the same invalid request body after a provider capability/validation rejection.
@@ -302,4 +302,5 @@
 - Task 4.2: SIWC preview matrix (docs 2026-09-30): preserve function/custom tools, `tool_choice`, call/output linkage, text/image/file, and web search. Reject image generation, file search, Code Interpreter, `computer_use_preview`, hosted MCP/connectors, `tool_search`, and top-level `programmatic_tool_calling` via `ResponsesProviderLimitationError`. No client-family adapters. Nested `additional_tools` hosted types not walked (possible 4.3 follow-up).
 - Task 4.3: `project()` forces `store=false`/`stream=true`; always omits `previous_response_id`; explicit unsupported fields (canonical + extra_body) raise `ResponsesProviderLimitationError`; incidental serializer defaults are stripped. Explicit `store=True` is rejected; downstream `stream=False` stays `downstream_stream_requested=False`. Nested `additional_tools` hosted types are walked. HTTP/headers are 4.4.
 - Task 5.1: connector.responses forces request stream=True into OpenAIResponsesConnector; non-streaming clients accumulate via ChatGPTPlanStreamAccumulator (raises ChatGPTPlanStreamError on failed/incomplete/missing completed). Generic translator maps response.incomplete to error chunk code=response_incomplete.
+- Task 5.2: `errors.ChatGPTPlanErrorMapper` maps SIWC codes to typed errors; connector does one force_refresh+retry on refresh-eligible 401; no profile rotation; capability rejections are non-retryable; `ChatGPTPlanStreamError` preserved.
 

@@ -47,6 +47,12 @@ class _StubTokenManager:
         del profile_id
         return self.token
 
+    async def force_refresh(self, profile_id: str) -> None:
+        del profile_id
+
+    async def mark_needs_reauth(self, profile_id: str, reason: str) -> None:
+        del profile_id, reason
+
 
 def _sse_bytes(events: list[tuple[str, dict[str, Any]]]) -> bytes:
     return "".join(
@@ -301,4 +307,3 @@ class TestOpenAIChatGPTPlanForcedStreaming:
 
         details = exc_info.value.details or {}
         assert details.get("terminal_event") == "response.incomplete"
-

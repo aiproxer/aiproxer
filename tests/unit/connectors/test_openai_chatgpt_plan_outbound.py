@@ -98,6 +98,12 @@ class _StubTokenManager:
         self.profile_ids.append(profile_id)
         return self.token
 
+    async def force_refresh(self, profile_id: str) -> None:
+        del profile_id
+
+    async def mark_needs_reauth(self, profile_id: str, reason: str) -> None:
+        del profile_id, reason
+
 
 class _InjectedIdentity(IAppIdentityConfig):
     def __init__(self, headers: dict[str, str]) -> None:
