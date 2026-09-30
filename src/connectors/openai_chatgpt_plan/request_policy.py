@@ -18,6 +18,12 @@ Chat Completions tool schemas nested under ``function`` (missing top-level
 ``additional_tools`` entries are normalized the same way. Hosted tools remain
 rejected; no client-family adapters are introduced.
 
+Chat Completions multi-turn tool history that still carries nested
+``tool_calls`` on assistant messages (and ``role=tool`` /
+``tool_call_id`` result messages) is projected onto Responses
+``function_call`` / ``function_call_output`` input items before upstream
+send. Chat-only keys are never left inside ``input[*]``.
+
 Product decision (harness compatibility): unsupported SIWC preview scalar
 fields are soft-dropped (stripped / never sent upstream) rather than hard-
 failing with ``ResponsesProviderLimitationError``. Harness clients commonly
@@ -35,6 +41,8 @@ This module does not load bundled prompt resources or client-family adapters.
 from __future__ import annotations
 
 import copy
+import json
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -44,6 +52,11 @@ from src.connectors.contracts import (
     ConnectorResponsesRequest,
 )
 from src.core.common.exceptions import ResponsesProviderLimitationError
+from src.core.domain.translation_utils.tool_utils import (
+    extract_tool_call_id,
+    extract_tool_call_name,
+    normalize_tool_arguments,
+)
 
 SIWC_INSTRUCTION_SOURCE_KEY = "siwc_instruction_source"
 SOURCE_NATIVE_INSTRUCTIONS = "native_instructions"
@@ -285,6 +298,165 @@ def _normalize_chat_shaped_tools(payload: dict[str, Any]) -> None:
             payload["tool_choice"] = choice
 
 
+# Responses item types that already encode tool call/output (leave as-is aside
+# from stripping residual Chat Completions keys).
+_RESPONSES_TOOL_ITEM_TYPES = frozenset(
+    {
+        "function_call",
+        "function_call_output",
+        "custom_tool_call",
+        "custom_tool_call_output",
+        "local_shell_call",
+        "local_shell_call_output",
+        "web_search_call",
+    }
+)
+
+
+def _message_has_usable_content(content: Any) -> bool:
+    if content is None:
+        return False
+    if isinstance(content, str):
+        return bool(content.strip())
+    if isinstance(content, list):
+        return len(content) > 0
+    if isinstance(content, Mapping):
+        return len(content) > 0
+    return True
+
+
+def _tool_result_output_string(content: Any) -> str:
+    """Serialize Chat Completions tool-result content to Responses ``output``."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        texts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                texts.append(part)
+                continue
+            if isinstance(part, Mapping):
+                text = part.get("text")
+                if isinstance(text, str):
+                    texts.append(text)
+                    continue
+                output = part.get("output")
+                if isinstance(output, str):
+                    texts.append(output)
+        if texts:
+            return "".join(texts)
+        try:
+            return json.dumps(content)
+        except (TypeError, ValueError):
+            return str(content)
+    if isinstance(content, Mapping):
+        try:
+            return json.dumps(dict(content))
+        except (TypeError, ValueError):
+            return str(content)
+    return str(content)
+
+
+def _function_call_item_from_chat_tool_call(tool_call: Any) -> dict[str, Any] | None:
+    """Map one Chat Completions ``tool_calls`` entry to a Responses ``function_call``."""
+    if not isinstance(tool_call, Mapping):
+        return None
+    name = extract_tool_call_name(tool_call)
+    if not (isinstance(name, str) and name.strip()):
+        return None
+    call_id = extract_tool_call_id(tool_call)
+    if not (isinstance(call_id, str) and call_id.strip()):
+        call_id = f"call_{uuid.uuid4().hex[:16]}"
+    else:
+        call_id = call_id.strip()
+
+    nested = tool_call.get("function")
+    if isinstance(nested, Mapping) and "arguments" in nested:
+        arguments = nested.get("arguments")
+    elif "arguments" in tool_call:
+        arguments = tool_call.get("arguments")
+    else:
+        arguments = None
+
+    return {
+        "type": "function_call",
+        "call_id": call_id,
+        "name": name.strip(),
+        "arguments": normalize_tool_arguments(arguments),
+    }
+
+
+def _strip_chat_tool_keys(item: dict[str, Any]) -> dict[str, Any]:
+    cleaned = dict(item)
+    cleaned.pop("tool_calls", None)
+    cleaned.pop("tool_call_id", None)
+    return cleaned
+
+
+def _expand_chat_shaped_input_item(item: Any) -> list[Any]:
+    """Expand one input/message item; project Chat tool shapes onto Responses items."""
+    if not isinstance(item, dict):
+        return [item]
+
+    item_type = item.get("type")
+    if isinstance(item_type, str):
+        normalized_type = item_type.strip().casefold()
+        if normalized_type in _RESPONSES_TOOL_ITEM_TYPES:
+            return [_strip_chat_tool_keys(item)]
+
+    role_raw = item.get("role")
+    role = str(role_raw).strip().casefold() if isinstance(role_raw, str) else ""
+
+    # Chat Completions tool-result message -> function_call_output
+    if role in {"tool", "function"}:
+        call_id = item.get("tool_call_id") or item.get("call_id")
+        if not (isinstance(call_id, str) and call_id.strip()):
+            return []
+        return [
+            {
+                "type": "function_call_output",
+                "call_id": call_id.strip(),
+                "output": _tool_result_output_string(item.get("content")),
+            }
+        ]
+
+    tool_calls = item.get("tool_calls")
+    if isinstance(tool_calls, list) and tool_calls:
+        expanded: list[Any] = []
+        # Preserve any assistant text before the projected function_call items.
+        if _message_has_usable_content(item.get("content")):
+            expanded.append(_strip_chat_tool_keys(item))
+        for tool_call in tool_calls:
+            projected_call = _function_call_item_from_chat_tool_call(tool_call)
+            if projected_call is not None:
+                expanded.append(projected_call)
+        return expanded
+
+    if "tool_calls" in item or "tool_call_id" in item:
+        return [_strip_chat_tool_keys(item)]
+    return [item]
+
+
+def _normalize_chat_shaped_tool_history(payload: dict[str, Any]) -> None:
+    """Project Chat Completions tool history onto Responses input items.
+
+    Assistant messages with nested ``tool_calls`` become ``function_call`` items
+    (plus an optional content message). ``role=tool`` / ``tool_call_id`` messages
+    become ``function_call_output`` items. Chat-only keys are removed from
+    ``input`` (and any residual ``messages`` list).
+    """
+    for key in _ITEM_LIST_KEYS:
+        items = payload.get(key)
+        if not isinstance(items, list):
+            continue
+        projected: list[Any] = []
+        for item in items:
+            projected.extend(_expand_chat_shaped_input_item(item))
+        payload[key] = projected
+
+
 def _hosted_tool_type(value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         return None
@@ -388,6 +560,7 @@ class ChatGPTPlanRequestPolicy:
                 )
 
         _normalize_messages_to_input(payload)
+        _normalize_chat_shaped_tool_history(payload)
         _normalize_chat_shaped_tools(payload)
         _reject_unsupported_hosted_tools(payload)
         _reject_explicit_store_true(request)

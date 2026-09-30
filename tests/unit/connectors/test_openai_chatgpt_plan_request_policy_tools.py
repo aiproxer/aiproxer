@@ -822,3 +822,217 @@ class TestChatShapedToolsFlattenedToResponses:
         assert exc_info.value.feature == "file_search"
         assert exc_info.value.provider == PROVIDER
 
+
+class TestChatShapedToolHistoryProjectedToResponses:
+    """Compatibility: Chat Completions tool history -> Responses input items."""
+
+    def test_assistant_nested_tool_calls_become_function_call_items(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [_function_tool()],
+            "input": [
+                {
+                    "role": "user",
+                    "content": "Weather in Lyon?",
+                },
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_weather_1",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location":"Lyon"}',
+                            },
+                        }
+                    ],
+                },
+            ],
+        }
+        projected = _project(generic)
+        items = projected.payload["input"]
+        assert [item.get("type") or item.get("role") for item in items] == [
+            "user",
+            "function_call",
+        ]
+        call_item = items[1]
+        assert call_item == {
+            "type": "function_call",
+            "call_id": "call_weather_1",
+            "name": "get_weather",
+            "arguments": '{"location":"Lyon"}',
+        }
+        for item in items:
+            assert "tool_calls" not in item
+            assert "tool_call_id" not in item
+
+    def test_tool_role_message_becomes_function_call_output(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "input": [
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_weather_1",
+                    "content": '{"temp":18,"summary":"cloudy"}',
+                }
+            ],
+        }
+        projected = _project(generic)
+        items = projected.payload["input"]
+        assert items == [
+            {
+                "type": "function_call_output",
+                "call_id": "call_weather_1",
+                "output": '{"temp":18,"summary":"cloudy"}',
+            }
+        ]
+        assert "tool_call_id" not in items[0]
+        assert items[0].get("role") != "tool"
+
+    def test_no_tool_calls_key_remains_on_any_input_item(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "messages": [
+                {"role": "user", "content": "run tools"},
+                {
+                    "role": "assistant",
+                    "content": "Calling tools.",
+                    "tool_calls": [
+                        {
+                            "id": "call_a",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location":"Paris"}',
+                            },
+                        },
+                        {
+                            "id": "call_b",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location":"Lyon"}',
+                            },
+                        },
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_a",
+                    "content": "sunny",
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_b",
+                    "content": "cloudy",
+                },
+                {"role": "user", "content": "thanks"},
+            ],
+        }
+        projected = _project(generic)
+        items = projected.payload["input"]
+        assert "messages" not in projected.payload
+        for item in items:
+            assert isinstance(item, dict)
+            assert "tool_calls" not in item
+            assert "tool_call_id" not in item
+            assert item.get("role") != "tool"
+
+    def test_multi_tool_turn_preserves_call_id_linkage_and_order(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [_function_tool()],
+            "input": [
+                {"role": "user", "content": "Weather in Paris and Lyon?"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_paris",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location":"Paris"}',
+                            },
+                        },
+                        {
+                            "id": "call_lyon",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location":"Lyon"}',
+                            },
+                        },
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_paris",
+                    "content": '{"temp":20}',
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_lyon",
+                    "content": '{"temp":18}',
+                },
+                {"role": "user", "content": "Summarize."},
+            ],
+        }
+        projected = _project(generic)
+        items = projected.payload["input"]
+        assert [item.get("type") or item.get("role") for item in items] == [
+            "user",
+            "function_call",
+            "function_call",
+            "function_call_output",
+            "function_call_output",
+            "user",
+        ]
+        assert items[1]["call_id"] == "call_paris"
+        assert items[1]["name"] == "get_weather"
+        assert items[1]["arguments"] == '{"location":"Paris"}'
+        assert items[2]["call_id"] == "call_lyon"
+        assert items[2]["arguments"] == '{"location":"Lyon"}'
+        assert items[3]["call_id"] == "call_paris"
+        assert items[3]["output"] == '{"temp":20}'
+        assert items[4]["call_id"] == "call_lyon"
+        assert items[4]["output"] == '{"temp":18}'
+        for item in items:
+            assert "tool_calls" not in item
+            assert "tool_call_id" not in item
+
+    def test_already_responses_shaped_function_call_history_unchanged(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Weather?"}],
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_weather_1",
+                    "name": "get_weather",
+                    "arguments": '{"location":"Lyon"}',
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_weather_1",
+                    "output": '{"temp":18}',
+                },
+            ],
+        }
+        projected = _project(generic)
+        items = projected.payload["input"]
+        assert [item["type"] for item in items] == [
+            "message",
+            "function_call",
+            "function_call_output",
+        ]
+        assert items[1]["call_id"] == items[2]["call_id"] == "call_weather_1"
+        assert items[1]["name"] == "get_weather"
+        assert items[2]["output"] == '{"temp":18}'

@@ -423,6 +423,64 @@ class TestOpenAIChatGPTPlanOutboundWire:
         assert payload["stream"] is True
 
 
+
+    @pytest.mark.asyncio
+    async def test_chat_shaped_tool_history_projected_upstream(
+        self, mock_client: Mock
+    ) -> None:
+        """Chat tool_calls / role=tool history must become Responses items upstream."""
+        connector, _manager = _make_connector(mock_client)
+        native = {
+            "model": "gpt-4o",
+            "stream": True,
+            "messages": [
+                {"role": "user", "content": "Weather in Lyon?"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_weather_1",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location":"Lyon"}',
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_weather_1",
+                    "content": '{"temp":18}',
+                },
+                {"role": "user", "content": "Thanks"},
+            ],
+        }
+        extra_body = {RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY: native}
+        await connector.responses(_make_responses_request(connector, extra_body))
+
+        payload = _captured_call(mock_client)[1]["json"]
+        assert "messages" not in payload
+        items = payload["input"]
+        assert [item.get("type") or item.get("role") for item in items] == [
+            "user",
+            "function_call",
+            "function_call_output",
+            "user",
+        ]
+        assert items[1]["call_id"] == "call_weather_1"
+        assert items[1]["name"] == "get_weather"
+        assert items[2]["call_id"] == "call_weather_1"
+        assert items[2]["output"] == '{"temp":18}'
+        for item in items:
+            assert "tool_calls" not in item
+            assert "tool_call_id" not in item
+            assert item.get("role") != "tool"
+        assert payload["store"] is False
+        assert payload["stream"] is True
+
+
 class TestOpenAIChatGPTPlanOutboundSourceBoundary:
     def test_connector_source_forbids_codex_private_url_and_originator_literals(
         self,

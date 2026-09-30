@@ -342,3 +342,63 @@ async def test_chat_completions_chat_shaped_tools_flatten_upstream() -> None:
     assert "function" not in payload["tools"][0]
     assert "messages" not in payload
 
+
+@pytest.mark.asyncio
+async def test_chat_completions_tool_history_projected_upstream() -> None:
+    """Native Chat tool history on Chat Completions path projects to Responses items."""
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.build_request = MagicMock(return_value=MagicMock())
+    client.send = AsyncMock(return_value=_sse_response("done"))
+    connector = _connector(client)
+    native = {
+        "model": "gpt-4o",
+        "stream": False,
+        "messages": [
+            {"role": "user", "content": "Weather?"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": '{"location":"Paris"}',
+                        },
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "sunny",
+            },
+        ],
+    }
+    chat_req = ConnectorChatCompletionsRequest(
+        request=CanonicalChatRequest(
+            model="gpt-4o",
+            messages=[ChatMessage(role="user", content="Weather?")],
+            stream=False,
+            extra_body={RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY: native},
+        ),
+        processed_messages=[],
+        effective_model="gpt-4o",
+        identity=None,
+        cancellation_token=None,
+        cancellation_coordinator=None,
+        context=None,
+        options={},
+    )
+    result = await connector.chat_completions(chat_req)
+    assert isinstance(result, ResponseEnvelope)
+    payload = client.build_request.call_args[1]["json"]
+    assert "messages" not in payload
+    items = payload["input"]
+    assert any(item.get("type") == "function_call" for item in items)
+    assert any(item.get("type") == "function_call_output" for item in items)
+    for item in items:
+        assert "tool_calls" not in item
+        assert "tool_call_id" not in item
+        assert item.get("role") != "tool"
