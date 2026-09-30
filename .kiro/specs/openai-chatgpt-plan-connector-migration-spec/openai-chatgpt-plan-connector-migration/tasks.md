@@ -185,7 +185,7 @@
 ## Phase 7: Mandatory Human Empirical Acceptance Barrier
 
 - [ ] 7. Empirically validate the official flow against a real eligible account and real harnesses
-- [ ] 7.1 Complete fresh real SIWC authorization and public model/inference proof
+- [x] 7.1 Complete fresh real SIWC authorization and public model/inference proof
   - A human tester authorizes at least one real eligible ChatGPT Plus or Pro account using the new AIProxer flow and confirms the plan-use permission is granted.
   - Confirm the saved profile uses an issued client ID rather than re-registering through `dynamic_agent_client` on every run.
   - Confirm public `/v1/models` returns a usable account-specific list and at least one selected model reaches `response.completed` through public `/v1/responses`.
@@ -309,3 +309,4 @@
 - Task 6.3: 	est_openai_chatgpt_plan_cross_frontend.py covers native Responses tools, Chat Completions forced upstream stream, Anthropic-translated canonical path, and profile-state coexistence with Responses/Codex imports.
 - Task 6.4: operator doc docs/user_guide/backends/openai-chatgpt-plan.md; overview link; openai-codex.md pending-retirement note. Legacy backends not removed.
 - Task 6.5: pre-gate suite green — chatgpt-plan unit (340 passed, 1 skipped), related Responses/access-mode/capability (156+79+17), ruff/black/mypy on package+CLI. Fixed CLI main() Any->int mypy. Phase 7+ not started.
+- Task 7.1 empirical proof (2026-09-30, profile `primary`): status ready; issued client prefix `oaiapp_`; `host.json` uses `urn:uuid:`; GET `https://api.openai.com/v1/models` returned HTTP 200 and 7 account model slugs (live body key `models`, not `data` — `ChatGPTPlanModelCatalog` parsed 0). POST `https://api.openai.com/v1/responses` with `store:false` and `stream:true` for `gpt-5.5` reached `response.completed` (status completed). No Codex endpoint was called. Tasks 7.2-7.5 and the Phase 7 parent remain open.
