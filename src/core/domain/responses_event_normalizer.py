@@ -226,13 +226,21 @@ class ResponsesEventNormalizer:
         stream_aborted = False
         try:
             async for raw in chunks:
+                stop_after_raw = False
                 for payload in self._unwrap_to_dicts(raw):
                     for event in self._map_payload(payload):
                         if event.type in _TERMINAL_TYPES:
                             if terminal_emitted:
                                 continue
                             terminal_emitted = True
+                            stop_after_raw = True
                         yield event
+                # A terminal event means the Responses turn is finished. Stop
+                # consuming upstream immediately so SSE clients receive
+                # `response.completed` + `[DONE]` without waiting for the
+                # provider HTTP body to EOF (chatgpt-plan can linger).
+                if stop_after_raw:
+                    break
         except ResponsesStreamAbortedError:
             # Client disconnect/cancellation must not be turned into a synthetic
             # response.completed event.  Re-raise so the renderer can skip both

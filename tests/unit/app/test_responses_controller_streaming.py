@@ -250,3 +250,180 @@ async def test_semantic_sse_invalid_responses_stream_source_raises() -> None:
 
     assert exc_info.value.code == "invalid_stream_source"
     assert exc_info.value.status_code == 500
+
+
+async def _hanging_native_completed_stream() -> AsyncIterator[ProcessedResponse]:
+    yield ProcessedResponse(
+        content={
+            "type": "response.created",
+            "response": {"id": "resp_hang", "object": "response"},
+        }
+    )
+    yield ProcessedResponse(
+        content={
+            "type": "response.output_text.delta",
+            "item_id": "msg_1",
+            "output_index": 0,
+            "content_index": 0,
+            "delta": "hello",
+        }
+    )
+    yield ProcessedResponse(
+        content={
+            "type": "response.completed",
+            "response": {
+                "id": "resp_hang",
+                "object": "response",
+                "status": "completed",
+                "output": [],
+            },
+        }
+    )
+    await asyncio.Future()
+
+
+async def _hanging_legacy_finish_stream() -> AsyncIterator[ProcessedResponse]:
+    yield ProcessedResponse(
+        content={
+            "id": "resp_legacy",
+            "object": "response.chunk",
+            "created": 1,
+            "model": "gpt-4o",
+            "choices": [
+                {"index": 0, "delta": {"content": "hi"}, "finish_reason": None}
+            ],
+        }
+    )
+    yield ProcessedResponse(
+        content={
+            "id": "resp_legacy",
+            "object": "response.chunk",
+            "created": 1,
+            "model": "gpt-4o",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        }
+    )
+    await asyncio.Future()
+
+
+@pytest.mark.asyncio
+async def test_semantic_sse_emits_done_without_waiting_for_upstream_eof() -> None:
+    """Semantic Responses SSE must end after completed even if upstream hangs."""
+    controller = ResponsesController(
+        request_processor=MagicMock(),
+        translation_service=MagicMock(),
+        **build_responses_controller_backend_kwargs(),
+    )
+    ctx = SimpleNamespace(
+        extensions={
+            "responses_semantic_pipeline": True,
+            "responses_stream_source": "openai_responses",
+        },
+    )
+    request = _FakeRequest(disconnect_sequence=[False] * 20)
+    domain_request = SimpleNamespace(model="gpt-4o", stream=True, extra_body={})
+    envelope = StreamingResponseEnvelope(content=_hanging_legacy_finish_stream())
+
+    stream = controller._stream_response_envelope(
+        request=cast(Request, request),
+        domain_request=domain_request,
+        response=envelope,
+        request_id="req-eos-hang",
+        context=ctx,
+    )
+
+    parts: list[str] = []
+
+    async def _drain() -> None:
+        async for part in stream:
+            parts.append(part)
+
+    await asyncio.wait_for(_drain(), timeout=1.0)
+    blob = "".join(parts)
+    assert "response.completed" in blob
+    assert "data: [DONE]" in blob
+
+
+@pytest.mark.asyncio
+async def test_native_passthrough_emits_done_without_waiting_for_upstream_eof() -> None:
+    """Non-semantic native wire passthrough must [DONE] after response.completed."""
+    controller = ResponsesController(
+        request_processor=MagicMock(),
+        translation_service=MagicMock(),
+        **build_responses_controller_backend_kwargs(),
+    )
+    request = _FakeRequest(disconnect_sequence=[False] * 20)
+    domain_request = ChatRequest(
+        model="gpt-4o",
+        messages=[ChatMessage(role="user", content="hi")],
+        stream=True,
+    )
+    envelope = StreamingResponseEnvelope(content=_hanging_native_completed_stream())
+
+    stream = controller._stream_response_envelope(
+        request=cast(Request, request),
+        domain_request=domain_request,
+        response=envelope,
+        request_id="req-native-eos",
+    )
+
+    parts: list[str] = []
+
+    async def _drain() -> None:
+        async for part in stream:
+            parts.append(part)
+
+    await asyncio.wait_for(_drain(), timeout=1.0)
+    blob = "".join(parts)
+    assert "response.completed" in blob
+    assert "data: [DONE]" in blob
+
+
+@pytest.mark.asyncio
+async def test_generator_exit_schedules_cancel_without_ignored_exit() -> None:
+    """aclose/GeneratorExit must not raise 'async generator ignored GeneratorExit'."""
+    controller = ResponsesController(
+        request_processor=MagicMock(),
+        translation_service=MagicMock(),
+        **build_responses_controller_backend_kwargs(),
+    )
+    cancel_called = asyncio.Event()
+
+    async def _cancel_callback() -> None:
+        cancel_called.set()
+
+    async def _slow_stream() -> AsyncIterator[ProcessedResponse]:
+        yield ProcessedResponse(
+            content={
+                "id": "resp_slow",
+                "object": "response.chunk",
+                "created": 1,
+                "model": "gpt-4o",
+                "choices": [
+                    {"index": 0, "delta": {"content": "x"}, "finish_reason": None}
+                ],
+            }
+        )
+        await asyncio.sleep(60)
+
+    envelope = StreamingResponseEnvelope(
+        content=_slow_stream(),
+        cancel_callback=_cancel_callback,
+    )
+    request = _FakeRequest(disconnect_sequence=[False] * 20)
+    domain_request = ChatRequest(
+        model="gpt-4o",
+        messages=[ChatMessage(role="user", content="hi")],
+        stream=True,
+    )
+    stream = controller._stream_response_envelope(
+        request=cast(Request, request),
+        domain_request=domain_request,
+        response=envelope,
+        request_id="req-ge",
+    )
+    assert await stream.__anext__()
+    # Closing the async generator must complete cleanly.
+    await asyncio.wait_for(stream.aclose(), timeout=1.0)
+    await asyncio.wait_for(cancel_called.wait(), timeout=1.0)
+

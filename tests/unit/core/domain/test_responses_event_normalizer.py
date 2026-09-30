@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any
 
@@ -491,6 +492,69 @@ async def test_mid_stream_exception_emits_failed_terminal() -> None:
     assert events[0].type == ResponsesSemanticEventType.RESPONSE_CREATED
     assert events[-1].type == ResponsesSemanticEventType.RESPONSE_FAILED
     assert events[-1].error is not None
+
+
+
+
+@pytest.mark.asyncio
+async def test_stops_consuming_upstream_after_completed() -> None:
+    """After response.completed, do not wait for upstream EOF before finishing.
+
+    chatgpt-plan / OpenAI Responses HTTP SSE may keep the body open after the
+    terminal event; hanging here leaves OpenCode waiting until manual close.
+    """
+    n = ResponsesEventNormalizer(
+        source=ResponsesStreamSource.OPENAI_RESPONSES, response_id="r"
+    )
+
+    async def hanging_upstream() -> AsyncGenerator[Any, None]:
+        yield {"type": "response.output_text.delta", "delta": "hi", "item_id": "i1"}
+        yield {"type": "response.completed", "response": {"id": "r"}}
+        # If the normalizer keeps reading, this Future never resolves and the
+        # test times out — that is the production hang.
+        await asyncio.Future()
+
+    events = await asyncio.wait_for(
+        _collect(n.normalize(hanging_upstream())),
+        timeout=0.5,
+    )
+    assert events[-1].type == ResponsesSemanticEventType.RESPONSE_COMPLETED
+    assert any(
+        e.type == ResponsesSemanticEventType.RESPONSE_COMPLETED for e in events
+    )
+
+
+@pytest.mark.asyncio
+async def test_stops_consuming_after_legacy_finish_reason() -> None:
+    """Translated finish_reason=stop must also end upstream consumption."""
+    n = ResponsesEventNormalizer(
+        source=ResponsesStreamSource.OPENAI_RESPONSES, response_id="rid"
+    )
+
+    async def hanging_upstream() -> AsyncGenerator[Any, None]:
+        yield {
+            "id": "rid",
+            "object": "response.chunk",
+            "created": 1,
+            "model": "gpt",
+            "choices": [
+                {"index": 0, "delta": {"content": "hi"}, "finish_reason": None}
+            ],
+        }
+        yield {
+            "id": "rid",
+            "object": "response.chunk",
+            "created": 1,
+            "model": "gpt",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        }
+        await asyncio.Future()
+
+    events = await asyncio.wait_for(
+        _collect(n.normalize(hanging_upstream())),
+        timeout=0.5,
+    )
+    assert events[-1].type == ResponsesSemanticEventType.RESPONSE_COMPLETED
 
 
 @pytest.mark.asyncio

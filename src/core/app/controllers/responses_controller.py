@@ -1754,10 +1754,13 @@ class ResponsesController:
                     if asyncio.iscoroutine(result):
                         return bool(await result)
                     return bool(result)
-                except (RuntimeError, AttributeError, asyncio.CancelledError):
+                except asyncio.CancelledError:
+                    # Never swallow cancellation — let CancelledError handlers run
+                    # stream teardown / upstream cancel instead of hanging the turn.
+                    raise
+                except (RuntimeError, AttributeError):
                     # RuntimeError: checker function or event loop issues
                     # AttributeError: defensive guard for unexpected attribute access
-                    # CancelledError: async operation cancelled
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(
                             "Failed checking client disconnect status - request_id=%s",
@@ -1916,6 +1919,15 @@ class ResponsesController:
                         ):
                             native_wire_passthrough = True
                             yield f"data: {json.dumps(chunk_payload)}\n\n"
+                            # Native terminal events end the client SSE turn;
+                            # do not wait for upstream EOF before [DONE].
+                            if ot_raw in {
+                                "response.completed",
+                                "response.done",
+                                "response.failed",
+                                "response.incomplete",
+                            }:
+                                break
                             continue
 
                         if wire_emitter is None:
@@ -1927,6 +1939,8 @@ class ResponsesController:
                             )
                         for wire_evt in wire_emitter.feed(chunk_payload):
                             yield f"data: {json.dumps(wire_evt)}\n\n"
+                        if wire_emitter.is_finished():
+                            break
 
                     except Exception as exc:
                         if logger.isEnabledFor(logging.WARNING):
@@ -1960,29 +1974,44 @@ class ResponsesController:
                     yield "data: [DONE]\n\n"
 
             except GeneratorExit:
-                # Client disconnected during streaming (Requirement 1.1, 3.6)
+                # Client disconnected during streaming (Requirement 1.1, 3.6).
+                # Do NOT await here: awaiting inside GeneratorExit makes CPython
+                # raise RuntimeError("async generator ignored GeneratorExit") and
+                # can leave OpenCode waiting on a half-closed SSE turn.
                 stream_terminated = True
-                # Report termination in shielded context (Requirement 3.8)
-                try:
-                    await asyncio.shield(
-                        report_client_termination(
+
+                async def _ge_cleanup() -> None:
+                    try:
+                        await report_client_termination(
                             ClientTerminationReason.CLIENT_DISCONNECTED
                         )
-                    )
-                except Exception as exc:
-                    # Fail-open: log but continue with cleanup
-                    # Design.md line 445: Log with high-visibility error code
-                    if logger.isEnabledFor(logging.WARNING):
-                        logger.warning(
-                            "Failed to report client termination in GeneratorExit handler: %s",
-                            exc,
-                            exc_info=True,
-                            extra={
-                                "request_id": request_id,
-                                "error_code": "CLIENT_TERMINATION_REPORT_FAILED",
-                            },
-                        )
-                await trigger_cancel("client_disconnect")
+                    except Exception as exc:
+                        if logger.isEnabledFor(logging.WARNING):
+                            logger.warning(
+                                "Failed to report client termination in GeneratorExit cleanup: %s",
+                                exc,
+                                exc_info=True,
+                                extra={
+                                    "request_id": request_id,
+                                    "error_code": "CLIENT_TERMINATION_REPORT_FAILED",
+                                },
+                            )
+                    try:
+                        await trigger_cancel("client_disconnect")
+                    except Exception as exc:
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(
+                                "GeneratorExit cancel cleanup failed - request_id=%s error=%s",
+                                request_id,
+                                exc,
+                                exc_info=True,
+                            )
+
+                try:
+                    asyncio.get_running_loop().create_task(_ge_cleanup())
+                except RuntimeError:
+                    # No running loop — best-effort skip.
+                    pass
                 raise
             except asyncio.CancelledError:
                 stream_terminated = True
@@ -2030,33 +2059,40 @@ class ResponsesController:
                 raise
             finally:
                 # Ensure termination is reported even if stream ends abnormally
-                # (defensive fallback for edge cases)
+                # (defensive fallback for edge cases). Avoid awaiting during an
+                # in-progress GeneratorExit aclose — schedule instead.
                 if stream_terminated and not termination_reported["reported"]:
-                    try:
-                        await asyncio.shield(
-                            report_client_termination(
+                    async def _final_term_report() -> None:
+                        try:
+                            await report_client_termination(
                                 ClientTerminationReason.CLIENT_DISCONNECTED
                             )
-                        )
-                    except Exception as exc:
-                        # Fail-open: best-effort reporting
-                        # Design.md line 445: Log with high-visibility error code
-                        if logger.isEnabledFor(logging.WARNING):
-                            logger.warning(
-                                "Failed to report client termination in finally block: %s",
-                                exc,
-                                exc_info=True,
-                                extra={
-                                    "request_id": request_id,
-                                    "error_code": "CLIENT_TERMINATION_REPORT_FAILED",
-                                },
-                            )
+                        except Exception as exc:
+                            if logger.isEnabledFor(logging.WARNING):
+                                logger.warning(
+                                    "Failed to report client termination in finally block: %s",
+                                    exc,
+                                    exc_info=True,
+                                    extra={
+                                        "request_id": request_id,
+                                        "error_code": "CLIENT_TERMINATION_REPORT_FAILED",
+                                    },
+                                )
 
-                if cancel_state["called"]:
-                    close_method = getattr(response.content, "aclose", None)
-                    if callable(close_method):
-                        with contextlib.suppress(Exception):
-                            close_result = close_method()
+                    try:
+                        asyncio.get_running_loop().create_task(_final_term_report())
+                    except RuntimeError:
+                        pass
+
+                # Always close the upstream iterator when the client SSE ends so
+                # connector teardown (HTTP aclose / cancel) cannot outlive the turn.
+                close_method = getattr(response.content, "aclose", None)
+                if callable(close_method):
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        close_result = close_method()
+                        if asyncio.iscoroutine(close_result) or isinstance(
+                            close_result, Awaitable
+                        ):
                             await cast(Awaitable[Any], close_result)
 
         return _generator()

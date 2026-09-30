@@ -2061,6 +2061,27 @@ class OpenAIConnector(LLMBackend):
                         message=f"Streaming connection interrupted ({exc})"
                     ) from exc
 
+            def _is_responses_stream_terminal_chunk(chunk: Any) -> bool:
+                """True when a Responses-domain chunk ends the upstream turn."""
+                if not isinstance(chunk, dict):
+                    return False
+                event_type = chunk.get("type")
+                if isinstance(event_type, str) and event_type in {
+                    "response.completed",
+                    "response.done",
+                    "response.failed",
+                    "response.incomplete",
+                }:
+                    return True
+                if chunk.get("error"):
+                    return True
+                choices = chunk.get("choices")
+                if isinstance(choices, list) and choices:
+                    choice0 = choices[0]
+                    if isinstance(choice0, dict) and choice0.get("finish_reason"):
+                        return True
+                return False
+
             pending_error: Exception | None = None
             try:
                 async for chunk in text_generator():
@@ -2077,6 +2098,10 @@ class OpenAIConnector(LLMBackend):
                             content=chunk,
                             usage=usage_summary_from_processed_response(pr),
                         )
+                        # Stop reading upstream after the Responses turn completes so
+                        # frontend SSE can close (provider may keep the body open).
+                        if _is_responses_stream_terminal_chunk(chunk):
+                            break
                     else:
                         yield ProcessedResponse(content=chunk)
             except ServiceUnavailableError as exc:
