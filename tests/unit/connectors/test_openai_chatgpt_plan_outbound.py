@@ -342,19 +342,48 @@ class TestOpenAIChatGPTPlanOutboundWire:
         assert payload["store"] is False
         assert payload["stream"] is True
         assert "previous_response_id" not in payload
-        for key in ("input", "messages"):
-            items = payload.get(key)
-            if not isinstance(items, list):
-                continue
-            for item in items:
-                if isinstance(item, dict):
-                    assert item.get("role") != "system"
+        assert "messages" not in payload
+        assert isinstance(payload.get("input"), list)
+        for item in payload["input"]:
+            if isinstance(item, dict):
+                assert item.get("role") != "system"
         blob = str(payload)
         assert "<user_instructions>" not in blob
         assert request.request.extra_body is original_extra
         assert original_extra[RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY] is original_native
         assert original_native["store"] is True
         assert original_native["previous_response_id"] == "resp_should_not_be_sent"
+
+
+
+    @pytest.mark.asyncio
+    async def test_messages_shaped_native_payload_sent_as_input(
+        self, mock_client: Mock
+    ) -> None:
+        """Translator-shaped messages must become Responses input upstream."""
+        connector, _manager = _make_connector(mock_client)
+        native = {
+            "model": "gpt-4o",
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": "Be terse."},
+                {"role": "user", "content": "ping"},
+            ],
+        }
+        extra_body = {RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY: native}
+        await connector.responses(_make_responses_request(connector, extra_body))
+
+        payload = _captured_call(mock_client)[1]["json"]
+        assert "messages" not in payload
+        assert isinstance(payload.get("input"), list)
+        roles = [
+            item.get("role")
+            for item in payload["input"]
+            if isinstance(item, dict)
+        ]
+        assert roles == ["developer", "user"]
+        assert payload["store"] is False
+        assert payload["stream"] is True
 
 
 class TestOpenAIChatGPTPlanOutboundSourceBoundary:

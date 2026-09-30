@@ -210,10 +210,11 @@ async def test_chat_completions_projects_system_and_forces_upstream_stream() -> 
     assert isinstance(result, ResponseEnvelope)
     payload = client.build_request.call_args[1]["json"]
     assert payload["stream"] is True
+    assert "messages" not in payload
+    assert isinstance(payload.get("input"), list)
     assert payload.get("instructions") == "High priority system rule" or any(
         isinstance(item, dict) and item.get("role") == "developer"
-        for key in ("input", "messages")
-        for item in (payload.get(key) or [])
+        for item in payload["input"]
     )
 
 
@@ -269,6 +270,8 @@ async def test_anthropic_translated_canonical_path_needs_no_client_family_adapte
     assert isinstance(result, ResponseEnvelope)
     payload = client.build_request.call_args[1]["json"]
     assert payload["stream"] is True
+    assert "messages" not in payload
+    assert isinstance(payload.get("input"), list)
     assert "opencode" not in str(payload).casefold()
     assert "codex" not in str(payload).casefold()
 

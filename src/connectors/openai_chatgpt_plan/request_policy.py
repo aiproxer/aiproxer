@@ -8,6 +8,10 @@ text. Client-supplied function/custom tools, ``tool_choice``, call/output
 linkage, and text/image/file content parts are preserved. Explicit hosted
 tools from the SIWC preview matrix are rejected; web search is preserved.
 
+Chat Completions-shaped translator output that still carries top-level
+``messages`` is normalized onto Responses ``input`` before upstream send so
+SIWC preview never receives the unsupported ``messages`` parameter.
+
 Product decision (harness compatibility): unsupported SIWC preview scalar
 fields are soft-dropped (stripped / never sent upstream) rather than hard-
 failing with ``ResponsesProviderLimitationError``. Harness clients commonly
@@ -155,6 +159,24 @@ def _project_item_list(items: list[Any], *, represented_sources: set[str]) -> li
     return projected
 
 
+def _normalize_messages_to_input(payload: dict[str, Any]) -> None:
+    """Move Chat Completions ``messages`` onto Responses ``input``; never send ``messages``.
+
+    Translator output from Chat Completions frontends commonly still carries
+    top-level ``messages``. SIWC preview Responses rejects that parameter, so
+    after item-list projection we always pop ``messages``. When it is a list,
+    merge into ``input`` (extend an existing list, otherwise replace/set).
+    """
+    messages = payload.pop("messages", None)
+    if not isinstance(messages, list):
+        return
+    existing_input = payload.get("input")
+    if isinstance(existing_input, list):
+        existing_input.extend(messages)
+    else:
+        payload["input"] = list(messages)
+
+
 def _hosted_tool_type(value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         return None
@@ -257,6 +279,7 @@ class ChatGPTPlanRequestPolicy:
                     items, represented_sources=represented_sources
                 )
 
+        _normalize_messages_to_input(payload)
         _reject_unsupported_hosted_tools(payload)
         _reject_explicit_store_true(request)
         _strip_unsupported_siwc_fields(payload)
@@ -268,4 +291,3 @@ class ChatGPTPlanRequestPolicy:
             downstream_stream_requested=bool(stream_flag),
             explicit_profile_id=None,
         )
-

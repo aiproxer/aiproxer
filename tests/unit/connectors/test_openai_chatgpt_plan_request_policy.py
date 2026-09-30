@@ -166,6 +166,7 @@ def _payload_text(payload: dict[str, Any]) -> str:
 
 
 def _assert_no_system_roles(payload: dict[str, Any]) -> None:
+    assert "messages" not in payload
     for key in ("input", "messages"):
         items = payload.get(key)
         if not isinstance(items, list):
@@ -173,6 +174,11 @@ def _assert_no_system_roles(payload: dict[str, Any]) -> None:
         for item in items:
             if isinstance(item, dict):
                 assert item.get("role") != "system"
+
+
+def _assert_responses_input_shape(payload: dict[str, Any]) -> None:
+    assert "messages" not in payload
+    assert isinstance(payload.get("input"), list)
 
 
 def _assert_no_forbidden_fingerprints(payload: dict[str, Any]) -> None:
@@ -258,6 +264,8 @@ class TestCanonicalSystemPromptProjection:
         )
         assert projected.payload["instructions"] == prompt
         assert projected.downstream_stream_requested is False
+        _assert_responses_input_shape(projected.payload)
+        assert _roles(projected.payload["input"]) == ["user"]
         _assert_no_system_roles(projected.payload)
         _assert_no_forbidden_fingerprints(projected.payload)
 
@@ -270,6 +278,8 @@ class TestCanonicalSystemPromptProjection:
         }
         projected = _project(generic, _responses_request(system_prompt=prompt))
         assert projected.payload["instructions"] == prompt
+        _assert_responses_input_shape(projected.payload)
+        assert projected.payload["input"][0]["content"] == "Hi."
 
 
 class TestResidualSystemRewrite:
@@ -332,9 +342,10 @@ class TestResidualSystemRewrite:
             ]
         )
         projected = _project(generic, request)
-        messages = projected.payload["messages"]
-        assert _roles(messages) == ["developer", "user", "assistant"]
-        assert messages[0]["content"] == "Translated system item."
+        _assert_responses_input_shape(projected.payload)
+        items = projected.payload["input"]
+        assert _roles(items) == ["developer", "user", "assistant"]
+        assert items[0]["content"] == "Translated system item."
         _assert_no_system_roles(projected.payload)
 
     def test_existing_developer_items_keep_role_and_relative_order(self) -> None:
@@ -431,10 +442,11 @@ class TestInstructionProvenance:
             ],
         }
         projected = _project(generic, _responses_request(system_prompt=shared))
-        messages = projected.payload["messages"]
-        assert _roles(messages) == ["developer", "developer", "user"]
-        assert messages[0]["content"] == shared
-        assert messages[1]["content"] == "Pre-existing developer."
+        _assert_responses_input_shape(projected.payload)
+        items = projected.payload["input"]
+        assert _roles(items) == ["developer", "developer", "user"]
+        assert items[0]["content"] == shared
+        assert items[1]["content"] == "Pre-existing developer."
         _assert_no_system_roles(projected.payload)
 
 
@@ -462,6 +474,15 @@ class TestNegativeCodexAndClientFamilyFingerprints:
                 stream=True,
             ),
         )
+        _assert_responses_input_shape(projected.payload)
+        # Both former input and messages item lists are merged into input.
+        assert _roles(projected.payload["input"]) == [
+            "developer",
+            "developer",
+            "user",
+            "developer",
+            "user",
+        ]
         _assert_no_forbidden_fingerprints(projected.payload)
         blob = _payload_text(projected.payload)
         assert "src/resources/codex" not in blob
@@ -487,3 +508,61 @@ class TestNegativeCodexAndClientFamilyFingerprints:
         assert isinstance(projected_items, list)
         assert projected_items[0]["role"] == "developer"
         assert projected.payload is not generic
+
+class TestMessagesNormalizedToInput:
+    def test_translator_shaped_messages_become_input_and_messages_removed(self) -> None:
+        """Chat Completions translator keys must map onto Responses input."""
+        generic = {
+            "model": "gpt-4o",
+            "stream": True,
+            "messages": [
+                {"role": "user", "content": "What is the status?"},
+            ],
+        }
+        projected = _project(generic, _responses_request(stream=True))
+        assert "messages" not in projected.payload
+        assert isinstance(projected.payload.get("input"), list)
+        assert _roles(projected.payload["input"]) == ["user"]
+        assert projected.payload["input"][0]["content"] == "What is the status?"
+        assert projected.payload["model"] == "gpt-4o"
+        assert projected.payload["stream"] is True
+        assert projected.payload["store"] is False
+
+    def test_messages_merged_after_existing_input(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "input": [
+                {"type": "message", "role": "user", "content": "from-input"},
+            ],
+            "messages": [
+                {"role": "user", "content": "from-messages"},
+            ],
+        }
+        projected = _project(generic)
+        assert "messages" not in projected.payload
+        items = projected.payload["input"]
+        assert len(items) == 2
+        assert items[0]["content"] == "from-input"
+        assert items[1]["content"] == "from-messages"
+
+    def test_non_list_messages_popped_without_clobbering_input(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "input": [{"role": "user", "content": "keep-me"}],
+            "messages": "not-a-list",
+        }
+        projected = _project(generic)
+        assert "messages" not in projected.payload
+        assert projected.payload["input"][0]["content"] == "keep-me"
+
+    def test_empty_input_replaced_by_messages(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "input": [],
+            "messages": [{"role": "user", "content": "only-messages"}],
+        }
+        projected = _project(generic)
+        assert "messages" not in projected.payload
+        assert _roles(projected.payload["input"]) == ["user"]
+        assert projected.payload["input"][0]["content"] == "only-messages"
+
