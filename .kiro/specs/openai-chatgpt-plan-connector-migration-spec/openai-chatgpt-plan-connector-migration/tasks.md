@@ -124,8 +124,8 @@
 
 ## Phase 5: Execute Through Shared Responses Streaming and Normalize SIWC Failures
 
-- [ ] 5. Complete inference execution, terminal semantics and recovery
-- [ ] 5.1 Reuse the shared Responses transport for forced upstream streaming
+- [x] 5. Complete inference execution, terminal semantics and recovery
+- [x] 5.1 Reuse the shared Responses transport for forced upstream streaming
   - Delegate the projected payload to the existing public Responses HTTP/SSE transport rather than implementing a Codex-style executor.
   - Preserve downstream streaming for streaming clients without unnecessary buffering.
   - For downstream non-streaming requests, consume the mandatory upstream stream through the existing accumulator and emit success only after `response.completed`.
@@ -301,3 +301,5 @@
 - Task 4.1: `ChatGPTPlanRequestPolicy.project` in `request_policy.py` — native `instructions` kept; empty instructions filled from `CanonicalChatRequest.system_prompt`; residual `role=system` in `input`/`messages` rewritten to `developer`. Duplicate suppression uses `siwc_instruction_source` provenance tags, not text-equality. Do not import request_policy from package `__init__`. Store/stream/unsupported fields are 4.3.
 - Task 4.2: SIWC preview matrix (docs 2026-09-30): preserve function/custom tools, `tool_choice`, call/output linkage, text/image/file, and web search. Reject image generation, file search, Code Interpreter, `computer_use_preview`, hosted MCP/connectors, `tool_search`, and top-level `programmatic_tool_calling` via `ResponsesProviderLimitationError`. No client-family adapters. Nested `additional_tools` hosted types not walked (possible 4.3 follow-up).
 - Task 4.3: `project()` forces `store=false`/`stream=true`; always omits `previous_response_id`; explicit unsupported fields (canonical + extra_body) raise `ResponsesProviderLimitationError`; incidental serializer defaults are stripped. Explicit `store=True` is rejected; downstream `stream=False` stays `downstream_stream_requested=False`. Nested `additional_tools` hosted types are walked. HTTP/headers are 4.4.
+- Task 5.1: connector.responses forces request stream=True into OpenAIResponsesConnector; non-streaming clients accumulate via ChatGPTPlanStreamAccumulator (raises ChatGPTPlanStreamError on failed/incomplete/missing completed). Generic translator maps response.incomplete to error chunk code=response_incomplete.
+

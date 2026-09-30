@@ -299,3 +299,21 @@ def test_apply_patch_placeholder_is_buffered_until_output_item_done() -> None:
         tool_calls[0]["function"]["arguments"]
         == "*** Begin Patch\n*** Add File: notes.txt\n+hello\n*** End Patch\n"
     )
+
+
+def test_response_incomplete_is_terminal_error_chunk() -> None:
+    """`response.incomplete` must not look like a successful empty chunk."""
+    out = responses_to_domain_stream_chunk(
+        {
+            "type": "response.incomplete",
+            "response": {
+                "id": "resp_incomplete_generic_1",
+                "status": "incomplete",
+                "incomplete_details": {"reason": "max_output_tokens"},
+            },
+        }
+    )
+    assert isinstance(out, dict)
+    assert out.get("error")
+    assert out["choices"][0].get("finish_reason") == "error"
+    assert out["error"].get("code") == "response_incomplete"

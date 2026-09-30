@@ -633,6 +633,26 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
         _active_responses_stream_id.set(None)
         return _build_error_chunk(error_payload)
 
+    if event_type == "response.incomplete":
+        response_info = chunk.get("response") or {}
+        incomplete_details = response_info.get("incomplete_details") or {}
+        if not isinstance(incomplete_details, dict):
+            incomplete_details = {"details": incomplete_details}
+        reason = incomplete_details.get("reason")
+        message = "Response incomplete"
+        if isinstance(reason, str) and reason.strip():
+            message = f"Response incomplete: {reason.strip()}"
+        error_payload = {
+            "code": "response_incomplete",
+            "message": message,
+            "type": "incomplete_error",
+            "incomplete_details": incomplete_details,
+        }
+        reset_tool_call_state(response_info.get("id") or chunk_id)
+        _reasoning_summary_sanitizer_state.set(ReasoningSummarySanitizerState())
+        _active_responses_stream_id.set(None)
+        return _build_error_chunk(error_payload)
+
     if event_type == "response.output_item.added":
         item = chunk.get("item") or {}
         item_type = item.get("type")

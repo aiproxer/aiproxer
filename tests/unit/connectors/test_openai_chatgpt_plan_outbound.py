@@ -7,6 +7,8 @@ Token placeholders must not use the sk- prefix.
 
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncIterator, Generator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -20,6 +22,9 @@ from src.core.domain.chat import CanonicalChatRequest, ChatMessage
 from src.core.domain.responses import ResponseEnvelope
 from src.core.domain.responses_native_wiring import (
     RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY,
+)
+from src.core.domain.translators.responses.streaming import (
+    reset_active_responses_stream_context,
 )
 from src.core.interfaces.configuration import IAppIdentityConfig
 from src.core.services.translation_service import TranslationService
@@ -77,6 +82,13 @@ NATIVE_PAYLOAD: dict[str, Any] = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _reset_responses_stream_context() -> Generator[None, None, None]:
+    reset_active_responses_stream_context()
+    yield
+    reset_active_responses_stream_context()
+
+
 class _StubTokenManager:
     def __init__(self, token: str) -> None:
         self.token = token
@@ -114,25 +126,57 @@ def _codex_like_identity() -> _InjectedIdentity:
     )
 
 
-def _json_response() -> Mock:
+def _completed_sse_response() -> Mock:
+    events = [
+        (
+            "response.created",
+            {
+                "type": "response.created",
+                "response": {"id": "resp-123", "model": "gpt-4o"},
+            },
+        ),
+        (
+            "response.output_text.delta",
+            {"type": "response.output_text.delta", "delta": "ok"},
+        ),
+        (
+            "response.completed",
+            {
+                "type": "response.completed",
+                "response": {
+                    "id": "resp-123",
+                    "object": "response",
+                    "model": "gpt-4o",
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [{"type": "output_text", "text": "ok"}],
+                        }
+                    ],
+                    "usage": {
+                        "input_tokens": 4,
+                        "output_tokens": 1,
+                        "total_tokens": 5,
+                    },
+                },
+            },
+        ),
+    ]
+    body = "".join(
+        f"event: {name}\ndata: {json.dumps(payload)}\n\n" for name, payload in events
+    ).encode("utf-8")
     mock_response = Mock()
     mock_response.status_code = 200
-    mock_response.headers = {"content-type": "application/json"}
-    mock_response.json.return_value = {
-        "id": "resp-123",
-        "object": "response",
-        "created": 1234567890,
-        "model": "gpt-4o",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "ok"},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 4, "completion_tokens": 1, "total_tokens": 5},
-    }
-    mock_response.aread = AsyncMock()
+    mock_response.headers = {"content-type": "text/event-stream"}
+
+    async def _aiter_bytes() -> AsyncIterator[bytes]:
+        yield body
+
+    mock_response.aiter_bytes = MagicMock(return_value=_aiter_bytes())
+    mock_response.aread = AsyncMock(return_value=body)
+    mock_response.aclose = AsyncMock()
     return mock_response
 
 
@@ -208,7 +252,7 @@ class TestOpenAIChatGPTPlanOutboundWire:
     def mock_client(self) -> Mock:
         client = AsyncMock(spec=httpx.AsyncClient)
         client.build_request = MagicMock(return_value=MagicMock())
-        client.send = AsyncMock(return_value=_json_response())
+        client.send = AsyncMock(return_value=_completed_sse_response())
         return client
 
     @pytest.mark.asyncio
@@ -290,6 +334,7 @@ class TestOpenAIChatGPTPlanOutboundWire:
 
         payload = _captured_call(mock_client)[1]["json"]
         assert payload["store"] is False
+        assert payload["stream"] is True
         assert "previous_response_id" not in payload
         for key in ("input", "messages"):
             items = payload.get(key)

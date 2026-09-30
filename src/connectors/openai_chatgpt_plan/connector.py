@@ -163,6 +163,9 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
         from src.connectors.openai_chatgpt_plan.request_policy import (
             ChatGPTPlanRequestPolicy,
         )
+        from src.connectors.openai_chatgpt_plan.stream_accumulator import (
+            ChatGPTPlanStreamAccumulator,
+        )
 
         request_data = request.request
         raw_extra = getattr(request_data, "extra_body", None)
@@ -173,7 +176,12 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
             generic_payload=generic_payload,
         )
         extra_body[RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY] = projected.payload
-        forwarded_request = request_data.model_copy(update={"extra_body": extra_body})
+        # SIWC requires upstream stream=true for every HTTP inference request.
+        # Force the shared Responses transport onto the streaming path even when
+        # the downstream client asked for a non-streaming response.
+        forwarded_request = request_data.model_copy(
+            update={"extra_body": extra_body, "stream": True}
+        )
 
         self.api_key = await self._chatgpt_plan_access_token()
         self.api_base_url = PUBLIC_OPENAI_API_BASE
@@ -188,7 +196,16 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
             request=forwarded_request,
             options=options,
         )
-        return await super().responses(forwarded)
+        result = await super().responses(forwarded)
+
+        if projected.downstream_stream_requested:
+            return result
+
+        if isinstance(result, StreamingResponseEnvelope):
+            accumulator = ChatGPTPlanStreamAccumulator(backend_type=self.backend_type)
+            return await accumulator.accumulate(result)
+
+        return result
 
     async def get_available_models_async(self) -> list[str]:
         catalog = self._chatgpt_plan_model_catalog
