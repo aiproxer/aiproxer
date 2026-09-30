@@ -92,7 +92,7 @@
 ## Phase 4: Implement SIWC Request Projection Without Codex Prompt Emulation
 
 - [ ] 4. Build a strict SIWC Responses request-policy layer
-- [ ] 4.1 Preserve native harness instructions using supported Responses semantics
+- [x] 4.1 Preserve native harness instructions using supported Responses semantics
   - Preserve native top-level `instructions` without injecting a Codex default prompt.
   - Project canonical high-priority system instructions to top-level `instructions` when not already represented.
   - Rewrite residual explicit `role=system` input/message items to ordered `developer` items only where needed to preserve semantics because SIWC currently rejects explicit system input items.
@@ -298,3 +298,4 @@
 - Task 2.5: `ChatGPTPlanProfileSelector` precedence is request, backend-instance, config profile_id, sole/default profile, else error listing IDs. Import never writes dest `ext_agent_host_id`. No auto-import of `.codex/auth.json`. CLI is task 6.1.
 - Task 3.1: `ChatGPTPlanModelCatalog` GET `https://api.openai.com/v1/models` only; cache fingerprint is issued_client_id+issuer+subject; connector `bind_chatgpt_plan_model_catalog` so package import stays catalog-free. Routing integration is 3.2.
 - Task 3.2: `build_chatgpt_plan_model_catalog` caches one catalog/token-manager graph per resolved `profiles_path` so enumerator and connector share invalidation. Register `ChatGPTPlanConfiguredModelEnumerator` in `routing.py`; do not add a ChatGPT-plan application stage. Process-lifetime cache: first-seen `ChatGPTPlanConfig` extras win for that store.
+- Task 4.1: `ChatGPTPlanRequestPolicy.project` in `request_policy.py` — native `instructions` kept; empty instructions filled from `CanonicalChatRequest.system_prompt`; residual `role=system` in `input`/`messages` rewritten to `developer`. Duplicate suppression uses `siwc_instruction_source` provenance tags, not text-equality. Do not import request_policy from package `__init__`. Store/stream/unsupported fields are 4.3.
