@@ -30,6 +30,7 @@ def mock_base_connector():
     # Mock methods that might be called during header building
     connector._codex_user_agent = MagicMock(return_value="test-user-agent")
     connector._codex_account_id = MagicMock(return_value=None)
+    connector.codex_client_version = ""
     return connector
 
 
@@ -51,6 +52,7 @@ def executor(mock_base_connector, mock_credential_manager):
         mock_credential_manager,
         max_retries=2,
         retry_backoff_seconds=(0.1, 0.2),
+        codex_client_version="9.9.9",
     )
 
 

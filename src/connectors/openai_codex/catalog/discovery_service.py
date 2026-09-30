@@ -13,7 +13,6 @@ import logging
 from pathlib import Path
 
 from src.connectors.openai_codex.catalog.endpoint_client import (
-    DEFAULT_CLIENT_VERSION,
     DEFAULT_TIMEOUT_SECONDS,
     CodexCatalogEndpointClient,
 )
@@ -34,7 +33,7 @@ class CodexCatalogDiscoveryService:
         self,
         *,
         endpoint_client: ICodexCatalogEndpointClient | None = None,
-        client_version: str = DEFAULT_CLIENT_VERSION,
+        client_version: str | None = None,
         auth_path: Path | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         parser: ICodexCatalogParser | None = None,

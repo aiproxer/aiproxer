@@ -55,7 +55,6 @@ from src.connectors.contracts import (
     ConnectorRequestContext,
 )
 from src.connectors.openai import OpenAIConnector
-from src.connectors.openai_codex.catalog.config import DEFAULT_CLIENT_VERSION
 from src.connectors.openai_codex.catalog.fallback_loader import (
     CodexCatalogFallbackLoader,
 )
@@ -143,15 +142,16 @@ class OpenAICodexConnector(OpenAIConnector):
     CODEX_PROMPT_RESOURCE_PACKAGE = "src.resources.codex"
     CODEX_PROMPT_RESOURCE_NAME = "gpt_5_codex_prompt.md"
     CODEX_ORIGINATOR = "codex_cli_rs"
-    CODEX_VERSION_HEADER = DEFAULT_CLIENT_VERSION
 
     @property
     def codex_client_version(self) -> str:
         """Return the Codex protocol compatibility level for outbound requests.
 
-        Mirrors ``extra.codex.model_catalog.client_version`` when configured;
-        falls back to :data:`DEFAULT_CLIENT_VERSION`. The backend gates
-        newer models (e.g. ``gpt-6-sol``) on this value.
+        Prefers an operator pin (``extra.codex.model_catalog.client_version``),
+        then the version resolved at startup from GitHub Releases (the same
+        source the Codex CLI uses for its update notice), then the last cached
+        GitHub latest. The backend omits newer models from the catalog and
+        rejects them on ``/responses`` until this value is new enough.
         """
         settings = getattr(self, "_connector_settings", None)
         if isinstance(settings, dict):
@@ -160,7 +160,26 @@ class OpenAICodexConnector(OpenAIConnector):
                 version = model_catalog.get("client_version")
                 if isinstance(version, str) and version.strip():
                     return version.strip()
-        return self.CODEX_VERSION_HEADER
+        try:
+            from src.connectors.openai_codex.catalog.provider import (
+                CodexModelCatalogProvider,
+            )
+            from src.core.di.provider_lifecycle import get_current_service_provider
+
+            provider = get_current_service_provider()
+            catalog_provider = provider.get_service(CodexModelCatalogProvider)
+            if catalog_provider is not None:
+                resolved = catalog_provider.get_client_version()
+                if resolved:
+                    return resolved
+        except (ImportError, AttributeError, ServiceResolutionError, RuntimeError):
+            pass
+        from src.connectors.openai_codex.catalog.cli_version import (
+            CodexCliLatestVersionResolver,
+        )
+
+        cached = CodexCliLatestVersionResolver().read_cache()
+        return cached or ""
 
     def __init__(
         self,
@@ -588,6 +607,40 @@ class OpenAICodexConnector(OpenAIConnector):
                     err,
                 )
         return CodexCatalogFallbackLoader().load()
+
+    async def _ensure_cli_version(self) -> None:
+        """Resolve the Codex CLI protocol version when it was not pinned.
+
+        Startup catalog discovery normally fills this in. Connectors constructed
+        outside that stage (tests, probe scripts) still need GitHub latest so
+        outbound ``version`` headers match a current CLI.
+        """
+        current = self.codex_client_version
+        if current:
+            executor = getattr(self, "_response_executor", None)
+            if executor is not None:
+                executor._codex_client_version = current
+            return
+
+        from src.connectors.openai_codex.catalog.cli_version import (
+            CodexCliLatestVersionResolver,
+        )
+
+        resolved = await CodexCliLatestVersionResolver().resolve()
+        if not resolved:
+            return
+        settings = getattr(self, "_connector_settings", None)
+        if not isinstance(settings, dict):
+            settings = {}
+            self._connector_settings = settings
+        model_catalog = settings.get("model_catalog")
+        if not isinstance(model_catalog, dict):
+            model_catalog = {}
+            settings["model_catalog"] = model_catalog
+        model_catalog["client_version"] = resolved
+        executor = getattr(self, "_response_executor", None)
+        if executor is not None:
+            executor._codex_client_version = resolved
 
     def _refresh_settings_from_overrides(self) -> None:
         try:
@@ -2201,6 +2254,7 @@ class OpenAICodexConnector(OpenAIConnector):
         logger.info("Initializing OpenAI Codex backend with enhanced validation.")
 
         self._refresh_settings_from_overrides()
+        await self._ensure_cli_version()
 
         try:
             self._event_loop = asyncio.get_running_loop()

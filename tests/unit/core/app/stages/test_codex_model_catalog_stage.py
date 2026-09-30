@@ -215,6 +215,36 @@ class TestStageExecute:
         assert catalog.is_supported("gpt-5.6-sol") is True
 
     @pytest.mark.asyncio
+    async def test_unpinned_client_version_uses_github_latest(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        catalog_file = _write_catalog(tmp_path / "catalog.json")
+
+        async def _latest(self: Any) -> str:
+            return "0.160.0"
+
+        monkeypatch.setattr(
+            "src.connectors.openai_codex.catalog.cli_version.CodexCliLatestVersionResolver.resolve",
+            _latest,
+        )
+        config = _config_with_model_catalog(
+            {
+                "discovery_enabled": False,
+                "fallback_path": str(catalog_file),
+            }
+        )
+        services = ServiceCollection()
+        await CodexModelCatalogStage().execute(services, config)
+
+        from src.connectors.openai_codex.catalog.provider import (
+            CodexModelCatalogProvider,
+        )
+
+        provider = services.build_service_provider()
+        catalog_provider = provider.get_required_service(CodexModelCatalogProvider)
+        assert catalog_provider.get_client_version() == "0.160.0"
+
+    @pytest.mark.asyncio
     async def test_registers_catalog_even_when_no_model_catalog_section(
         self, tmp_path: Path, monkeypatch
     ) -> None:

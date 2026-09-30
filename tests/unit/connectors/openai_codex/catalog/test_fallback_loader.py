@@ -72,6 +72,7 @@ class TestFallbackLoaderShippedResource:
         # The shipped snapshot must parse to a non-empty routable catalog.
         assert len(catalog.routable_slugs()) > 0
         assert "gpt-5.6-sol" in catalog.routable_slugs()
+        assert "gpt-6.1-sol" in catalog.routable_slugs()
         assert catalog.reasoning_effort_order  # derived, non-empty
         assert catalog.default_reasoning_effort == "medium"
 

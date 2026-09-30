@@ -590,8 +590,7 @@ async def test_codex_headers_include_expected_fields() -> None:
     assert headers["session_id"] == "conversation-id"
     assert headers["Codex-Task-Type"] == "standard"
     assert headers["originator"] == connector.CODEX_ORIGINATOR
-    assert headers["version"] == connector.CODEX_VERSION_HEADER
-    assert headers["version"] == "0.156.0"
+    assert headers["version"] == connector.codex_client_version
     assert "User-Agent" in headers
     await client.aclose()
 

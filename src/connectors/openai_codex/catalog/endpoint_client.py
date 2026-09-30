@@ -22,7 +22,6 @@ from typing import Any
 import httpx
 
 from src.connectors.openai_codex.catalog.config import (
-    DEFAULT_CLIENT_VERSION,
     DEFAULT_DISCOVERY_TIMEOUT_SECONDS,
 )
 from src.connectors.openai_codex.catalog.interfaces import (
@@ -49,7 +48,7 @@ class CodexCatalogEndpointClient:
         *,
         http_client: httpx.AsyncClient | None = None,
         credential_manager: ICodexCatalogCredentialProvider | None = None,
-        client_version: str = DEFAULT_CLIENT_VERSION,
+        client_version: str | None = None,
         auth_path: Path | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         base_url: str = CODEX_CATALOG_URL,
@@ -157,16 +156,24 @@ class CodexCatalogEndpointClient:
         headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
-            "User-Agent": f"codex_cli_rs/{self._client_version}",
+            "User-Agent": (
+                f"codex_cli_rs/{self._client_version}"
+                if self._client_version
+                else "codex_cli_rs"
+            ),
         }
         account_id = manager.get_account_id()
         if isinstance(account_id, str) and account_id:
             headers["chatgpt-account-id"] = account_id
 
+        params: dict[str, str] = {}
+        if isinstance(self._client_version, str) and self._client_version.strip():
+            params["client_version"] = self._client_version.strip()
+
         try:
             response = await client.get(
                 self._base_url,
-                params={"client_version": self._client_version},
+                params=params or None,
                 headers=headers,
                 timeout=self._timeout_seconds,
             )
@@ -212,7 +219,6 @@ class CodexCatalogEndpointClient:
 
 __all__ = [
     "CODEX_CATALOG_URL",
-    "DEFAULT_CLIENT_VERSION",
     "DEFAULT_TIMEOUT_SECONDS",
     "CodexCatalogEndpointClient",
 ]

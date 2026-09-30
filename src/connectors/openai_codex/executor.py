@@ -29,7 +29,6 @@ from src.connectors.contracts.wire_capture_context import (
     WIRE_CAPTURE_IS_RETRY_KEY,
     WIRE_CAPTURE_RETRY_ATTEMPT_KEY,
 )
-from src.connectors.openai_codex.catalog.config import DEFAULT_CLIENT_VERSION
 from src.connectors.openai_codex.continuation import (
     CodexContinuationSnapshot,
     InMemoryCodexContinuationCoordinator,
@@ -356,7 +355,7 @@ class ResponseExecutor(IResponseExecutor):
         codex_ws_lineage: Any | None = None,
         preserve_tools_on_managed_ws_continuation: bool = False,
         gpt55_free_plan_downgrade: Gpt55FreePlanDowngradeConfig | None = None,
-        codex_client_version: str = DEFAULT_CLIENT_VERSION,
+        codex_client_version: str | None = None,
     ) -> None:
         """Initialize the response executor.
 
@@ -394,7 +393,7 @@ class ResponseExecutor(IResponseExecutor):
             if gpt55_free_plan_downgrade is not None
             else DEFAULT_GPT55_DOWNGRADE
         )
-        self._codex_client_version = codex_client_version or DEFAULT_CLIENT_VERSION
+        self._codex_client_version = (codex_client_version or "").strip()
         self._max_incompatible_tool_retries = 2
         self._continuation_coordinator = (
             continuation_coordinator
@@ -1561,6 +1560,17 @@ class ResponseExecutor(IResponseExecutor):
             },
         )
 
+    def _effective_codex_client_version(self) -> str:
+        """Return the protocol version for outbound Codex headers.
+
+        Prefers a live value from the connector (startup GitHub discovery or
+        operator pin) over the version captured at executor construction.
+        """
+        connector_version = getattr(self._base_connector, "codex_client_version", None)
+        if isinstance(connector_version, str) and connector_version.strip():
+            return connector_version.strip()
+        return self._codex_client_version
+
     def _build_headers(self, conversation_id: str, session_id: str) -> dict[str, str]:
         """Build Codex-specific HTTP headers.
 
@@ -1577,11 +1587,11 @@ class ResponseExecutor(IResponseExecutor):
         headers = dict(base_headers)
         headers["OpenAI-Beta"] = "responses=experimental"
         headers["Accept"] = "text/event-stream"
-        headers["version"] = self._codex_client_version  # CODEX_VERSION_HEADER
+        headers["version"] = self._effective_codex_client_version()
         headers["originator"] = "codex_cli_rs"  # CODEX_ORIGINATOR
 
         headers["User-Agent"] = build_codex_user_agent(
-            version=self._codex_client_version
+            version=self._effective_codex_client_version() or "0.0.0"
         )
 
         headers["conversation_id"] = conversation_id

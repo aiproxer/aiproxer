@@ -130,12 +130,14 @@ class TestRequestShape:
         requests: list[httpx.Request] = []
         client = _client([_json_response(_CATALOG)], requests=requests)
         endpoint = CodexCatalogEndpointClient(
-            http_client=client, credential_manager=_FakeCredentialManager()
+            http_client=client,
+            credential_manager=_FakeCredentialManager(),
+            client_version="9.9.9",
         )
 
         await endpoint.fetch()
 
-        assert requests[0].url.params["client_version"] == "0.156.0"
+        assert requests[0].url.params["client_version"] == "9.9.9"
         assert requests[0].url.path == "/backend-api/codex/models"
         assert requests[0].url.host == "chatgpt.com"
         await client.aclose()
@@ -145,7 +147,9 @@ class TestRequestShape:
         requests: list[httpx.Request] = []
         client = _client([_json_response(_CATALOG)], requests=requests)
         endpoint = CodexCatalogEndpointClient(
-            http_client=client, credential_manager=_FakeCredentialManager()
+            http_client=client,
+            credential_manager=_FakeCredentialManager(),
+            client_version="9.9.9",
         )
 
         await endpoint.fetch()
@@ -153,7 +157,7 @@ class TestRequestShape:
         headers = requests[0].headers
         assert headers["Authorization"] == "Bearer token-1"
         assert headers["Accept"] == "application/json"
-        assert headers["User-Agent"] == "codex_cli_rs/0.156.0"
+        assert headers["User-Agent"] == "codex_cli_rs/9.9.9"
         await client.aclose()
 
     @pytest.mark.asyncio

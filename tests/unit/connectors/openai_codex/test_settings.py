@@ -95,6 +95,7 @@ class TestSettingsLoader:
         assert settings.model_catalog["fallback_path"] is None
         assert settings.model_catalog["codex_binary_path"] is None
         assert settings.model_catalog["discovery_timeout_seconds"] == 10.0
+        assert settings.model_catalog["client_version"] is None
 
     def test_early_session_verbosity_bump_defaults(self, loader, app_config):
         settings = loader.load(app_config)

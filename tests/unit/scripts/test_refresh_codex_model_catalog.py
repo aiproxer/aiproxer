@@ -89,6 +89,11 @@ def fake_endpoint(monkeypatch):
     _FakeEndpoint.result = _RAW_CATALOG
     _FakeEndpoint.raises = None
     monkeypatch.setattr(_refresh, "CodexCatalogEndpointClient", _FakeEndpoint)
+
+    async def _latest() -> str:
+        return "0.160.0"
+
+    monkeypatch.setattr(_refresh, "_discover_cli_version", _latest)
     return _FakeEndpoint
 
 
@@ -146,7 +151,7 @@ class TestArgumentForwarding:
         output = tmp_path / "catalog.json"
         _refresh.main(["--output", str(output)])
 
-        assert fake_endpoint.calls[0]["client_version"] == "0.156.0"
+        assert fake_endpoint.calls[0]["client_version"] == "0.160.0"
         assert fake_endpoint.calls[0]["auth_path"] is None
         assert fake_endpoint.calls[0]["timeout_seconds"] == 30.0
 

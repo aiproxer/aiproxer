@@ -10,7 +10,6 @@ Codex OAuth account, and the shipped snapshot is used on any failure.
 from __future__ import annotations
 
 from src.connectors.openai_codex.catalog.config import (
-    DEFAULT_CLIENT_VERSION,
     DEFAULT_CODEX_MODEL_CATALOG_CONFIG,
     CodexModelCatalogConfig,
     apply_model_catalog_env_overrides,
@@ -47,7 +46,6 @@ from src.connectors.openai_codex.catalog.types import (
 
 __all__ = [
     "CODEX_CATALOG_URL",
-    "DEFAULT_CLIENT_VERSION",
     "DEFAULT_CODEX_MODEL_CATALOG_CONFIG",
     "CodexCatalogDiscoveryService",
     "CodexCatalogEndpointClient",

@@ -20,7 +20,7 @@ class TestConfigDefaults:
         assert cfg.fallback_path is None
         assert cfg.codex_binary_path is None
         assert cfg.discovery_timeout_seconds == 10.0
-        assert cfg.client_version == "0.156.0"
+        assert cfg.client_version is None
         assert cfg.auth_path is None
 
     def test_empty_mapping_returns_defaults(self) -> None:
@@ -54,16 +54,16 @@ class TestConfigOverrides:
         assert cfg.fallback_path == "/x"
         assert cfg.discovery_enabled is True
         assert cfg.discovery_timeout_seconds == 10.0
-        assert cfg.client_version == "0.156.0"
+        assert cfg.client_version is None
         assert cfg.auth_path is None
 
     def test_client_version_strips_whitespace(self) -> None:
         cfg = codex_model_catalog_config_from_mapping({"client_version": "  0.155.0  "})
         assert cfg.client_version == "0.155.0"
 
-    def test_empty_client_version_falls_back_to_default(self) -> None:
+    def test_empty_client_version_means_auto_discover(self) -> None:
         cfg = codex_model_catalog_config_from_mapping({"client_version": "   "})
-        assert cfg.client_version == "0.156.0"
+        assert cfg.client_version is None
 
     def test_auth_path_strips_whitespace_and_empty_is_none(self) -> None:
         assert (

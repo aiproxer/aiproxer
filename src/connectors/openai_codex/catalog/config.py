@@ -1,9 +1,10 @@
 """Configuration for Codex model catalog auto-discovery.
 
 Lives under ``backends.openai_codex.extra.codex.model_catalog`` (and the v2 /
-app-server equivalents). ``client_version`` declares the Codex protocol
-compatibility level sent to the internal backend catalog endpoint; it must not
-be automatically derived from npm's latest version.
+app-server equivalents). ``client_version`` is an optional operator pin for the
+Codex protocol compatibility level. When unset, startup discovery fetches the
+latest Codex CLI version from GitHub Releases (the same source the CLI uses
+for its update notice) and uses that value.
 """
 
 from __future__ import annotations
@@ -15,10 +16,6 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-# Canonical Codex protocol compatibility level sent as the ``client_version``
-# query parameter. Single source of truth — the endpoint client, discovery
-# service, and scripts import this instead of defining their own copy.
-DEFAULT_CLIENT_VERSION = "0.156.0"
 DEFAULT_DISCOVERY_TIMEOUT_SECONDS = 10.0
 
 
@@ -39,8 +36,10 @@ class CodexModelCatalogConfig:
             resolved or executed.
         discovery_timeout_seconds: HTTP request timeout for the catalog GET
             before falling back.
-        client_version: Codex protocol compatibility level sent as the
-            ``client_version`` query parameter (default ``0.156.0``).
+        client_version: Optional pin for the Codex protocol compatibility
+            level sent as the catalog GET ``client_version`` query parameter
+            and outbound ``version`` header. When None, the latest Codex CLI
+            release is resolved from GitHub at startup.
         auth_path: Optional explicit path to a legacy/current ``auth.json``.
             When None, the credential manager discovers the default location.
     """
@@ -49,7 +48,7 @@ class CodexModelCatalogConfig:
     fallback_path: str | None = None
     codex_binary_path: str | None = None
     discovery_timeout_seconds: float = DEFAULT_DISCOVERY_TIMEOUT_SECONDS
-    client_version: str = DEFAULT_CLIENT_VERSION
+    client_version: str | None = None
     auth_path: str | None = None
 
 
@@ -164,15 +163,12 @@ def codex_model_catalog_config_from_mapping(
         discovery_timeout_seconds=_coerce_timeout(
             raw.get("discovery_timeout_seconds"), DEFAULT_DISCOVERY_TIMEOUT_SECONDS
         ),
-        client_version=(
-            _coerce_str_or_none(raw.get("client_version")) or DEFAULT_CLIENT_VERSION
-        ),
+        client_version=_coerce_str_or_none(raw.get("client_version")),
         auth_path=_expand_path(_coerce_str_or_none(raw.get("auth_path"))),
     )
 
 
 __all__ = [
-    "DEFAULT_CLIENT_VERSION",
     "DEFAULT_CODEX_MODEL_CATALOG_CONFIG",
     "DEFAULT_DISCOVERY_TIMEOUT_SECONDS",
     "CodexModelCatalogConfig",

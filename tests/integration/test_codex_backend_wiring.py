@@ -1191,6 +1191,8 @@ async def test_gpt_6_astra_support_and_alias_resolution(auth_dir: Path):
     )
     try:
         assert connector._is_codex_model("gpt-6-astra") is True
+        assert connector._is_codex_model("gpt-6.1-sol") is True
         assert "gpt-6-astra" in connector.SUPPORTED_CODEX_MODELS
+        assert "gpt-6.1-sol" in connector.SUPPORTED_CODEX_MODELS
     finally:
         await connector.shutdown()

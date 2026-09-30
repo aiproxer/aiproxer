@@ -147,6 +147,23 @@ class CodexModelCatalogStage(InitializationStage):
         )
 
         catalog_config = resolve_codex_model_catalog_config(config)
+        if not catalog_config.client_version:
+            from src.connectors.openai_codex.catalog.cli_version import (
+                CodexCliLatestVersionResolver,
+            )
+
+            resolved = await CodexCliLatestVersionResolver().resolve()
+            if resolved:
+                catalog_config = replace(catalog_config, client_version=resolved)
+                logger.info(
+                    "Codex CLI latest version resolved from GitHub Releases: %s",
+                    resolved,
+                )
+            else:
+                logger.warning(
+                    "Codex CLI latest version was not available from GitHub or "
+                    "cache; catalog discovery will omit client_version."
+                )
         provider = CodexModelCatalogProvider(config=catalog_config)
         try:
             await provider.load()

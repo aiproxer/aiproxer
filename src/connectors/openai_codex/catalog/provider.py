@@ -60,6 +60,13 @@ class CodexModelCatalogProvider:
         self._catalog: CodexModelCatalog | None = None
         self._catalog_source: str | None = None
 
+    def get_client_version(self) -> str | None:
+        """Return the protocol version used for catalog GET / outbound headers."""
+        version = self._config.client_version
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+        return None
+
     async def load(self) -> None:
         """Eagerly resolve the catalog (discovery, else fallback) and cache it.
 

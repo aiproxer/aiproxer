@@ -508,13 +508,15 @@ backends:
         # (https://chatgpt.com/backend-api/codex/models) at startup to learn
         # supported model slugs and per-model reasoning-effort settings; on any
         # failure it falls back to the shipped snapshot
-        # (src/resources/codex/codex_model_catalog.json). The Codex CLI
-        # executable is not required. Set discovery_enabled: false to skip
-        # discovery and always use the fallback file. Override fallback_path to
-        # use a custom snapshot.
+        # (src/resources/codex/codex_model_catalog.json). The catalog GET and
+        # outbound Codex version header use the latest Codex CLI release from
+        # GitHub (https://api.github.com/repos/openai/codex/releases/latest)
+        # unless client_version is pinned. The Codex CLI executable is not
+        # required. Set discovery_enabled: false to skip discovery and always
+        # use the fallback file. Override fallback_path to use a custom snapshot.
         model_catalog:
           discovery_enabled: true
-          # client_version: 0.156.0          # Codex protocol compatibility level
+          # client_version: 0.159.2          # optional pin; default is GitHub latest Codex CLI release
           # auth_path: ~/.codex/auth.json    # explicit auth.json (else discovered)
           # fallback_path: /etc/llm-proxy/codex_model_catalog.json
           discovery_timeout_seconds: 10.0

@@ -50,19 +50,26 @@ disabled, the proxy falls back to a **shipped snapshot** at
 fallback file via `extra.codex.model_catalog.fallback_path`.
 
 The Codex CLI executable is **no longer required** for discovery or for
-refreshing the snapshot. `client_version` (default `0.156.0`) declares the Codex
-protocol compatibility level: it is sent as the catalog GET `client_version`
-query parameter and as the outbound Codex `version` header / User-Agent. The
-backend gates newer models (for example `gpt-6-sol`, whose
-`minimal_client_version` is `0.155.0`) on this value, so it must not be
-automatically set from npm's latest version. The catalog endpoint is an internal
-Codex contract that may change without notice; on any failure the proxy serves
-the shipped snapshot.
+refreshing the snapshot. At startup the proxy resolves the latest Codex CLI
+version the same way the CLI's update notice does: `GET
+https://api.github.com/repos/openai/codex/releases/latest`, then strips the
+`rust-v` prefix from `tag_name`. That value is sent as the catalog GET
+`client_version` query parameter and as the outbound Codex `version` header /
+User-Agent. The backend omits newer models from the catalog response, and
+rejects them on `/responses`, until this value is new enough (for example
+`gpt-6.1-sol` is advertised and accepted at `0.159.2`, while `0.158.2` and
+earlier omit the slug). A successful GitHub fetch is cached under
+`var/cache/codex_cli_latest_version.json` so a later GitHub outage still has a
+last-known version. Pin a version only if you need to freeze protocol
+compatibility (`extra.codex.model_catalog.client_version` or
+`OPENAI_CODEX_MODEL_CATALOG_CLIENT_VERSION`). The catalog endpoint is an
+internal Codex contract that may change without notice; on any failure the
+proxy serves the shipped snapshot.
 
 The catalog is the backend's raw response, so it contains exactly the models the
-Codex backend advertises (the shipped `0.156.0` snapshot reports
-`gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`,
-`gpt-5.6-luna` and `gpt-5.5` as routable). The app-server variant additionally
+Codex backend advertises for that protocol version (the shipped snapshot
+currently reports `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`,
+`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` and `gpt-5.5` as routable). The app-server variant additionally
 advertises the `auto` routing sentinel (the app-server resolves the actual model
 server-side).
 
@@ -140,7 +147,7 @@ backends:
       codex:
         model_catalog:
           discovery_enabled: true            # GET the backend catalog at startup
-          # client_version: 0.156.0          # Codex protocol compatibility level
+          # client_version: 0.159.2          # optional pin; default is GitHub latest Codex CLI release
           # auth_path: ~/.codex/auth.json    # explicit auth.json (else discovered)
           # fallback_path: /etc/codex/catalog.json   # override shipped snapshot
           discovery_timeout_seconds: 10.0  # HTTP request timeout
@@ -158,7 +165,7 @@ backends:
 
 # Refresh the shipped snapshot from the authenticated Codex backend
 ./.venv/Scripts/python.exe scripts/refresh_codex_model_catalog.py
-./.venv/Scripts/python.exe scripts/refresh_codex_model_catalog.py --client-version 0.156.0 --auth-path ~/.codex/auth.json
+./.venv/Scripts/python.exe scripts/refresh_codex_model_catalog.py --auth-path ~/.codex/auth.json
 ```
 
 ### Authentication

@@ -21,8 +21,8 @@ class TestResponseExecutor:
         assert headers["Accept"] == "text/event-stream"
         assert headers["conversation_id"] == sample_context.session_id
         assert headers["session_id"] == sample_context.session_id
-        assert headers["version"] == "0.156.0"
-        assert "codex_cli_rs/0.156.0" in headers["User-Agent"]
+        assert headers["version"] == "9.9.9"
+        assert "codex_cli_rs/9.9.9" in headers["User-Agent"]
 
     def test_build_headers_uses_configured_client_version(
         self, mock_base_connector, mock_credential_manager, sample_context
