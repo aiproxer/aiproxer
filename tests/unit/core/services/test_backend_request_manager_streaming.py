@@ -232,6 +232,234 @@ async def test_empty_stream_retry_respects_max_limit() -> None:
 
 
 @pytest.mark.asyncio
+async def test_responses_tool_only_then_stop_is_not_retried_as_empty() -> None:
+    """SIWC/Responses tool-only turns end with function_call deltas then stop.
+
+    After e48d49a93, output_item.done no longer attaches finish_reason=tool_calls
+    (to avoid early SSE close). The empty-stream gate must still treat the
+    tool_calls delta as meaningful and must flush the trailing stop so the
+    Responses frontend can emit response.completed + [DONE].
+    """
+    backend_processor = AsyncMock()
+    response_processor = MagicMock()
+    response_processor.process_streaming_response = (
+        lambda stream, _session_id, context=None: stream
+    )
+    manager = create_backend_request_manager(
+        backend_processor=backend_processor,
+        response_processor=response_processor,
+    )
+
+    original_request = ChatRequest(
+        model="openai-chatgpt-plan:gpt-6.1-sol",
+        messages=[ChatMessage(role="user", content="list files")],
+        stream=True,
+    )
+
+    async def tool_only_then_stop() -> AsyncIterator[ProcessedResponse]:
+        yield ProcessedResponse(
+            content={
+                "id": "resp_tool_only",
+                "object": "response.chunk",
+                "created": 1,
+                "model": "gpt-6.1-sol",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "id": "call_read_1",
+                                    "index": 0,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "read",
+                                        "arguments": '{"filePath":"C:\\\\tmp"}',
+                                    },
+                                }
+                            ]
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            metadata=_meta({}),
+        )
+        yield ProcessedResponse(
+            content={
+                "id": "resp_tool_only",
+                "object": "response.chunk",
+                "created": 1,
+                "model": "gpt-6.1-sol",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            },
+            metadata=_meta({"finish_reason": "stop", "is_done": True}),
+        )
+
+    backend_processor.process_backend_request.return_value = StreamingResponseEnvelope(
+        content=tool_only_then_stop()
+    )
+
+    envelope = await manager.process_backend_request(
+        original_request,
+        "session-responses-tool-only",
+        _make_context(),
+    )
+
+    assert isinstance(envelope, StreamingResponseEnvelope)
+    assert envelope.content is not None
+    chunks = [chunk async for chunk in envelope.content]
+
+    assert backend_processor.process_backend_request.await_count == 1
+    assert len(chunks) == 2
+    first = cast(dict[str, Any], chunks[0].content)
+    assert first["choices"][0]["delta"]["tool_calls"]
+    assert chunks[1].metadata.get("finish_reason") == "stop"
+
+
+@pytest.mark.asyncio
+async def test_completed_stop_without_text_is_not_retried_as_empty() -> None:
+    """A clean finish_reason=stop with no assistant text must close the turn.
+
+    SIWC often completes with an empty message item + response.completed. Treating
+    that as empty-stream failure caused 502 "no user-visible content" loops under
+    OpenCode dual-submit/retry, and held the terminal chunk so SSE never [DONE].
+    """
+    backend_processor = AsyncMock()
+    response_processor = MagicMock()
+    response_processor.process_streaming_response = (
+        lambda stream, _session_id, context=None: stream
+    )
+    manager = create_backend_request_manager(
+        backend_processor=backend_processor,
+        response_processor=response_processor,
+    )
+
+    original_request = ChatRequest(
+        model="openai-chatgpt-plan:gpt-6.1-sol",
+        messages=[ChatMessage(role="user", content="continue")],
+        stream=True,
+    )
+
+    async def empty_completed_stop() -> AsyncIterator[ProcessedResponse]:
+        yield ProcessedResponse(
+            content={
+                "id": "resp_empty_stop",
+                "object": "response.chunk",
+                "created": 1,
+                "model": "gpt-6.1-sol",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"role": "assistant"},
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            metadata=_meta({}),
+        )
+        yield ProcessedResponse(
+            content={
+                "id": "resp_empty_stop",
+                "object": "response.chunk",
+                "created": 1,
+                "model": "gpt-6.1-sol",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            },
+            metadata=_meta({"finish_reason": "stop", "is_done": True}),
+        )
+
+    backend_processor.process_backend_request.return_value = StreamingResponseEnvelope(
+        content=empty_completed_stop()
+    )
+
+    envelope = await manager.process_backend_request(
+        original_request,
+        "session-empty-completed-stop",
+        _make_context(),
+    )
+
+    assert isinstance(envelope, StreamingResponseEnvelope)
+    assert envelope.content is not None
+    chunks = [chunk async for chunk in envelope.content]
+
+    assert backend_processor.process_backend_request.await_count == 1
+    assert len(chunks) == 2
+    assert chunks[-1].metadata.get("finish_reason") == "stop"
+    assert not any(
+        isinstance(chunk.metadata, dict)
+        and (
+            chunk.metadata.get("finish_reason") == "error"
+            or (
+                isinstance(chunk.metadata.get("proxy_warning"), dict)
+                and chunk.metadata["proxy_warning"].get("type")
+                == "empty_stream_after_retries"
+            )
+        )
+        for chunk in chunks
+    )
+
+
+@pytest.mark.asyncio
+async def test_metadata_tool_calls_list_suppresses_empty_stream_retry() -> None:
+    """tool_calls parked on metadata (no text) must not trigger empty recovery."""
+    backend_processor = AsyncMock()
+    response_processor = MagicMock()
+    response_processor.process_streaming_response = (
+        lambda stream, _session_id, context=None: stream
+    )
+    manager = create_backend_request_manager(
+        backend_processor=backend_processor,
+        response_processor=response_processor,
+    )
+
+    original_request = ChatRequest(
+        model="openai",
+        messages=[ChatMessage(role="user", content="use a tool")],
+        stream=True,
+    )
+
+    async def metadata_tool_stream() -> AsyncIterator[ProcessedResponse]:
+        yield ProcessedResponse(
+            content="",
+            metadata=_meta(
+                {
+                    "tool_calls": [
+                        {
+                            "id": "call_meta_1",
+                            "type": "function",
+                            "function": {
+                                "name": "bash",
+                                "arguments": '{"command":"pwd"}',
+                            },
+                        }
+                    ],
+                    "finish_reason": "stop",
+                    "is_done": True,
+                }
+            ),
+        )
+
+    backend_processor.process_backend_request.return_value = StreamingResponseEnvelope(
+        content=metadata_tool_stream()
+    )
+
+    envelope = await manager.process_backend_request(
+        original_request,
+        "session-metadata-tool-calls",
+        _make_context(),
+    )
+
+    assert isinstance(envelope, StreamingResponseEnvelope)
+    assert envelope.content is not None
+    chunks = [chunk async for chunk in envelope.content]
+
+    assert backend_processor.process_backend_request.await_count == 1
+    assert len(chunks) == 1
+    assert isinstance(chunks[0].metadata.get("tool_calls"), list)
+
+
+@pytest.mark.asyncio
 async def test_terminal_tool_calls_stream_is_not_retried_as_empty() -> None:
     """Tool-call terminal chunks are meaningful and must not trigger empty retry."""
     backend_processor = AsyncMock()

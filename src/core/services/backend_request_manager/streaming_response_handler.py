@@ -93,6 +93,13 @@ _MEANINGFUL_FINISH_REASONS: frozenset[str] = frozenset(
         "cancelled",
         "security_limit",
         "tool_calls",
+        # A clean model completion (including tool-only Responses turns that end
+        # with finish_reason=stop after function_call items, and SIWC empty
+        # assistant messages) is not an empty-stream failure. Holding these
+        # terminal chunks triggered empty recovery -> 502 -> OpenCode retry loops
+        # and prevented response.completed / [DONE] from closing the SSE turn.
+        "stop",
+        "length",
     }
 )
 
@@ -445,6 +452,13 @@ class BackendStreamingResponseHandler:
         if metadata.get("error"):
             return True
         if metadata.get("tool_call_emitted") is True:
+            return True
+
+        # ContentAccumulationProcessor may park tool_calls on metadata (and strip
+        # them from interim chunks). A non-empty tool_calls list is still
+        # user-visible / client-actionable output for empty-stream gating.
+        tool_calls = metadata.get("tool_calls")
+        if isinstance(tool_calls, list) and tool_calls:
             return True
 
         accumulated_content = metadata.get("accumulated_content")
