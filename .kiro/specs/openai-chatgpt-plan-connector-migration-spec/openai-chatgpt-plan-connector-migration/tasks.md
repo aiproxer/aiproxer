@@ -75,7 +75,7 @@
 ## Phase 3: Replace Private Catalog Discovery With Public Per-Profile Models
 
 - [ ] 3. Implement account-specific public model discovery
-- [ ] 3.1 Add a per-profile `/v1/models` catalog service
+- [x] 3.1 Add a per-profile `/v1/models` catalog service
   - Authenticate with the selected SIWC profile and call `GET https://api.openai.com/v1/models`.
   - Preserve provider model slugs/order and documented list visibility.
   - Cache by non-secret profile registration identity and invalidate on profile switch, reauthorization, deletion or explicit refresh.
@@ -296,3 +296,4 @@
 - Task 2.3: Authlib JWKS in `oidc.py`; audience is issued client_id; `ready` only when `chatgpt.tokens.use.direct` is granted; `reauthorize` rejects issuer/subject/client_id mismatch without overwrite. Inference later must refuse non-ready profiles.
 - Task 2.4: `ChatGPTPlanTokenManager` in `tokens.py` — per-profile lock, post-lock reload, full rotated token persist, HTTP 400/401/403 treated as terminal `needs_reauth`. `sign_out` revokes then `clear_tokens`; keeps issued_client_id.
 - Task 2.5: `ChatGPTPlanProfileSelector` precedence is request, backend-instance, config profile_id, sole/default profile, else error listing IDs. Import never writes dest `ext_agent_host_id`. No auto-import of `.codex/auth.json`. CLI is task 6.1.
+- Task 3.1: `ChatGPTPlanModelCatalog` GET `https://api.openai.com/v1/models` only; cache fingerprint is issued_client_id+issuer+subject; connector `bind_chatgpt_plan_model_catalog` so package import stays catalog-free. Routing integration is 3.2.

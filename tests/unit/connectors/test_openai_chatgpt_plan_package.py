@@ -312,3 +312,8 @@ class TestOpenAIChatGPTPlanImportIsolation:
             importlib.import_module(PACKAGE_NAME)
 
         assert side_effects == []
+
+    def test_package_import_does_not_import_catalog_module(self) -> None:
+        _unload_chatgpt_plan_modules()
+        importlib.import_module(PACKAGE_NAME)
+        assert f"{PACKAGE_NAME}.catalog" not in sys.modules
