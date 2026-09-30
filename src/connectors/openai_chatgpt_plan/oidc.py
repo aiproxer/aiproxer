@@ -197,6 +197,15 @@ class ChatGPTPlanOidcValidator:
             ),
         )
 
+    async def get_revocation_endpoint(self) -> str | None:
+        """Return the OIDC-discovered token revocation URL, if advertised."""
+
+        metadata = await self._load_discovery_metadata()
+        endpoint = metadata.get("revocation_endpoint")
+        if isinstance(endpoint, str) and endpoint.strip():
+            return endpoint.strip()
+        return None
+
     def _signing_algorithms(self, metadata: Mapping[str, Any]) -> list[str]:
         raw = metadata.get("id_token_signing_alg_values_supported")
         algorithms: list[str] = []

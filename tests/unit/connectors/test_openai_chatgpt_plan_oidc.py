@@ -693,3 +693,19 @@ class TestChatGPTPlanReauthorizeIdentity:
         assert loaded is not None
         assert loaded.access_token == ACCESS_TOKEN
         assert loaded.subject == SUBJECT
+
+
+class TestChatGPTPlanOidcRevocationEndpoint:
+    @pytest.mark.asyncio
+    async def test_get_revocation_endpoint_from_discovery(
+        self, rsa_oidc: _RsaOidc
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.oidc import ChatGPTPlanOidcValidator
+
+        client = _oidc_client(rsa_oidc)
+        validator = ChatGPTPlanOidcValidator(http_client=client)
+        try:
+            endpoint = await validator.get_revocation_endpoint()
+        finally:
+            await client.aclose()
+        assert endpoint == "https://auth.openai.com/api/accounts/oauth/revoke"

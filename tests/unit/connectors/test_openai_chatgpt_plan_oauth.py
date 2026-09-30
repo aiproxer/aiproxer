@@ -11,6 +11,7 @@ import base64
 import contextlib
 import hashlib
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -85,6 +86,31 @@ def _joined_log_text(caplog: pytest.LogCaptureFixture) -> str:
 def _assert_no_secrets(text: str) -> None:
     for secret in SECRET_VALUES:
         assert secret not in text
+
+
+def _ready_profile(**overrides: Any) -> Any:
+    from src.connectors.openai_chatgpt_plan.models import ChatGPTPlanProfile
+
+    now = datetime.now(timezone.utc)
+    payload: dict[str, Any] = {
+        "profile_id": PROFILE_ID,
+        "issued_client_id": ISSUED_CLIENT_ID,
+        "issuer": "https://auth.openai.com",
+        "subject": "oidc-subject-primary",
+        "email": "chatgpt-plan-user@example.com",
+        "display_name": "ChatGPT Plan User",
+        "access_token": ACCESS_TOKEN,
+        "refresh_token": REFRESH_TOKEN,
+        "id_token": ID_TOKEN,
+        "granted_scopes": REQUIRED_SCOPES,
+        "resource": SIWC_RESOURCE,
+        "access_token_expires_at": now,
+        "status": "ready",
+        "created_at": now,
+        "updated_at": now,
+    }
+    payload.update(overrides)
+    return ChatGPTPlanProfile(**payload)
 
 
 class TestChatGPTPlanAuthorizationUrl:
@@ -433,6 +459,161 @@ class TestChatGPTPlanAuthorizeNewFlow:
             if getattr(exc_info.value, "details", None):
                 _assert_no_secrets(str(exc_info.value.details))
             _assert_no_secrets(_joined_log_text(caplog))
+
+
+class TestChatGPTPlanReauthorizeIssuedIdentity:
+    def test_reauthorize_attempt_reuses_issued_client_and_host_id(
+        self, tmp_path: Path
+    ) -> None:
+        service = _service(tmp_path)
+        attempt = service.create_reauthorization_attempt(
+            issued_client_id=ISSUED_CLIENT_ID,
+            host_id=HOST_ID,
+            callback_port=1455,
+        )
+        query = _parse_query(attempt.authorize_url)
+        assert query["client_id"] == [ISSUED_CLIENT_ID]
+        assert query["client_id"] != ["dynamic_agent_client"]
+        assert query["ext_agent_host_id"] == [HOST_ID]
+        assert "agent_name_hint" not in query
+        assert query["resource"] == [SIWC_RESOURCE]
+
+    def test_reauthorize_attempt_rejects_dynamic_agent_client(
+        self, tmp_path: Path
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.oauth import ChatGPTPlanOAuthError
+
+        service = _service(tmp_path)
+        with pytest.raises(ChatGPTPlanOAuthError) as exc_info:
+            service.create_reauthorization_attempt(
+                issued_client_id="dynamic_agent_client",
+                host_id=HOST_ID,
+                callback_port=1455,
+            )
+        text = str(exc_info.value).lower()
+        assert "issued" in text or "client" in text
+        _assert_no_secrets(str(exc_info.value))
+
+
+class TestChatGPTPlanSignOutAndRevoke:
+    @pytest.mark.asyncio
+    async def test_sign_out_revokes_then_clears_tokens_keeping_registration(
+        self, tmp_path: Path
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.oauth import ChatGPTPlanOAuthService
+        from src.connectors.openai_chatgpt_plan.storage import ChatGPTPlanProfileStore
+
+        revoke_url = "https://auth.openai.com/api/accounts/oauth/revoke"
+        revoke_requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url).split("?", 1)[0]
+            if request.method == "GET" and url == SIWC_DISCOVERY_URL:
+                return httpx.Response(200, json=_discovery_document())
+            if url == revoke_url:
+                revoke_requests.append(request)
+                return httpx.Response(200, json={})
+            return httpx.Response(404, json={"error": "not_found"})
+
+        store = ChatGPTPlanProfileStore(tmp_path / "profiles")
+        await store.save_atomic(_ready_profile())
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        service = ChatGPTPlanOAuthService(store, http_client=client)
+        try:
+            signed_out = await service.sign_out(PROFILE_ID)
+        finally:
+            await client.aclose()
+
+        assert len(revoke_requests) == 1
+        form = parse_qs(
+            revoke_requests[0].content.decode("ascii"), keep_blank_values=True
+        )
+        assert str(revoke_requests[0].url) == revoke_url
+        assert form["token"] == [REFRESH_TOKEN]
+        assert form["token_type_hint"] == ["refresh_token"]
+        assert form["client_id"] == [ISSUED_CLIENT_ID]
+        assert signed_out.status == "signed_out"
+        assert signed_out.access_token is None
+        assert signed_out.refresh_token is None
+        assert signed_out.id_token is None
+        assert signed_out.issued_client_id == ISSUED_CLIENT_ID
+        assert signed_out.subject == "oidc-subject-primary"
+        assert signed_out.issuer == "https://auth.openai.com"
+        assert signed_out.email == "chatgpt-plan-user@example.com"
+        loaded = await store.load(PROFILE_ID)
+        assert loaded is not None
+        assert loaded.status == "signed_out"
+        assert loaded.access_token is None
+        assert loaded.refresh_token is None
+        assert loaded.id_token is None
+        assert loaded.issued_client_id == ISSUED_CLIENT_ID
+
+    @pytest.mark.asyncio
+    async def test_sign_out_clears_tokens_when_revocation_fails(
+        self, tmp_path: Path
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.oauth import ChatGPTPlanOAuthService
+        from src.connectors.openai_chatgpt_plan.storage import ChatGPTPlanProfileStore
+
+        revoke_url = "https://auth.openai.com/api/accounts/oauth/revoke"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url).split("?", 1)[0]
+            if request.method == "GET" and url == SIWC_DISCOVERY_URL:
+                return httpx.Response(200, json=_discovery_document())
+            if url == revoke_url:
+                return httpx.Response(
+                    500,
+                    json={
+                        "error": "server_error",
+                        "refresh_token": REFRESH_TOKEN,
+                    },
+                )
+            return httpx.Response(404, json={"error": "not_found"})
+
+        store = ChatGPTPlanProfileStore(tmp_path / "profiles")
+        await store.save_atomic(_ready_profile())
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        service = ChatGPTPlanOAuthService(store, http_client=client)
+        try:
+            signed_out = await service.sign_out(PROFILE_ID)
+        finally:
+            await client.aclose()
+        assert signed_out.status == "signed_out"
+        assert signed_out.access_token is None
+        assert signed_out.refresh_token is None
+        assert signed_out.id_token is None
+        assert signed_out.issued_client_id == ISSUED_CLIENT_ID
+
+    @pytest.mark.asyncio
+    async def test_sign_out_does_not_log_tokens(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.oauth import ChatGPTPlanOAuthService
+        from src.connectors.openai_chatgpt_plan.storage import ChatGPTPlanProfileStore
+
+        revoke_url = "https://auth.openai.com/api/accounts/oauth/revoke"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url).split("?", 1)[0]
+            if request.method == "GET" and url == SIWC_DISCOVERY_URL:
+                return httpx.Response(200, json=_discovery_document())
+            if url == revoke_url:
+                return httpx.Response(200, json={"refresh_token": REFRESH_TOKEN})
+            return httpx.Response(404, json={"error": "not_found"})
+
+        store = ChatGPTPlanProfileStore(tmp_path / "profiles")
+        await store.save_atomic(_ready_profile())
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        service = ChatGPTPlanOAuthService(store, http_client=client)
+        with caplog.at_level(logging.DEBUG):
+            try:
+                signed_out = await service.sign_out(PROFILE_ID)
+            finally:
+                await client.aclose()
+        _assert_no_secrets(_joined_log_text(caplog))
+        _assert_no_secrets(repr(signed_out))
+        _assert_no_secrets(str(signed_out))
 
 
 class TestChatGPTPlanOAuthImportSafety:

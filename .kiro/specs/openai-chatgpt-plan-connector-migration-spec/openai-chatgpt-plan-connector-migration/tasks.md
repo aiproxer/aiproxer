@@ -56,7 +56,7 @@
   - Enforce profile identity consistency during reauthorization; conflicting subject/registration cannot overwrite the selected profile.
   - _Requirements: 2.6, 2.7, 2.8_
 
-- [ ] 2.4 Implement rotating token refresh, reauthorization and sign-out/revocation
+- [x] 2.4 Implement rotating token refresh, reauthorization and sign-out/revocation
   - Add per-profile refresh serialization and double-check profile state after acquiring the refresh lock.
   - Refresh with the profile's issued client ID, current refresh token and public API resource; atomically persist the complete rotated token set.
   - Mark terminal invalid/reused/expired/disconnected refresh states as `needs_reauth`; do not loop on a dead refresh token.
@@ -294,3 +294,4 @@
 - Task 2.1: host.json + profiles/<profile_id>.json; load must require payload profile_id == filename stem or raise ChatGPTPlanProfileStorageError without token details. `id_token` is in DEFAULT_REDACTED_FIELDS.
 - Task 2.2: SIWC authorize `https://auth.openai.com/api/accounts/authorize`, token `https://auth.openai.com/api/accounts/oauth/token`. After token exchange profile is saved with issued client ID and `status=missing_plan_scope`, issuer/subject `pending-oidc-validation` until 2.3 JWKS validation. Package `__init__` must not import `oauth.py`.
 - Task 2.3: Authlib JWKS in `oidc.py`; audience is issued client_id; `ready` only when `chatgpt.tokens.use.direct` is granted; `reauthorize` rejects issuer/subject/client_id mismatch without overwrite. Inference later must refuse non-ready profiles.
+- Task 2.4: `ChatGPTPlanTokenManager` in `tokens.py` — per-profile lock, post-lock reload, full rotated token persist, HTTP 400/401/403 treated as terminal `needs_reauth`. `sign_out` revokes then `clear_tokens`; keeps issued_client_id.

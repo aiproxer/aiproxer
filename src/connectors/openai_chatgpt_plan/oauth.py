@@ -58,6 +58,7 @@ REQUIRED_SCOPES: tuple[str, ...] = (
 )
 DEFAULT_AUTHORIZE_TIMEOUT_SECONDS = 180.0
 TOKEN_EXCHANGE_TIMEOUT_SECONDS = 30.0
+REVOCATION_TIMEOUT_SECONDS = 15.0
 PKCE_VERIFIER_LENGTH = 64
 STATE_NONCE_LENGTH = 48
 
@@ -148,6 +149,10 @@ class IChatGPTPlanOAuthService(Protocol):
         open_browser: bool,
     ) -> ChatGPTPlanProfile: ...
 
+    async def revoke(self, profile: ChatGPTPlanProfile) -> None: ...
+
+    async def sign_out(self, profile_id: str) -> ChatGPTPlanProfile: ...
+
 
 def build_redirect_uri(callback_port: int) -> str:
     """Advertise the exact SIWC loopback callback URI for this attempt."""
@@ -156,7 +161,7 @@ def build_redirect_uri(callback_port: int) -> str:
 
 
 class ChatGPTPlanOAuthService:
-    """Dynamic registration, loopback callback, OIDC validation, and reauthorization."""
+    """Dynamic registration, loopback callback, OIDC validation, and revocation."""
 
     def __init__(
         self,
@@ -385,6 +390,101 @@ class ChatGPTPlanOAuthService:
         )
         await self._profile_store.save_atomic(profile)
         return profile
+
+    async def revoke(self, profile: ChatGPTPlanProfile) -> None:
+        """Attempt RFC 7009 refresh-token revocation. Failures are non-fatal."""
+
+        refresh = (profile.refresh_token or "").strip()
+        if not refresh:
+            return
+        try:
+            endpoint = await self._oidc.get_revocation_endpoint()
+        except ChatGPTPlanOidcError:
+            logger.debug(
+                "ChatGPT-plan revocation discovery failed for profile %s",
+                profile.profile_id,
+                exc_info=True,
+            )
+            return
+        if not endpoint:
+            logger.debug("ChatGPT-plan OIDC discovery has no revocation endpoint")
+            return
+        try:
+            assert_url_safe_for_egress(endpoint)
+        except ValueError:
+            logger.debug(
+                "ChatGPT-plan revocation endpoint failed URL safety checks",
+                exc_info=True,
+            )
+            return
+        form = {
+            "token": refresh,
+            "token_type_hint": "refresh_token",
+            "client_id": profile.issued_client_id,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        try:
+            if self._http_client is None:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        endpoint,
+                        data=form,
+                        headers=headers,
+                        timeout=REVOCATION_TIMEOUT_SECONDS,
+                    )
+            else:
+                response = await self._http_client.post(
+                    endpoint,
+                    data=form,
+                    headers=headers,
+                    timeout=REVOCATION_TIMEOUT_SECONDS,
+                )
+        except httpx.HTTPError:
+            logger.debug(
+                "ChatGPT-plan token revocation HTTP error for profile %s",
+                profile.profile_id,
+                exc_info=True,
+            )
+            return
+        if response.status_code >= 400:
+            logger.debug(
+                "ChatGPT-plan token revocation returned HTTP %s for profile %s",
+                response.status_code,
+                profile.profile_id,
+            )
+
+    async def sign_out(self, profile_id: str) -> ChatGPTPlanProfile:
+        """Revoke remote tokens if possible, then clear local bearer material."""
+
+        profile = await self._profile_store.load(profile_id)
+        if profile is None:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan profile was not found.",
+                details={"profile_id": profile_id},
+                status_code=404,
+            )
+        try:
+            await self.revoke(profile)
+        except (
+            ChatGPTPlanOidcError,
+            ChatGPTPlanOAuthError,
+            httpx.HTTPError,
+            ValueError,
+        ):
+            logger.debug(
+                "ChatGPT-plan token revocation attempt failed for profile %s",
+                profile_id,
+                exc_info=True,
+            )
+        await self._profile_store.clear_tokens(profile_id, "signed_out")
+        cleared = await self._profile_store.load(profile_id)
+        if cleared is None:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan profile was not found after sign-out.",
+                details={"profile_id": profile_id},
+                status_code=404,
+            )
+        return cleared
 
     def _require_callback_port(self, callback_port: int) -> None:
         if callback_port < 0 or callback_port > 65535:
