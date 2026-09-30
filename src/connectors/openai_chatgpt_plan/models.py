@@ -16,6 +16,17 @@ PROFILE_SCHEMA_VERSION = 1
 PROFILE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 _PROFILE_ID_REGEX = re.compile(PROFILE_ID_PATTERN)
 
+# OpenAI SIWC accepted ext_agent_host_id formats:
+# https://developers.openai.com/siwc/token-sharing-open-source
+_UUID_HOST_ID_REGEX = re.compile(
+    r"^urn:uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+_JWK_THUMBPRINT_HOST_ID_REGEX = re.compile(
+    r"^urn:ietf:params:oauth:jwk-thumbprint:[A-Za-z0-9_-]+$"
+)
+_DID_KEY_HOST_ID_REGEX = re.compile(r"^did:key:[A-Za-z0-9:_-]+$")
+
 ChatGPTPlanProfileStatus = Literal[
     "ready", "missing_plan_scope", "needs_reauth", "signed_out"
 ]
@@ -65,6 +76,19 @@ def is_valid_profile_id(profile_id: str) -> bool:
     return bool(_PROFILE_ID_REGEX.fullmatch(profile_id))
 
 
+def is_valid_ext_agent_host_id(value: str) -> bool:
+    """Return True when ``value`` matches an OpenAI-documented SIWC host ID format."""
+
+    stripped = value.strip()
+    if not stripped or "@" in stripped or " " in stripped:
+        return False
+    return bool(
+        _UUID_HOST_ID_REGEX.fullmatch(stripped)
+        or _JWK_THUMBPRINT_HOST_ID_REGEX.fullmatch(stripped)
+        or _DID_KEY_HOST_ID_REGEX.fullmatch(stripped)
+    )
+
+
 class ChatGPTPlanHostState(BaseModel):
     """Schema-versioned stable host identity for one AIProxer installation."""
 
@@ -76,10 +100,15 @@ class ChatGPTPlanHostState(BaseModel):
 
     @field_validator("ext_agent_host_id")
     @classmethod
-    def _opaque_host_id(cls, value: str) -> str:
+    def _siwc_host_id(cls, value: str) -> str:
         stripped = value.strip()
-        if not stripped or "@" in stripped or " " in stripped:
-            raise ValueError("ext_agent_host_id must be an opaque non-email value")
+        if not is_valid_ext_agent_host_id(stripped):
+            raise ValueError(
+                "ext_agent_host_id must be one of: "
+                "urn:uuid:<uuidv4>, "
+                "urn:ietf:params:oauth:jwk-thumbprint:<thumbprint>, "
+                "or did:key:<key> (opaque, non-email)"
+            )
         return stripped
 
 

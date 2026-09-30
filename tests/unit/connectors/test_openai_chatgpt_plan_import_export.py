@@ -22,8 +22,8 @@ REFRESH_TOKEN = "refresh-token-export-value"
 ID_TOKEN = "id-token-export-value"
 SHARED_EMAIL = "same-user@example.com"
 ISSUER = "https://auth.openai.com"
-SOURCE_HOST_ID = "source-host-id-aaaaaaaaaaaaaaaa"
-DEST_HOST_ID = "dest-host-id-bbbbbbbbbbbbbbbbbb"
+SOURCE_HOST_ID = "urn:uuid:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+DEST_HOST_ID = "urn:uuid:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
 def _now() -> datetime:

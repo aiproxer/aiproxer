@@ -78,6 +78,7 @@ provider-limitation error. Incidental unsupported defaults are stripped.
 | `needs_reauth` | Refresh token terminal | `reauthorize` the selected profile |
 | `signed_out` | Local tokens cleared | `reauthorize` |
 | ambiguous profile | Multiple profiles, no explicit selection | Set `profile_id` or pass explicit selection |
+| `invalid_authorize_request` / `ext_agent_host_id` | `host.json` has a bare opaque token instead of a SIWC format | Delete `host.json` only when no authorized profiles exist, then re-run `add` so a `urn:uuid:<uuidv4>` host ID is minted |
 | model discovery unavailable | Temporary `/v1/models` failure | Retry later; no Codex catalog fallback |
 
 ## Distinctions

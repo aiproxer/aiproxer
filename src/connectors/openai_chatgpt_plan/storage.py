@@ -13,11 +13,11 @@ import contextlib
 import json
 import logging
 import os
-import secrets
 import stat
 import subprocess
 import tempfile
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -68,7 +68,9 @@ def _utc_now() -> datetime:
 
 
 def _new_host_id() -> str:
-    return secrets.token_urlsafe(32)
+    """Mint a SIWC-supported host ID (``urn:uuid:`` + hyphenated UUIDv4)."""
+
+    return f"urn:uuid:{uuid.uuid4()}"
 
 
 def _apply_windows_owner_acl(path: Path) -> bool:
@@ -272,7 +274,11 @@ class ChatGPTPlanHostStore:
         except (ValueError, PydanticValidationError, OSError) as exc:
             raise ChatGPTPlanHostStorageError(
                 "ChatGPT-plan host state is corrupt or invalid. "
-                "Repair host.json; a new ext_agent_host_id will not be minted.",
+                "Repair host.json; a new ext_agent_host_id will not be minted. "
+                "If ext_agent_host_id is a bare opaque token (not urn:uuid:, "
+                "urn:ietf:params:oauth:jwk-thumbprint:, or did:key:), delete "
+                "host.json when no authorized profiles exist, then re-run "
+                "profile add so a SIWC-compliant host ID is minted.",
                 details={"path": str(self._path)},
             ) from exc
 

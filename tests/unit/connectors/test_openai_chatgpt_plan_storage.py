@@ -83,9 +83,16 @@ def _joined_log_text(caplog: pytest.LogCaptureFixture) -> str:
 
 class TestChatGPTPlanHostStore:
     @pytest.mark.asyncio
-    async def test_get_or_create_mints_opaque_stable_host_id(
+    async def test_get_or_create_mints_urn_uuid_stable_host_id(
         self, tmp_path: Path
     ) -> None:
+        import re
+        from uuid import UUID
+
+        from src.connectors.openai_chatgpt_plan.models import (
+            is_valid_ext_agent_host_id,
+        )
+
         store = _host_store(tmp_path)
         first = await store.get_or_create()
         second = await store.get_or_create()
@@ -93,10 +100,18 @@ class TestChatGPTPlanHostStore:
         assert first.schema_version == 1
         assert first.ext_agent_host_id == second.ext_agent_host_id
         assert first.created_at == second.created_at
+        assert first.ext_agent_host_id.startswith("urn:uuid:")
+        assert is_valid_ext_agent_host_id(first.ext_agent_host_id)
+        uuid_part = first.ext_agent_host_id.removeprefix("urn:uuid:")
+        assert re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+            r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            uuid_part,
+        )
+        parsed = UUID(uuid_part)
+        assert parsed.version == 4
         assert "@" not in first.ext_agent_host_id
         assert " " not in first.ext_agent_host_id
-        assert len(first.ext_agent_host_id) >= 16
-        assert first.ext_agent_host_id.isascii()
 
         reloaded = await _host_store(tmp_path).get_or_create()
         assert reloaded.ext_agent_host_id == first.ext_agent_host_id
@@ -105,6 +120,39 @@ class TestChatGPTPlanHostStore:
         raw = json.loads(host_path.read_text(encoding="utf-8"))
         assert raw["ext_agent_host_id"] == first.ext_agent_host_id
         assert raw["schema_version"] == 1
+
+    @pytest.mark.asyncio
+    async def test_bare_opaque_host_id_is_rejected_without_reminting(
+        self, tmp_path: Path
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.storage import (
+            ChatGPTPlanHostStorageError,
+        )
+
+        host_path = tmp_path / "host.json"
+        bare = "bt75cCs7A6xXS2uAq4rwA3MHgE3vlmQkdf8ynGGFcCI"
+        host_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "ext_agent_host_id": bare,
+                    "created_at": "2026-09-30T13:29:36.263874Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+        store = _host_store(tmp_path)
+
+        with pytest.raises(ChatGPTPlanHostStorageError) as exc_info:
+            await store.get_or_create()
+
+        message = str(exc_info.value).lower()
+        assert "host" in message
+        assert "corrupt" in message or "invalid" in message
+        assert "delete" in message or "urn:uuid" in message
+        # Must not remint over a present (but invalid) host.json
+        raw = json.loads(host_path.read_text(encoding="utf-8"))
+        assert raw["ext_agent_host_id"] == bare
 
     @pytest.mark.asyncio
     async def test_corrupt_host_file_raises_without_minting_new_id(
