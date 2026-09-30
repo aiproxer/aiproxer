@@ -7,9 +7,18 @@ injection is prevented by request provenance tags, not by deleting repeated
 text. Client-supplied function/custom tools, ``tool_choice``, call/output
 linkage, and text/image/file content parts are preserved. Explicit hosted
 tools from the SIWC preview matrix are rejected; web search is preserved.
-Explicit unsupported SIWC fields are rejected; incidental null/default
-fields are stripped. Upstream HTTP inference always uses ``store=false``
-and ``stream=true`` and never sends ``previous_response_id``.
+
+Product decision (harness compatibility): unsupported SIWC preview scalar
+fields are soft-dropped (stripped / never sent upstream) rather than hard-
+failing with ``ResponsesProviderLimitationError``. Harness clients commonly
+send ``max_tokens`` / ``max_output_tokens``, ``temperature``, ``top_p``, etc.;
+official SIWC docs require omitting them upstream
+(https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+Aliases ``max_tokens`` / ``max_completion_tokens`` -> ``max_output_tokens`` and
+``request_metadata`` -> ``metadata`` are likewise stripped. Hard reject remains
+for unsupported hosted tools and for explicit ``store=true``. Upstream HTTP
+inference always uses ``store=false`` and ``stream=true`` and never sends
+``previous_response_id``.
 This module does not load bundled prompt resources or client-family adapters.
 """
 
@@ -63,7 +72,8 @@ _UNSUPPORTED_HOSTED_TOOL_TYPES = frozenset(
         "programmatic_tool_calling",
     }
 )
-# Official SIWC preview unsupported fields (2026-09-30).
+# Official SIWC preview unsupported fields (2026-09-30). Soft-dropped from the
+# upstream payload (never hard-fail) for harness compatibility.
 # https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations
 _UNSUPPORTED_SIWC_FIELDS = frozenset(
     {
@@ -84,21 +94,15 @@ _UNSUPPORTED_SIWC_FIELDS = frozenset(
         "user",
     }
 )
-_CANONICAL_TO_SIWC_FIELD: tuple[tuple[str, str], ...] = (
-    ("temperature", "temperature"),
-    ("top_p", "top_p"),
-    ("user", "user"),
-    ("max_tokens", "max_output_tokens"),
-    ("max_completion_tokens", "max_output_tokens"),
-    ("request_metadata", "metadata"),
-    ("top_logprobs", "top_logprobs"),
+# Client/canonical aliases that map onto unsupported SIWC field names. Strip
+# these from the projected payload so they are never sent upstream.
+_PAYLOAD_FIELD_ALIASES_TO_STRIP = frozenset(
+    {
+        "max_tokens",
+        "max_completion_tokens",
+        "request_metadata",
+    }
 )
-_EXTRA_BODY_FIELD_ALIASES: dict[str, str] = {
-    "max_tokens": "max_output_tokens",
-    "max_completion_tokens": "max_output_tokens",
-    "request_metadata": "metadata",
-}
-
 
 @dataclass(frozen=True)
 class SIWCProjectedRequest:
@@ -190,20 +194,6 @@ def _reject_unsupported_hosted_tools(payload: Mapping[str, Any]) -> None:
             raise ResponsesProviderLimitationError(hosted, SIWC_PROVIDER)
 
 
-def _is_meaningful_explicit_value(value: Any) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, bool):
-        return value is True
-    if isinstance(value, str):
-        return bool(value.strip())
-    if isinstance(value, Mapping):
-        return bool(value)
-    if isinstance(value, list | tuple | set):
-        return bool(value)
-    return True
-
-
 def _extra_body_mapping(canonical: Any) -> Mapping[str, Any]:
     raw = getattr(canonical, "extra_body", None)
     if isinstance(raw, Mapping):
@@ -211,31 +201,22 @@ def _extra_body_mapping(canonical: Any) -> Mapping[str, Any]:
     return {}
 
 
-def _reject_explicit_unsupported_fields(
+def _reject_explicit_store_true(
     request: ConnectorResponsesRequest | ConnectorChatCompletionsRequest,
 ) -> None:
+    """Hard-reject explicit store=true; SIWC preview requires store=false."""
     canonical = request.request
     extra_body = _extra_body_mapping(canonical)
     if getattr(canonical, "store", None) is True or extra_body.get("store") is True:
         raise ResponsesProviderLimitationError("store", SIWC_PROVIDER)
 
-    for attr, field in _CANONICAL_TO_SIWC_FIELD:
-        if _is_meaningful_explicit_value(getattr(canonical, attr, None)):
-            raise ResponsesProviderLimitationError(field, SIWC_PROVIDER)
 
-    for key, value in extra_body.items():
-        if not isinstance(key, str):
-            continue
-        if key in {"store", "stream", "previous_response_id"}:
-            continue
-        field = _EXTRA_BODY_FIELD_ALIASES.get(key, key)
-        if field in _UNSUPPORTED_SIWC_FIELDS and _is_meaningful_explicit_value(value):
-            raise ResponsesProviderLimitationError(field, SIWC_PROVIDER)
-
-
-def _strip_incidental_unsupported_fields(payload: dict[str, Any]) -> None:
+def _strip_unsupported_siwc_fields(payload: dict[str, Any]) -> None:
+    """Soft-drop unsupported SIWC scalar fields and known aliases from payload."""
     for field in _UNSUPPORTED_SIWC_FIELDS:
         payload.pop(field, None)
+    for alias in _PAYLOAD_FIELD_ALIASES_TO_STRIP:
+        payload.pop(alias, None)
 
 
 def _apply_required_siwc_transport_flags(payload: dict[str, Any]) -> None:
@@ -277,8 +258,8 @@ class ChatGPTPlanRequestPolicy:
                 )
 
         _reject_unsupported_hosted_tools(payload)
-        _reject_explicit_unsupported_fields(request)
-        _strip_incidental_unsupported_fields(payload)
+        _reject_explicit_store_true(request)
+        _strip_unsupported_siwc_fields(payload)
         _apply_required_siwc_transport_flags(payload)
 
         stream_flag = getattr(request.request, "stream", False)
@@ -287,3 +268,4 @@ class ChatGPTPlanRequestPolicy:
             downstream_stream_requested=bool(stream_flag),
             explicit_profile_id=None,
         )
+

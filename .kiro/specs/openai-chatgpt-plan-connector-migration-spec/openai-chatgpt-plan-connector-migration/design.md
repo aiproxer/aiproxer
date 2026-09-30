@@ -338,20 +338,27 @@ Order is significant:
    - existing `developer` messages remain developer messages;
    - prevent double-injection by tracking provenance, not by deleting repeated text heuristically.
 4. Preserve ordinary client-supplied function/custom tool schemas and `tool_choice` only where supported by the current SIWC contract.
-5. Reject explicit unsupported SIWC fields/tools with a typed `unsupported_capability`/validation error rather than silently changing a user's material request.
-6. Drop proxy-generated defaults/null fields that are invalid for SIWC but were not explicitly requested by the client.
+5. Reject explicit unsupported SIWC hosted tools with a typed `unsupported_capability`/validation error. Soft-drop unsupported SIWC preview scalar fields (and aliases) from the upstream payload for harness compatibility rather than hard-failing.
+6. Strip unsupported SIWC scalar fields whether they arrived as explicit client values or incidental serializer defaults/nulls.
 7. Set `store=false` and `stream=true` unconditionally for the upstream request.
 8. Do not send HTTP `previous_response_id`; the core/frontend must already have resolved/replayed visible conversation state into `input`.
 9. Ensure the payload contains no legacy Codex-only control fields, prompt wrappers, environment context, or client-family metadata.
 
-### Explicit vs Incidental Unsupported Fields
+### Soft-drop Unsupported SIWC Scalars (product decision)
 
-The policy must distinguish user intent from serialization noise:
+Harness clients (OpenCode and similar) commonly send Responses scalars that SIWC
+preview forbids (`max_tokens`/`max_output_tokens`, `temperature`, `top_p`,
+`metadata`, etc.). Official SIWC docs require omitting those fields upstream.
 
-- **Explicit unsupported request**: client supplied a meaningful non-default value for a field SIWC rejects. Return a typed client/provider limitation error naming the field.
-- **Incidental generated field**: generic serializer emitted a null/default or a field that AIProxer itself introduced and that has no semantic effect. Strip it before the provider call.
+Product decision: act as a compatibility layer and **soft-drop** unsupported
+SIWC preview scalar fields (and aliases `max_tokens` /
+`max_completion_tokens` -> `max_output_tokens`, `request_metadata` ->
+`metadata`) instead of raising `ResponsesProviderLimitationError`. Strip them
+from the projected payload whether they were explicit client values or
+incidental serializer defaults. Do **not** add per-harness OpenCode adapters.
 
-This distinction prevents both silent feature loss and unnecessary failures caused by generic serialization artifacts.
+Hard reject remains for unsupported **hosted tools** and for explicit
+`store=true` (SIWC requires `store=false`).
 
 ### Preview Capability Matrix
 
@@ -367,7 +374,7 @@ The implementation must derive the final matrix from then-current official SIWC 
 | `store` | must be `false` |
 | upstream `stream` | must be `true` |
 | HTTP `previous_response_id` | unsupported; full input replay |
-| `temperature`, `top_p`, `max_output_tokens`, `metadata`, `conversation`, `background`, `truncation`, etc. | reject explicit use / strip incidental defaults according to current docs |
+| `temperature`, `top_p`, `max_output_tokens`, `metadata`, `conversation`, `background`, `truncation`, etc. | soft-drop (strip; never send upstream) for harness compatibility |
 | image generation/file search/code interpreter/native computer/hosted MCP/connectors/tool_search | unsupported in SIWC preview unless docs have changed before implementation |
 
 Do not encode this table in frontend-specific adapters. It belongs to `ChatGPTPlanRequestPolicy` and associated tests.
@@ -829,8 +836,8 @@ Preserve safe OpenAI error codes in structured details. Never include bearer tok
 - existing developer items remain developer;
 - no `<user_instructions>` or bundled Codex text appears;
 - function/custom tools preserved;
-- explicit unsupported fields return typed error;
-- incidental unsupported defaults/nulls stripped;
+- unsupported SIWC scalar fields soft-dropped (explicit and incidental);
+- unsupported hosted tools return typed error; explicit store=true rejected;
 - `store=false`, `stream=true` forced;
 - upstream HTTP `previous_response_id` absent after core replay;
 - no Codex-only headers/control fields.

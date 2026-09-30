@@ -1,8 +1,9 @@
 """Unit tests for ChatGPT-plan SIWC preview field/capability contract (task 4.3).
 
 Covers forced upstream store=false and stream=true, HTTP previous_response_id
-omission, explicit vs incidental unsupported SIWC fields, and the official
-preview field matrix fetched 2026-09-30. Does not implement HTTP/headers.
+omission, soft-drop of unsupported SIWC scalar fields (explicit and incidental),
+and the official preview field matrix fetched 2026-09-30. Does not implement
+HTTP/headers.
 """
 
 from __future__ import annotations
@@ -185,14 +186,12 @@ class TestPreviousResponseIdAlwaysOmitted:
         assert projected.payload["stream"] is True
 
 
-class TestExplicitVersusIncidentalTemperature:
-    def test_explicit_temperature_on_canonical_request_raises_limitation(self) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(temperature=0.4))
-        error = exc_info.value
-        assert error.feature == "temperature"
-        assert error.provider == PROVIDER
-        assert "temperature" in str(error)
+class TestTemperatureSoftDrop:
+    def test_explicit_temperature_on_canonical_request_is_soft_dropped(self) -> None:
+        projected = _project(_generic(temperature=0.4), _request(temperature=0.4))
+        assert "temperature" not in projected.payload
+        assert projected.payload["store"] is False
+        assert projected.payload["stream"] is True
 
     def test_incidental_payload_temperature_none_is_stripped(self) -> None:
         projected = _project(_generic(temperature=None), _request(temperature=None))
@@ -207,21 +206,21 @@ class TestExplicitVersusIncidentalTemperature:
         assert "temperature" not in projected.payload
 
 
-class TestExplicitVersusIncidentalMetadata:
-    def test_explicit_request_metadata_raises_limitation_naming_metadata(self) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(request_metadata={"trace": "client"}))
-        assert exc_info.value.feature == "metadata"
-        assert exc_info.value.provider == PROVIDER
+class TestMetadataSoftDrop:
+    def test_explicit_request_metadata_is_soft_dropped(self) -> None:
+        projected = _project(
+            _generic(metadata={"trace": "client"}),
+            _request(request_metadata={"trace": "client"}),
+        )
+        assert "metadata" not in projected.payload
+        assert "request_metadata" not in projected.payload
 
-    def test_explicit_extra_body_metadata_raises_limitation(self) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(
-                _generic(),
-                _request(extra_body={"metadata": {"trace": "native"}}),
-            )
-        assert exc_info.value.feature == "metadata"
-        assert exc_info.value.provider == PROVIDER
+    def test_explicit_extra_body_metadata_is_soft_dropped(self) -> None:
+        projected = _project(
+            _generic(metadata={"trace": "native"}),
+            _request(extra_body={"metadata": {"trace": "native"}}),
+        )
+        assert "metadata" not in projected.payload
 
     def test_incidental_payload_metadata_none_is_stripped(self) -> None:
         projected = _project(_generic(metadata=None))
@@ -237,27 +236,32 @@ class TestExplicitVersusIncidentalMetadata:
         assert "metadata" not in projected.payload
 
 
-class TestCanonicalAliasesRejectedAsSiwcFields:
-    def test_max_tokens_raises_limitation_naming_max_output_tokens(self) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(max_tokens=128))
-        assert exc_info.value.feature == "max_output_tokens"
-        assert exc_info.value.provider == PROVIDER
+class TestCanonicalAliasesSoftDropped:
+    def test_max_tokens_succeeds_without_max_output_tokens_upstream(self) -> None:
+        projected = _project(
+            _generic(max_output_tokens=128, max_tokens=128),
+            _request(max_tokens=128),
+        )
+        assert "max_output_tokens" not in projected.payload
+        assert "max_tokens" not in projected.payload
+        assert projected.payload["store"] is False
+        assert projected.payload["stream"] is True
 
-    def test_max_completion_tokens_raises_limitation_naming_max_output_tokens(
+    def test_max_completion_tokens_succeeds_without_max_output_tokens_upstream(
         self,
     ) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(max_completion_tokens=64))
-        assert exc_info.value.feature == "max_output_tokens"
+        projected = _project(
+            _generic(max_output_tokens=64, max_completion_tokens=64),
+            _request(max_completion_tokens=64),
+        )
+        assert "max_output_tokens" not in projected.payload
+        assert "max_completion_tokens" not in projected.payload
 
-    def test_explicit_top_p_and_user_raise_naming_those_fields(self) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(top_p=0.2))
-        assert exc_info.value.feature == "top_p"
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(user="alice"))
-        assert exc_info.value.feature == "user"
+    def test_explicit_top_p_and_user_are_soft_dropped(self) -> None:
+        projected_top_p = _project(_generic(top_p=0.2), _request(top_p=0.2))
+        assert "top_p" not in projected_top_p.payload
+        projected_user = _project(_generic(user="alice"), _request(user="alice"))
+        assert "user" not in projected_user.payload
 
 
 class TestOfficialUnsupportedFieldMatrixPinnedIndependently:
@@ -291,7 +295,7 @@ class TestOfficialUnsupportedFieldMatrixPinnedIndependently:
         extra = _UNSUPPORTED_SIWC_FIELDS - OFFICIAL_UNSUPPORTED_SIWC_FIELDS
         missing = OFFICIAL_UNSUPPORTED_SIWC_FIELDS - _UNSUPPORTED_SIWC_FIELDS
         assert extra == frozenset(), (
-            "production rejects fields outside the official SIWC preview matrix "
+            "production soft-drops fields outside the official SIWC preview matrix "
             f"(wrong extras: {sorted(extra)})"
         )
         assert missing == frozenset(), (
@@ -315,7 +319,7 @@ class TestOfficialUnsupportedFieldMatrixPinnedIndependently:
             for field in sorted(EXPLICIT_FIELD_VALUES)
         ],
     )
-    def test_payload_value_stripped_when_not_explicit_on_request(
+    def test_payload_value_stripped_when_present(
         self, field: str, value: Any
     ) -> None:
         projected = _project(_generic(**{field: value}))
@@ -328,14 +332,16 @@ class TestOfficialUnsupportedFieldMatrixPinnedIndependently:
             for field in sorted(EXPLICIT_FIELD_VALUES)
         ],
     )
-    def test_explicit_extra_body_official_field_raises_limitation(
+    def test_explicit_extra_body_official_field_is_soft_dropped(
         self, field: str, value: Any
     ) -> None:
-        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
-            _project(_generic(), _request(extra_body={field: value}))
-        assert exc_info.value.feature == field
-        assert exc_info.value.provider == PROVIDER
-        assert exc_info.value.details["feature"] == field
+        projected = _project(
+            _generic(**{field: value}),
+            _request(extra_body={field: value}),
+        )
+        assert field not in projected.payload
+        assert projected.payload["store"] is False
+        assert projected.payload["stream"] is True
 
 
 class TestNoPrivateChatgptWorkaround:

@@ -65,10 +65,13 @@ backends:
 
 ## Current SIWC limitations
 
-Official SIWC preview currently rejects several Responses fields and hosted
-tools (for example temperature/top_p/metadata and image generation / file
-search / Code Interpreter). Explicit unsupported requests raise a typed
-provider-limitation error. Incidental unsupported defaults are stripped.
+Official SIWC preview forbids several Responses scalar fields and hosted tools
+(for example temperature/top_p/metadata/max_output_tokens and image generation /
+file search / Code Interpreter). AIProxer soft-drops unsupported SIWC scalar
+fields (and aliases such as `max_tokens`) before the upstream call so harness
+clients keep working; those values are never sent to SIWC. Explicit unsupported
+hosted tools and explicit `store=true` still raise a typed provider-limitation
+error.
 
 ## Troubleshooting
 
