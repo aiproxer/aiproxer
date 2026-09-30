@@ -643,3 +643,74 @@ async def test_cursor_acp_semantic_stream_disconnect_calls_backend_cancel() -> N
     assert not any('"type": "response.incomplete"' in frame for frame in frames)
     assert not any("data: [DONE]" in frame for frame in frames)
     store.store.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_backend() -> None:
+    """Native /v1/responses must route openai-chatgpt-plan via OpenAI Responses wire.
+
+    Phase 7.2 proof: without this allowlist entry the frontend raises
+    ResponsesProviderLimitationError(feature='responses_api.routing') before the
+    SIWC connector can run a client tool round-trip.
+    """
+
+    kwargs = build_responses_controller_backend_kwargs()
+    kwargs["backend_model_resolver"].resolve_target = AsyncMock(
+        return_value=BackendTarget(
+            backend="openai-chatgpt-plan",
+            model="openai/gpt-5.5",
+            uri_params={},
+        )
+    )
+
+    controller = ResponsesController(
+        AsyncMock(),
+        translation_service=_StubTranslationService(),
+        **kwargs,
+    )
+
+    _, canonical, stream_source, _ = await controller._prepare_responses_execution(
+        responses_request=_responses_request(
+            model="openai-chatgpt-plan:openai/gpt-5.5",
+            input="call get_weather",
+            stream=True,
+        ),
+    )
+
+    assert stream_source is ResponsesStreamSource.OPENAI_RESPONSES
+    assert canonical.model == "openai-chatgpt-plan:openai/gpt-5.5"
+    assert canonical.extra_body is not None
+    assert RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY in canonical.extra_body
+
+
+@pytest.mark.asyncio
+async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_instance_backend() -> None:
+    """Instance backends (openai-chatgpt-plan.home) must share the same wire path."""
+
+    kwargs = build_responses_controller_backend_kwargs()
+    kwargs["backend_model_resolver"].resolve_target = AsyncMock(
+        return_value=BackendTarget(
+            backend="openai-chatgpt-plan.home",
+            model="openai/gpt-5.5",
+            uri_params={},
+        )
+    )
+
+    controller = ResponsesController(
+        AsyncMock(),
+        translation_service=_StubTranslationService(),
+        **kwargs,
+    )
+
+    _, canonical, stream_source, _ = await controller._prepare_responses_execution(
+        responses_request=_responses_request(
+            model="openai-chatgpt-plan.home:openai/gpt-5.5",
+            input="hello",
+            stream=True,
+        ),
+    )
+
+    assert stream_source is ResponsesStreamSource.OPENAI_RESPONSES
+    assert canonical.model == "openai-chatgpt-plan.home:openai/gpt-5.5"
+    assert canonical.extra_body is not None
+    assert RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY in canonical.extra_body

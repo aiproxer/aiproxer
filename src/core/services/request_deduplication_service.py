@@ -151,6 +151,25 @@ class RequestDeduplicationService:
             if hasattr(request, "tools") and request.tools:
                 content["tools"] = request.tools
 
+            # Native /v1/responses turns stash the real wire body under
+            # extra_body[responses_native_projected_payload] while messages stay
+            # a placeholder ("."). Without hashing that payload, function_call
+            # follow-ups collide with the prior turn and are swallowed.
+            extra_body = getattr(request, "extra_body", None)
+            if isinstance(extra_body, dict) and extra_body:
+                native_payload = extra_body.get(
+                    "responses_native_projected_payload"
+                )
+                if native_payload is not None:
+                    content["responses_native_projected_payload"] = native_payload
+                # Include a few other identity-affecting extra_body keys when present.
+                for key in (
+                    "acp_responses_standalone_mode",
+                    "acp_responses_text_only_mode",
+                ):
+                    if key in extra_body:
+                        content[key] = extra_body[key]
+
             serialized = json.dumps(content, sort_keys=True, default=str)
             return hashlib.sha256(serialized.encode()).hexdigest()[:32]
         except Exception as e:

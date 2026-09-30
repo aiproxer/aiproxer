@@ -541,3 +541,59 @@ class TestStatusAwareDeduplication:
 
         stats = service.get_stats()
         assert stats.duplicates_blocked == 4  # Initial + 3 more
+
+    @pytest.mark.asyncio
+    async def test_native_responses_payload_differentiates_tool_followup(
+        self, service: RequestDeduplicationService
+    ) -> None:
+        """Native /v1/responses turns share placeholder messages; hash must use payload.
+
+        Without hashing responses_native_projected_payload, a function_call_output
+        follow-up collides with the prior turn and is swallowed as a duplicate.
+        """
+        placeholder = [ChatMessage(role="user", content=".")]
+        turn1 = ChatRequest(
+            model="openai-chatgpt-plan:gpt-6.1-sol",
+            messages=placeholder,
+            stream=True,
+            extra_body={
+                "responses_native_projected_payload": {
+                    "model": "gpt-6.1-sol",
+                    "input": [{"type": "message", "role": "user", "content": "call tool"}],
+                    "tools": [{"type": "function", "name": "get_weather"}],
+                }
+            },
+        )
+        turn2 = ChatRequest(
+            model="openai-chatgpt-plan:gpt-6.1-sol",
+            messages=placeholder,
+            stream=True,
+            extra_body={
+                "responses_native_projected_payload": {
+                    "model": "gpt-6.1-sol",
+                    "input": [
+                        {"type": "message", "role": "user", "content": "call tool"},
+                        {
+                            "type": "function_call",
+                            "call_id": "call_1",
+                            "name": "get_weather",
+                            "arguments": "{\"city\":\"Warsaw\"}",
+                        },
+                        {
+                            "type": "function_call_output",
+                            "call_id": "call_1",
+                            "output": "{\"temp_c\":18}",
+                        },
+                    ],
+                    "tools": [{"type": "function", "name": "get_weather"}],
+                }
+            },
+        )
+
+        is_dup1, hash1, _ = await service.check_and_register(turn1, "session-native")
+        assert is_dup1 is False
+        await service.mark_request_complete(hash1, "session-native", status_code=200)
+
+        is_dup2, hash2, _ = await service.check_and_register(turn2, "session-native")
+        assert is_dup2 is False
+        assert hash1 != hash2
