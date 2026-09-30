@@ -88,6 +88,7 @@ class TestBackendAutoDiscovery:
                     "hybrid",
                     "minimax",
                     "openai",
+                    "openai-chatgpt-plan",
                     "openai-codex",
                     "openai-responses",
                     "openrouter",

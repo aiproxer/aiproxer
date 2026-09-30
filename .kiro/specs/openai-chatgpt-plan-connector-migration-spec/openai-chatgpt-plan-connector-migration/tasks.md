@@ -7,7 +7,7 @@
 ## Phase 1: Establish the Clean Connector Boundary
 
 - [ ] 1. Create the independent `openai-chatgpt-plan` backend and its generic integration seams
-- [ ] 1.1 Create the new first-party connector package and registration
+- [x] 1.1 Create the new first-party connector package and registration
   - Add `src/connectors/openai_chatgpt_plan/` with a thin `OpenAIChatGPTPlanConnector` facade built on the public OpenAI Responses transport, not on `OpenAICodexConnector`.
   - Register backend type `openai-chatgpt-plan` with vendor prefix/model routing consistent with other OpenAI backends.
   - Make module import/registration side-effect safe: no browser flow, token refresh, network call, or credential prompt during import.
@@ -285,3 +285,7 @@
   - Confirm all tasks in this specification are complete or explicitly closed with evidence; no required cleanup is moved to a follow-up Kiro spec.
   - Update `spec.json` implementation/completion state according to repository Kiro rules and archive the spec only when implementation is actually complete.
   - _Requirements: 12.1, 12.2, 12.4, 12.7_
+
+## Implementation Notes
+
+- Builtin discovery still classifies OAuth connectors by module name (`is_oauth_connector`) without `connector_class`; do not add `openai-chatgpt-plan` to `KNOWN_OAUTH_CONNECTORS` — task 1.2 must use generic capability metadata instead.

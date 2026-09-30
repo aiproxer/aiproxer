@@ -117,6 +117,7 @@ class TestBackendImportsIntegration:
             "cursor-cli-acp",
             "gemini-cli-cloud-project",
             "openai",
+            "openai-chatgpt-plan",
             "openai-codex",
             "openai-codex-v2",
             "openai-codex-app-server",
