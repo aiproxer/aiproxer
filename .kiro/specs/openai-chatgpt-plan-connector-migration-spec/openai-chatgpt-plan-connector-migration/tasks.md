@@ -48,7 +48,7 @@
   - Exchange code with exact redirect URI, PKCE verifier, issued client ID and resource, without a client secret.
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 2.3 Implement cryptographic OIDC identity validation and scope gating
+- [x] 2.3 Implement cryptographic OIDC identity validation and scope gating
   - Use standards-based OIDC discovery/JWKS validation (prefer existing Authlib dependency) rather than unverified JWT claim extraction.
   - Validate signature, issuer, audience, expiration and request nonce before profile activation.
   - Pin unit tests for each validation failure independently.
@@ -293,3 +293,4 @@
 - Task 1.3: `ChatGPTPlanConfig` in `src/connectors/openai_chatgpt_plan/config.py`; live ENV overlay is `_apply_openai_chatgpt_plan_backend` in `from_env_part3.py` (`OPENAI_CHATGPT_PLAN_*` only). No main-CLI extra flags (same as Codex extras). Do not treat `OPENAI_CODEX_*` as aliases. Pre-commit secret scan flags `sk-` prefixes in tests — use non-token placeholders.
 - Task 2.1: host.json + profiles/<profile_id>.json; load must require payload profile_id == filename stem or raise ChatGPTPlanProfileStorageError without token details. `id_token` is in DEFAULT_REDACTED_FIELDS.
 - Task 2.2: SIWC authorize `https://auth.openai.com/api/accounts/authorize`, token `https://auth.openai.com/api/accounts/oauth/token`. After token exchange profile is saved with issued client ID and `status=missing_plan_scope`, issuer/subject `pending-oidc-validation` until 2.3 JWKS validation. Package `__init__` must not import `oauth.py`.
+- Task 2.3: Authlib JWKS in `oidc.py`; audience is issued client_id; `ready` only when `chatgpt.tokens.use.direct` is granted; `reauthorize` rejects issuer/subject/client_id mismatch without overwrite. Inference later must refuse non-ready profiles.

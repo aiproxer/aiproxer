@@ -1,10 +1,4 @@
-"""First-time Sign in with ChatGPT dynamic registration and loopback OAuth.
-
-This module implements authorization URL construction, a 127.0.0.1 callback
-listener, and the public-client token exchange. Cryptographic OIDC/JWKS
-validation and inference-ready activation belong to a later task; profiles
-saved here remain non-ready until that validation runs.
-"""
+"""Sign in with ChatGPT dynamic registration, loopback OAuth, and OIDC identity."""
 
 from __future__ import annotations
 
@@ -13,7 +7,7 @@ import contextlib
 import logging
 import secrets
 import webbrowser
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
@@ -30,8 +24,15 @@ from fastapi.responses import HTMLResponse
 
 from src.connectors.openai_chatgpt_plan.models import (
     ChatGPTPlanProfile,
+    ChatGPTPlanProfileStatus,
     is_valid_profile_id,
     redact_chatgpt_plan_mapping,
+)
+from src.connectors.openai_chatgpt_plan.oidc import (
+    PLAN_USE_SCOPE,
+    ChatGPTPlanOidcError,
+    ChatGPTPlanOidcValidator,
+    has_chatgpt_plan_use_scope,
 )
 from src.connectors.openai_chatgpt_plan.storage import ChatGPTPlanProfileStore
 from src.core.common.exceptions import LLMProxyError
@@ -53,10 +54,8 @@ REQUIRED_SCOPES: tuple[str, ...] = (
     "email",
     "offline_access",
     "resource.invoke",
-    "chatgpt.tokens.use.direct",
+    PLAN_USE_SCOPE,
 )
-PENDING_OIDC_ISSUER = "pending-oidc-validation"
-PENDING_OIDC_SUBJECT = "pending-oidc-validation"
 DEFAULT_AUTHORIZE_TIMEOUT_SECONDS = 180.0
 TOKEN_EXCHANGE_TIMEOUT_SECONDS = 30.0
 PKCE_VERIFIER_LENGTH = 64
@@ -140,6 +139,15 @@ class IChatGPTPlanOAuthService(Protocol):
         open_browser: bool,
     ) -> ChatGPTPlanProfile: ...
 
+    async def reauthorize(
+        self,
+        *,
+        existing: ChatGPTPlanProfile,
+        host_id: str,
+        callback_port: int,
+        open_browser: bool,
+    ) -> ChatGPTPlanProfile: ...
+
 
 def build_redirect_uri(callback_port: int) -> str:
     """Advertise the exact SIWC loopback callback URI for this attempt."""
@@ -148,7 +156,7 @@ def build_redirect_uri(callback_port: int) -> str:
 
 
 class ChatGPTPlanOAuthService:
-    """Dynamic registration, loopback callback, and public-client token exchange."""
+    """Dynamic registration, loopback callback, OIDC validation, and reauthorization."""
 
     def __init__(
         self,
@@ -157,12 +165,14 @@ class ChatGPTPlanOAuthService:
         http_client: httpx.AsyncClient | None = None,
         timeout_seconds: float = DEFAULT_AUTHORIZE_TIMEOUT_SECONDS,
         agent_name_hint: str = AGENT_NAME_HINT,
+        oidc_validator: ChatGPTPlanOidcValidator | None = None,
     ) -> None:
         self._profile_store = profile_store
         self._http_client = http_client
         self._timeout_seconds = timeout_seconds
         self._agent_name_hint = agent_name_hint
         self._open_browser = False
+        self._oidc = oidc_validator or ChatGPTPlanOidcValidator(http_client=http_client)
 
     def create_new_registration_attempt(
         self,
@@ -190,6 +200,57 @@ class ChatGPTPlanOAuthService:
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
         }
+        authorize_url = f"{SIWC_AUTHORIZE_URL}?{urlencode(params, quote_via=quote)}"
+        return ChatGPTPlanAuthorizationRequest(
+            state=state,
+            nonce=nonce,
+            code_verifier=code_verifier,
+            code_challenge=code_challenge,
+            redirect_uri=redirect_uri,
+            authorize_url=authorize_url,
+        )
+
+    def create_reauthorization_attempt(
+        self,
+        *,
+        issued_client_id: str,
+        host_id: str,
+        callback_port: int,
+        id_token_hint: str | None = None,
+        login_hint: str | None = None,
+    ) -> ChatGPTPlanAuthorizationRequest:
+        """Build a returning-sign-in authorize URL for an issued client ID."""
+
+        client_id = issued_client_id.strip()
+        if not client_id or client_id == DYNAMIC_CLIENT_ID:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan reauthorization requires the profile's issued "
+                "client ID, not dynamic_agent_client.",
+                status_code=400,
+            )
+        redirect_uri = build_redirect_uri(callback_port)
+        state = generate_token(STATE_NONCE_LENGTH)
+        nonce = generate_token(STATE_NONCE_LENGTH)
+        code_verifier = generate_token(PKCE_VERIFIER_LENGTH)
+        code_challenge = create_s256_code_challenge(code_verifier)
+        params = {
+            "client_id": client_id,
+            "ext_agent_host_id": host_id,
+            "response_type": "code",
+            "redirect_uri": redirect_uri,
+            "scope": " ".join(REQUIRED_SCOPES),
+            "resource": SIWC_RESOURCE,
+            "state": state,
+            "nonce": nonce,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        hint = (id_token_hint or "").strip()
+        if hint:
+            params["id_token_hint"] = hint
+        email_hint = (login_hint or "").strip()
+        if email_hint:
+            params["login_hint"] = email_hint
         authorize_url = f"{SIWC_AUTHORIZE_URL}?{urlencode(params, quote_via=quote)}"
         return ChatGPTPlanAuthorizationRequest(
             state=state,
@@ -240,6 +301,92 @@ class ChatGPTPlanOAuthService:
                 "ChatGPT-plan host_id is required for dynamic registration.",
                 status_code=400,
             )
+        self._require_callback_port(callback_port)
+
+        attempt, code, issued_client_id = await self._run_loopback_authorization(
+            callback_port=callback_port,
+            open_browser=open_browser,
+            attempt_factory=lambda port: self.create_new_registration_attempt(
+                host_id=host,
+                callback_port=port,
+            ),
+            expected_issued_client_id=None,
+            log_profile_id=profile_id,
+        )
+        tokens = await self._exchange_authorization_code(
+            code=code,
+            issued_client_id=issued_client_id,
+            redirect_uri=attempt.redirect_uri,
+            code_verifier=attempt.code_verifier,
+        )
+        profile = await self._profile_from_validated_tokens(
+            profile_id=profile_id,
+            issued_client_id=issued_client_id,
+            tokens=tokens,
+            nonce=attempt.nonce,
+        )
+        await self._profile_store.save_atomic(profile)
+        return profile
+
+    async def reauthorize(
+        self,
+        *,
+        existing: ChatGPTPlanProfile,
+        host_id: str,
+        callback_port: int,
+        open_browser: bool,
+    ) -> ChatGPTPlanProfile:
+        if not is_valid_profile_id(existing.profile_id):
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan profile_id is not a valid local alias.",
+                details={"profile_id": existing.profile_id},
+                status_code=400,
+            )
+        host = host_id.strip()
+        if not host:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan host_id is required for reauthorization.",
+                status_code=400,
+            )
+        self._require_callback_port(callback_port)
+        issued = existing.issued_client_id.strip()
+        if not issued or issued == DYNAMIC_CLIENT_ID:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan reauthorization requires the profile's issued "
+                "client ID, not dynamic_agent_client.",
+                status_code=400,
+            )
+
+        attempt, code, issued_client_id = await self._run_loopback_authorization(
+            callback_port=callback_port,
+            open_browser=open_browser,
+            attempt_factory=lambda port: self.create_reauthorization_attempt(
+                issued_client_id=issued,
+                host_id=host,
+                callback_port=port,
+                id_token_hint=existing.id_token,
+                login_hint=existing.email,
+            ),
+            expected_issued_client_id=issued,
+            log_profile_id=existing.profile_id,
+        )
+        tokens = await self._exchange_authorization_code(
+            code=code,
+            issued_client_id=issued_client_id,
+            redirect_uri=attempt.redirect_uri,
+            code_verifier=attempt.code_verifier,
+        )
+        profile = await self._profile_from_validated_tokens(
+            profile_id=existing.profile_id,
+            issued_client_id=issued_client_id,
+            tokens=tokens,
+            nonce=attempt.nonce,
+            existing=existing,
+        )
+        await self._profile_store.save_atomic(profile)
+        return profile
+
+    def _require_callback_port(self, callback_port: int) -> None:
         if callback_port < 0 or callback_port > 65535:
             raise ChatGPTPlanOAuthError(
                 "ChatGPT-plan OAuth callback_port is out of range.",
@@ -247,6 +394,15 @@ class ChatGPTPlanOAuthService:
                 status_code=400,
             )
 
+    async def _run_loopback_authorization(
+        self,
+        *,
+        callback_port: int,
+        open_browser: bool,
+        attempt_factory: Callable[[int], ChatGPTPlanAuthorizationRequest],
+        expected_issued_client_id: str | None,
+        log_profile_id: str,
+    ) -> tuple[ChatGPTPlanAuthorizationRequest, str, str]:
         self._open_browser = open_browser
         loop = asyncio.get_running_loop()
         callback_future: asyncio.Future[tuple[str, str]] = loop.create_future()
@@ -256,10 +412,11 @@ class ChatGPTPlanOAuthService:
         async def oauth_callback(request: Request) -> HTMLResponse:
             if not attempt_holder:
                 return HTMLResponse(_CALLBACK_FAIL_HTML, status_code=400)
-            return await self._handle_new_registration_callback(
+            return await self._handle_oauth_callback(
                 request=request,
                 expected_state=attempt_holder[0].state,
                 callback_future=callback_future,
+                expected_issued_client_id=expected_issued_client_id,
             )
 
         app.add_api_route(CALLBACK_PATH, oauth_callback, methods=["GET"])
@@ -277,14 +434,11 @@ class ChatGPTPlanOAuthService:
         try:
             await self._wait_for_callback_server(server, server_task)
             actual_port = self._bound_port(server, fallback_port=int(callback_port))
-            attempt = self.create_new_registration_attempt(
-                host_id=host,
-                callback_port=actual_port,
-            )
+            attempt = attempt_factory(actual_port)
             attempt_holder.append(attempt)
             logger.debug(
-                "Starting ChatGPT-plan dynamic registration for profile %s",
-                profile_id,
+                "Starting ChatGPT-plan authorization for profile %s",
+                log_profile_id,
             )
             self._announce_authorize_url(attempt.authorize_url)
             try:
@@ -296,19 +450,7 @@ class ChatGPTPlanOAuthService:
                     "ChatGPT-plan authorization timed out waiting for "
                     "the loopback callback."
                 ) from exc
-            tokens = await self._exchange_authorization_code(
-                code=code,
-                issued_client_id=issued_client_id,
-                redirect_uri=attempt.redirect_uri,
-                code_verifier=attempt.code_verifier,
-            )
-            profile = self._profile_from_token_exchange(
-                profile_id=profile_id,
-                issued_client_id=issued_client_id,
-                tokens=tokens,
-            )
-            await self._profile_store.save_atomic(profile)
-            return profile
+            return attempt, code, issued_client_id
         finally:
             server.should_exit = True
             if not server_task.done():
@@ -343,17 +485,18 @@ class ChatGPTPlanOAuthService:
             return fallback_port
         return int(sockets[0].getsockname()[1])
 
-    async def _handle_new_registration_callback(
+    async def _handle_oauth_callback(
         self,
         *,
         request: Request,
         expected_state: str,
         callback_future: asyncio.Future[tuple[str, str]],
+        expected_issued_client_id: str | None,
     ) -> HTMLResponse:
         error = request.query_params.get("error")
         received_state = request.query_params.get("state")
         code = request.query_params.get("code")
-        issued_client_id = (request.query_params.get("client_id") or "").strip()
+        callback_client_id = (request.query_params.get("client_id") or "").strip()
 
         if error:
             self._fail_callback(
@@ -384,19 +527,42 @@ class ChatGPTPlanOAuthService:
             )
             return HTMLResponse(_CALLBACK_FAIL_HTML, status_code=400)
 
-        if not issued_client_id or issued_client_id == DYNAMIC_CLIENT_ID:
-            self._fail_callback(
-                callback_future,
-                ChatGPTPlanOAuthError(
-                    "ChatGPT-plan new-registration callback is missing the issued "
-                    "client ID. Registration is incomplete."
-                ),
+        try:
+            issued_client_id = self._resolve_callback_issued_client_id(
+                callback_client_id=callback_client_id,
+                expected_issued_client_id=expected_issued_client_id,
             )
+        except ChatGPTPlanOAuthError as exc:
+            self._fail_callback(callback_future, exc)
             return HTMLResponse(_CALLBACK_FAIL_HTML, status_code=400)
 
         if not callback_future.done():
             callback_future.set_result((code, issued_client_id))
         return HTMLResponse(_CALLBACK_OK_HTML, status_code=200)
+
+    def _resolve_callback_issued_client_id(
+        self,
+        *,
+        callback_client_id: str,
+        expected_issued_client_id: str | None,
+    ) -> str:
+        if expected_issued_client_id is None:
+            if not callback_client_id or callback_client_id == DYNAMIC_CLIENT_ID:
+                raise ChatGPTPlanOAuthError(
+                    "ChatGPT-plan new-registration callback is missing the issued "
+                    "client ID. Registration is incomplete."
+                )
+            return callback_client_id
+
+        if callback_client_id == DYNAMIC_CLIENT_ID:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan reauthorization returned a conflicting client ID."
+            )
+        if callback_client_id and callback_client_id != expected_issued_client_id:
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan reauthorization returned a conflicting client ID."
+            )
+        return expected_issued_client_id
 
     def _fail_callback(
         self,
@@ -469,12 +635,14 @@ class ChatGPTPlanOAuthService:
             )
         return payload
 
-    def _profile_from_token_exchange(
+    async def _profile_from_validated_tokens(
         self,
         *,
         profile_id: str,
         issued_client_id: str,
         tokens: Mapping[str, Any],
+        nonce: str,
+        existing: ChatGPTPlanProfile | None = None,
     ) -> ChatGPTPlanProfile:
         redacted = redact_chatgpt_plan_mapping(tokens)
         access_token = tokens.get("access_token")
@@ -490,12 +658,36 @@ class ChatGPTPlanOAuthService:
         refresh_token = tokens.get("refresh_token")
         refresh_value = refresh_token if isinstance(refresh_token, str) else None
         id_token = tokens.get("id_token")
-        id_token_value = id_token if isinstance(id_token, str) else None
+        if not isinstance(id_token, str) or not id_token.strip():
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan token response is missing an ID token."
+            )
 
-        scope_raw = tokens.get("scope")
-        granted_scopes: tuple[str, ...] = ()
-        if isinstance(scope_raw, str) and scope_raw.strip():
-            granted_scopes = tuple(scope_raw.split())
+        granted_scopes = _parse_granted_scopes(tokens.get("scope"))
+        try:
+            identity = await self._oidc.validate_id_token(
+                id_token=id_token,
+                expected_audience=issued_client_id,
+                expected_nonce=nonce,
+                access_token=access_token,
+            )
+        except ChatGPTPlanOidcError as exc:
+            raise ChatGPTPlanOAuthError(
+                exc.message,
+                details=exc.details,
+                status_code=exc.status_code,
+            ) from exc
+
+        if existing is not None and (
+            identity.subject != existing.subject
+            or identity.issuer != existing.issuer
+            or issued_client_id != existing.issued_client_id
+        ):
+            raise ChatGPTPlanOAuthError(
+                "ChatGPT-plan reauthorization identity conflicts with the "
+                "selected profile. The callback or ID token resolved to a "
+                "different subject or registration."
+            )
 
         now = _utc_now()
         access_expires: datetime | None = None
@@ -503,21 +695,37 @@ class ChatGPTPlanOAuthService:
         if isinstance(expires_in, int | float):
             access_expires = now + timedelta(seconds=int(expires_in))
 
+        status: ChatGPTPlanProfileStatus = (
+            "ready"
+            if has_chatgpt_plan_use_scope(granted_scopes)
+            else "missing_plan_scope"
+        )
+        created_at = existing.created_at if existing is not None else now
         return ChatGPTPlanProfile(
             profile_id=profile_id,
             issued_client_id=issued_client_id,
-            issuer=PENDING_OIDC_ISSUER,
-            subject=PENDING_OIDC_SUBJECT,
+            issuer=identity.issuer,
+            subject=identity.subject,
+            email=identity.email,
+            display_name=identity.display_name,
             access_token=access_token,
             refresh_token=refresh_value,
-            id_token=id_token_value,
+            id_token=id_token,
             granted_scopes=granted_scopes,
             resource=SIWC_RESOURCE,
             access_token_expires_at=access_expires,
-            status="missing_plan_scope",
-            created_at=now,
+            status=status,
+            created_at=created_at,
             updated_at=now,
         )
+
+
+def _parse_granted_scopes(scope_raw: Any) -> tuple[str, ...]:
+    if isinstance(scope_raw, str) and scope_raw.strip():
+        return tuple(scope_raw.split())
+    if isinstance(scope_raw, list | tuple):
+        return tuple(str(item) for item in scope_raw if str(item).strip())
+    return ()
 
 
 __all__ = [
@@ -525,8 +733,7 @@ __all__ = [
     "CALLBACK_PATH",
     "DYNAMIC_CLIENT_ID",
     "LOOPBACK_HOST",
-    "PENDING_OIDC_ISSUER",
-    "PENDING_OIDC_SUBJECT",
+    "PLAN_USE_SCOPE",
     "REQUIRED_SCOPES",
     "SIWC_AUTHORIZE_URL",
     "SIWC_RESOURCE",

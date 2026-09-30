@@ -19,6 +19,14 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
+from tests.unit.connectors.test_openai_chatgpt_plan_oidc import (
+    SIWC_DISCOVERY_URL,
+    SIWC_JWKS_URL,
+    _discovery_document,
+    _encode_id_token,
+    make_rsa_oidc,
+)
+
 ACCESS_TOKEN = "access-token-test-value"
 REFRESH_TOKEN = "refresh-token-test-value"
 ID_TOKEN = "id-token-test-value"
@@ -146,14 +154,45 @@ class TestChatGPTPlanAuthorizationUrl:
             assert scope in query["scope"][0].split()
 
 
+_SHARED_RSA_OIDC = None
+
+
+def _shared_rsa_oidc() -> Any:
+    global _SHARED_RSA_OIDC
+    if _SHARED_RSA_OIDC is None:
+        _SHARED_RSA_OIDC = make_rsa_oidc()
+    return _SHARED_RSA_OIDC
+
+
 class _TokenExchangeCapture:
-    def __init__(self, response: httpx.Response | None = None) -> None:
+    def __init__(
+        self,
+        response: httpx.Response | None = None,
+        *,
+        rsa_oidc: Any | None = None,
+    ) -> None:
         self.requests: list[httpx.Request] = []
-        self._response = response or httpx.Response(200, json=_token_payload())
+        self._explicit_response = response
+        self._rsa_oidc = rsa_oidc if rsa_oidc is not None else _shared_rsa_oidc()
+        self.nonce: str | None = None
 
     def handler(self, request: httpx.Request) -> httpx.Response:
+        url = str(request.url).split("?", 1)[0]
+        if request.method == "GET" and url == SIWC_DISCOVERY_URL:
+            return httpx.Response(200, json=_discovery_document())
+        if request.method == "GET" and url == SIWC_JWKS_URL:
+            return httpx.Response(200, json=self._rsa_oidc.jwks)
         self.requests.append(request)
-        return self._response
+        if self._explicit_response is not None:
+            return self._explicit_response
+        assert self.nonce is not None, "nonce must be captured before token POST"
+        payload = _token_payload()
+        payload["id_token"] = _encode_id_token(
+            self._rsa_oidc,
+            nonce=self.nonce,
+            aud=ISSUED_CLIENT_ID,
+        )
+        return httpx.Response(200, json=payload)
 
     @property
     def form(self) -> dict[str, list[str]]:
@@ -235,6 +274,7 @@ async def _drive_authorize_new(
                 )
                 await _wait_for(lambda: bool(authorize_urls))
                 query = _parse_query(authorize_urls[0])
+                capture.nonce = query["nonce"][0]
                 redirect_uri = query["redirect_uri"][0]
                 state = query["state"][0]
                 params = {"state": state, **callback_query}
@@ -317,14 +357,16 @@ class TestChatGPTPlanAuthorizeNewFlow:
         profile = driven["profile"]
         assert profile.issued_client_id == ISSUED_CLIENT_ID
         assert profile.issued_client_id != "dynamic_agent_client"
-        assert profile.status != "ready"
+        assert profile.status == "ready"
+        assert profile.issuer == "https://auth.openai.com"
         from src.connectors.openai_chatgpt_plan.storage import ChatGPTPlanProfileStore
 
         loaded = await ChatGPTPlanProfileStore(tmp_path / "profiles").load(PROFILE_ID)
         assert loaded is not None
         assert loaded.issued_client_id == ISSUED_CLIENT_ID
         assert loaded.issued_client_id != "dynamic_agent_client"
-        assert loaded.status != "ready"
+        assert loaded.status == "ready"
+        assert loaded.issuer == "https://auth.openai.com"
 
     @pytest.mark.asyncio
     async def test_callback_binds_loopback_address(self, tmp_path: Path) -> None:
@@ -363,6 +405,8 @@ class TestChatGPTPlanAuthorizeNewFlow:
             _assert_no_secrets(_joined_log_text(caplog))
             _assert_no_secrets(repr(driven["profile"]))
             _assert_no_secrets(str(driven["profile"]))
+            if driven["profile"].id_token:
+                assert driven["profile"].id_token not in _joined_log_text(caplog)
 
             error_capture = _TokenExchangeCapture(
                 httpx.Response(
