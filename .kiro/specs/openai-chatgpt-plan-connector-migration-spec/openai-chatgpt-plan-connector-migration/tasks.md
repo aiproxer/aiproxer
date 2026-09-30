@@ -31,7 +31,7 @@
 
 ## Phase 2: Implement Official SIWC Identity and Credential Lifecycle
 
-- [ ] 2. Build secure host/profile persistence and dynamic SIWC authorization
+- [x] 2. Build secure host/profile persistence and dynamic SIWC authorization
 - [x] 2.1 Implement stable host state and profile storage
   - Create a schema-versioned host store containing one stable opaque `ext_agent_host_id` for the AIProxer installation.
   - Create schema-versioned per-profile files keyed by validated local profile IDs, not by email.
@@ -64,7 +64,7 @@
   - On sign-out, attempt revocation through the OIDC-discovered revocation endpoint, then clear local bearer/token material while preserving only safe registration metadata required for later reauthorization.
   - _Requirements: 3.4, 3.5, 3.6_
 
-- [ ] 2.5 Implement explicit profile selection and protected import/export
+- [x] 2.5 Implement explicit profile selection and protected import/export
   - Support multiple saved profiles, including profiles with the same email, without merging them.
   - Resolve profile selection from explicit request/backend instance/config/default semantics and fail clearly when selection is ambiguous.
   - Do not automatically rotate to another profile on plan quota exhaustion or authentication failure.
@@ -295,3 +295,4 @@
 - Task 2.2: SIWC authorize `https://auth.openai.com/api/accounts/authorize`, token `https://auth.openai.com/api/accounts/oauth/token`. After token exchange profile is saved with issued client ID and `status=missing_plan_scope`, issuer/subject `pending-oidc-validation` until 2.3 JWKS validation. Package `__init__` must not import `oauth.py`.
 - Task 2.3: Authlib JWKS in `oidc.py`; audience is issued client_id; `ready` only when `chatgpt.tokens.use.direct` is granted; `reauthorize` rejects issuer/subject/client_id mismatch without overwrite. Inference later must refuse non-ready profiles.
 - Task 2.4: `ChatGPTPlanTokenManager` in `tokens.py` — per-profile lock, post-lock reload, full rotated token persist, HTTP 400/401/403 treated as terminal `needs_reauth`. `sign_out` revokes then `clear_tokens`; keeps issued_client_id.
+- Task 2.5: `ChatGPTPlanProfileSelector` precedence is request, backend-instance, config profile_id, sole/default profile, else error listing IDs. Import never writes dest `ext_agent_host_id`. No auto-import of `.codex/auth.json`. CLI is task 6.1.
