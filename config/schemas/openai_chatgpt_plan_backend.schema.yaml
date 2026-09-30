@@ -1,0 +1,83 @@
+# JSON Schema for OpenAI ChatGPT-plan backend configuration
+# Validates the standalone backend example (openai-chatgpt-plan, not openai-codex).
+
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "OpenAI ChatGPT-plan Backend Configuration Schema"
+description: >
+  Schema for the official ChatGPT-plan (Sign in with ChatGPT) backend.
+  Uses OAuth/SIWC profiles, not API-key openai or openai-responses credentials.
+  Authorization workflow details live in the operator profile guide.
+type: object
+
+properties:
+  backend_type:
+    type: string
+    const: "openai-chatgpt-plan"
+    description: "Backend type identifier"
+
+  timeout:
+    type: integer
+    minimum: 1
+    maximum: 600
+    default: 120
+    description: "Request timeout in seconds"
+
+  capability_descriptor:
+    type: object
+    description: "Optional override; class defaults already mark this backend as OAuth/personal."
+    additionalProperties: true
+    properties:
+      protocol_family:
+        type: string
+      supports_streaming:
+        type: boolean
+      supports_tool_calls:
+        type: boolean
+      is_oauth_based:
+        type: boolean
+      requires_personal_auth:
+        type: boolean
+
+  extra:
+    type: object
+    additionalProperties: true
+    properties:
+      chatgpt_plan:
+        type: object
+        additionalProperties: true
+        properties:
+          profile_id:
+            type: ["string", "null"]
+            description: "Local profile alias selected for this backend instance"
+          profiles_path:
+            type: string
+            default: "var/openai_chatgpt_plan/profiles"
+            description: "Directory of per-profile JSON files"
+          host_state_path:
+            type: string
+            default: "var/openai_chatgpt_plan/host.json"
+            description: "Host-scoped ext_agent_host_id store"
+          oauth:
+            type: object
+            additionalProperties: false
+            properties:
+              callback_port:
+                type: integer
+                minimum: 1
+                maximum: 65535
+                default: 1455
+                description: "Loopback OAuth callback port (127.0.0.1)"
+          model_catalog:
+            type: object
+            additionalProperties: false
+            properties:
+              ttl_seconds:
+                type: integer
+                minimum: 0
+                default: 300
+                description: "Per-profile public /v1/models cache TTL"
+
+required:
+  - backend_type
+
+additionalProperties: false

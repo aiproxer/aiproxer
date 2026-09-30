@@ -488,6 +488,42 @@ properties:
                       max_rate_limit_idle_polls:
                         type: integer
                         minimum: 1
+      openai_chatgpt_plan:
+        type: object
+        additionalProperties: true
+        description: >
+          Official ChatGPT-plan (openai-chatgpt-plan) backend. Uses Sign in with
+          ChatGPT OAuth profiles, not API-key openai/openai-responses credentials.
+        properties:
+          timeout: { type: integer, minimum: 1 }
+          extra:
+            type: object
+            additionalProperties: true
+            properties:
+              chatgpt_plan:
+                type: object
+                additionalProperties: true
+                properties:
+                  profile_id: { type: ["string", "null"] }
+                  profiles_path: { type: string }
+                  host_state_path: { type: string }
+                  oauth:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      callback_port:
+                        type: integer
+                        minimum: 1
+                        maximum: 65535
+                        default: 1455
+                  model_catalog:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      ttl_seconds:
+                        type: integer
+                        minimum: 0
+                        default: 300
   reasoning_aliases:
     type: object
     additionalProperties: false

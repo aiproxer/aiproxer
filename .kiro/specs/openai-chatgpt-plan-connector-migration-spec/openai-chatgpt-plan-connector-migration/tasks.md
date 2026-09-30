@@ -6,7 +6,7 @@
 
 ## Phase 1: Establish the Clean Connector Boundary
 
-- [ ] 1. Create the independent `openai-chatgpt-plan` backend and its generic integration seams
+- [x] 1. Create the independent `openai-chatgpt-plan` backend and its generic integration seams
 - [x] 1.1 Create the new first-party connector package and registration
   - Add `src/connectors/openai_chatgpt_plan/` with a thin `OpenAIChatGPTPlanConnector` facade built on the public OpenAI Responses transport, not on `OpenAICodexConnector`.
   - Register backend type `openai-chatgpt-plan` with vendor prefix/model routing consistent with other OpenAI backends.
@@ -22,7 +22,7 @@
   - Preserve defaults for backends that do not declare the new generic capabilities.
   - _Requirements: 1.6, 8.4, 8.5, 9.6_
 
-- [ ] 1.3 Add normalized connector configuration and examples
+- [x] 1.3 Add normalized connector configuration and examples
   - Define `ChatGPTPlanConfig` (or equivalent typed settings) for profile selection, profile/host storage paths, loopback callback port, and model-catalog TTL.
   - Add schema/default/example configuration using a coherent `OPENAI_CHATGPT_PLAN_*` namespace where environment overrides are appropriate.
   - Do not introduce legacy `OPENAI_CODEX_*` aliases for the new connector.
@@ -290,3 +290,4 @@
 
 - Builtin discovery still classifies OAuth connectors by module name (`is_oauth_connector`) without `connector_class`; do not add `openai-chatgpt-plan` to `KNOWN_OAUTH_CONNECTORS` — task 1.2 must use generic capability metadata instead.
 - Task 1.2: `BackendCapabilityDescriptor.is_oauth_based` / `requires_personal_auth` default False; ChatGPT-plan declares both True on the connector class. Multi-user discovery imports then unregisters via `_unregister_personal_auth_backends`. Resilience reads the same flags. Do not add the backend ID to name lists.
+- Task 1.3: `ChatGPTPlanConfig` in `src/connectors/openai_chatgpt_plan/config.py`; live ENV overlay is `_apply_openai_chatgpt_plan_backend` in `from_env_part3.py` (`OPENAI_CHATGPT_PLAN_*` only). No main-CLI extra flags (same as Codex extras). Do not treat `OPENAI_CODEX_*` as aliases. Pre-commit secret scan flags `sk-` prefixes in tests — use non-token placeholders.

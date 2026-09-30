@@ -1,0 +1,37 @@
+# Example OpenAI ChatGPT-plan backend configuration
+# Copy this file to backend.yaml and customize as needed.
+#
+# Backend type: openai-chatgpt-plan (official Sign in with ChatGPT / SIWC).
+# This is not openai-codex and is not an API-key openai or openai-responses backend.
+# Authorization, profile add/list/reauth, and self-hosted import are documented
+# with the operator profile script (see later user-guide coverage). Capability
+# defaults are declared on the connector class; capability_descriptor is optional.
+#
+# Env overrides (CLI > ENV > YAML > defaults): OPENAI_CHATGPT_PLAN_PROFILE_ID,
+# OPENAI_CHATGPT_PLAN_PROFILES_PATH, OPENAI_CHATGPT_PLAN_HOST_STATE_PATH,
+# OPENAI_CHATGPT_PLAN_OAUTH_CALLBACK_PORT,
+# OPENAI_CHATGPT_PLAN_MODEL_CATALOG_TTL_SECONDS.
+
+backend_type: "openai-chatgpt-plan"
+timeout: 120
+
+# Optional override of class-level BackendCapabilityDescriptor defaults.
+# capability_descriptor:
+#   protocol_family: openai
+#   supports_streaming: true
+#   supports_tool_calls: true
+#   is_oauth_based: true
+#   requires_personal_auth: true
+
+extra:
+  chatgpt_plan:
+    # Explicit local profile alias. Multiple profiles may be stored; this instance
+    # uses only the selected profile_id (no quota-driven rotation).
+    profile_id: primary
+    profiles_path: var/openai_chatgpt_plan/profiles
+    host_state_path: var/openai_chatgpt_plan/host.json
+    oauth:
+      # Loopback callback binds 127.0.0.1 (not localhost). Path /auth/callback.
+      callback_port: 1455
+    model_catalog:
+      ttl_seconds: 300

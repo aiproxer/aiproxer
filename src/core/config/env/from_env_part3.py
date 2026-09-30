@@ -36,6 +36,107 @@ def _has_numbered_env_variants(env: Mapping[str, str], base_name: str) -> bool:
     return False
 
 
+def _ensure_mapping(parent: dict[str, Any], key: str) -> dict[str, Any]:
+    current = parent.get(key)
+    if not isinstance(current, dict):
+        current = {}
+        parent[key] = current
+    return current
+
+
+def _apply_openai_chatgpt_plan_backend(
+    config_backends: dict[str, Any],
+    env: Mapping[str, str],
+    resolution: ParameterResolution | None,
+) -> None:
+    """Merge OPENAI_CHATGPT_PLAN_* into backends.openai_chatgpt_plan.extra.
+
+    Namespace is ChatGPT-plan only; OPENAI_CODEX_* must not populate this backend.
+    """
+
+    prefix = "backends.openai_chatgpt_plan.extra.chatgpt_plan"
+    overrides: dict[str, Any] = {}
+
+    if "OPENAI_CHATGPT_PLAN_PROFILE_ID" in env:
+        overrides["profile_id"] = _get_env_value(
+            env,
+            "OPENAI_CHATGPT_PLAN_PROFILE_ID",
+            None,
+            path=f"{prefix}.profile_id",
+            resolution=resolution,
+            transform=lambda value: value.strip() or None,
+        )
+
+    if "OPENAI_CHATGPT_PLAN_PROFILES_PATH" in env:
+        profiles_path = _get_env_value(
+            env,
+            "OPENAI_CHATGPT_PLAN_PROFILES_PATH",
+            None,
+            path=f"{prefix}.profiles_path",
+            resolution=resolution,
+            transform=lambda value: value.strip(),
+        )
+        if profiles_path:
+            overrides["profiles_path"] = profiles_path
+
+    if "OPENAI_CHATGPT_PLAN_HOST_STATE_PATH" in env:
+        host_state_path = _get_env_value(
+            env,
+            "OPENAI_CHATGPT_PLAN_HOST_STATE_PATH",
+            None,
+            path=f"{prefix}.host_state_path",
+            resolution=resolution,
+            transform=lambda value: value.strip(),
+        )
+        if host_state_path:
+            overrides["host_state_path"] = host_state_path
+
+    if "OPENAI_CHATGPT_PLAN_OAUTH_CALLBACK_PORT" in env:
+        callback_port = _get_env_value(
+            env,
+            "OPENAI_CHATGPT_PLAN_OAUTH_CALLBACK_PORT",
+            None,
+            path=f"{prefix}.oauth.callback_port",
+            resolution=resolution,
+            transform=lambda value: int(value.strip()),
+        )
+        if callback_port is not None:
+            oauth = _ensure_mapping(overrides, "oauth")
+            oauth["callback_port"] = callback_port
+
+    if "OPENAI_CHATGPT_PLAN_MODEL_CATALOG_TTL_SECONDS" in env:
+        ttl_seconds = _get_env_value(
+            env,
+            "OPENAI_CHATGPT_PLAN_MODEL_CATALOG_TTL_SECONDS",
+            None,
+            path=f"{prefix}.model_catalog.ttl_seconds",
+            resolution=resolution,
+            transform=lambda value: int(value.strip()),
+        )
+        if ttl_seconds is not None:
+            catalog = _ensure_mapping(overrides, "model_catalog")
+            catalog["ttl_seconds"] = ttl_seconds
+
+    if not overrides:
+        return
+
+    backend = _ensure_mapping(config_backends, "openai_chatgpt_plan")
+    extra = _ensure_mapping(backend, "extra")
+    chatgpt_plan = _ensure_mapping(extra, "chatgpt_plan")
+    if "profile_id" in overrides:
+        chatgpt_plan["profile_id"] = overrides["profile_id"]
+    if "profiles_path" in overrides:
+        chatgpt_plan["profiles_path"] = overrides["profiles_path"]
+    if "host_state_path" in overrides:
+        chatgpt_plan["host_state_path"] = overrides["host_state_path"]
+    if "oauth" in overrides:
+        oauth = _ensure_mapping(chatgpt_plan, "oauth")
+        oauth.update(overrides["oauth"])
+    if "model_catalog" in overrides:
+        catalog = _ensure_mapping(chatgpt_plan, "model_catalog")
+        catalog.update(overrides["model_catalog"])
+
+
 def _load_replacement_rules_from_env(
     env: Mapping[str, str],
     resolution: ParameterResolution | None,
@@ -880,3 +981,5 @@ def _apply_extended_provider_backends(
                     ParameterSource.ENVIRONMENT,
                     origin="OPENAI_CODEX_API_KEY",
                 )
+
+    _apply_openai_chatgpt_plan_backend(config_backends, env, resolution)

@@ -345,6 +345,33 @@ backends:
       - "gpt-4"
       - "gpt-4-turbo"
 
+  openai_chatgpt_plan:
+    # type: openai-chatgpt-plan
+    # Official ChatGPT-plan backend (Sign in with ChatGPT / SIWC OAuth).
+    # Distinct from API-key openai and openai-responses backends, which remain
+    # unchanged and still use OPENAI_API_KEY / provider API keys.
+    # Distinct from the legacy openai-codex family; do not reuse OPENAI_CODEX_*
+    # env names or Codex auth.json credentials here.
+    # Authorization, profile add/list/reauth, and self-hosted import: see the
+    # operator profile script and user-guide pages added later in this migration.
+    # Capability defaults (is_oauth_based / requires_personal_auth) are declared
+    # on the connector class; capability_descriptor is optional.
+    timeout: 120
+    extra:
+      chatgpt_plan:
+        # Explicit profile selection for this instance.
+        profile_id: primary
+        profiles_path: var/openai_chatgpt_plan/profiles
+        host_state_path: var/openai_chatgpt_plan/host.json
+        oauth:
+          callback_port: 1455
+        model_catalog:
+          ttl_seconds: 300
+    # Optional env overrides (CLI > ENV > YAML > defaults):
+    # OPENAI_CHATGPT_PLAN_PROFILE_ID, OPENAI_CHATGPT_PLAN_PROFILES_PATH,
+    # OPENAI_CHATGPT_PLAN_HOST_STATE_PATH, OPENAI_CHATGPT_PLAN_OAUTH_CALLBACK_PORT,
+    # OPENAI_CHATGPT_PLAN_MODEL_CATALOG_TTL_SECONDS.
+
   openrouter:
     # API key set via OPENROUTER_API_KEY environment variable
     api_url: "https://openrouter.ai/api/v1"
