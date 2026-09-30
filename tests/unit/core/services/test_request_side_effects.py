@@ -118,6 +118,44 @@ class TestRequestSideEffects:
         # Assert
         assert updated_request is not None
 
+
+    async def test_tool_names_registration_responses_flat_tools(
+        self, side_effects: RequestSideEffects
+    ):
+        """Responses-flat tools expose name at the top level, not under function."""
+        from src.core.services.streaming.stream_context_registry import (
+            get_global_streaming_context_registry,
+        )
+
+        context = RequestContext(
+            headers={}, cookies={}, state={}, app_state=MagicMock()
+        )
+        session_id = "responses-flat-tools-session"
+        request = ChatRequest(
+            model="gpt-4",
+            messages=[ChatMessage(role="user", content="test")],
+            tools=[
+                {
+                    "type": "function",
+                    "name": "read",
+                    "description": "Read a file",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+                {
+                    "type": "function",
+                    "name": "glob",
+                    "description": "Glob files",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            ],
+        )
+
+        await side_effects.apply(context, session_id, request)
+
+        registry = get_global_streaming_context_registry()
+        buffer = registry.get_tool_call_buffer(session_id)
+        assert buffer.allowed_tools == ["read", "glob"]
+
     async def test_tool_names_registration_with_no_tools(
         self, side_effects: RequestSideEffects
     ):

@@ -311,15 +311,16 @@ class ResponsesWireStreamEmitter:
             return
         arguments = state.arguments.strip() or "{}"
 
-        out.append(
-            {
-                "type": "response.function_call_arguments.done",
-                "sequence_number": self._next_seq(),
-                "item_id": state.item_id,
-                "output_index": state.output_index,
-                "arguments": arguments,
-            }
-        )
+        done_args_evt: dict[str, Any] = {
+            "type": "response.function_call_arguments.done",
+            "sequence_number": self._next_seq(),
+            "item_id": state.item_id,
+            "output_index": state.output_index,
+            "arguments": arguments,
+        }
+        if state.name:
+            done_args_evt["name"] = state.name
+        out.append(done_args_evt)
 
         done_item = {
             "id": state.item_id,
@@ -463,15 +464,16 @@ class ResponsesWireStreamEmitter:
                 state.arguments = self._merge_arguments_buffer(
                     state.arguments, arguments_fragment
                 )
-                out.append(
-                    {
-                        "type": "response.function_call_arguments.delta",
-                        "sequence_number": self._next_seq(),
-                        "item_id": state.item_id,
-                        "output_index": state.output_index,
-                        "delta": arguments_fragment,
-                    }
-                )
+                delta_evt: dict[str, Any] = {
+                    "type": "response.function_call_arguments.delta",
+                    "sequence_number": self._next_seq(),
+                    "item_id": state.item_id,
+                    "output_index": state.output_index,
+                    "delta": arguments_fragment,
+                }
+                if state.name:
+                    delta_evt["name"] = state.name
+                out.append(delta_evt)
 
         if finish_reason:
             out.extend(self._terminal_events(domain_chunk, finish_reason))

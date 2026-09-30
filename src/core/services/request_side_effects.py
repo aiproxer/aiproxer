@@ -81,12 +81,25 @@ class RequestSideEffects(IRequestSideEffects):
                             name = func.get("name")
                             if name:
                                 allowed_tools.append(name)
+                                continue
+                        # Responses API flat tools: {"type":"function","name":"..."}
+                        flat_name = tool.get("name")
+                        if isinstance(flat_name, str) and flat_name.strip():
+                            allowed_tools.append(flat_name)
                     elif hasattr(tool, "function"):
-                        # Pydantic model
+                        # Pydantic model (chat-style nested function)
                         func = getattr(tool, "function", None)
                         name = getattr(func, "name", None)
                         if name:
                             allowed_tools.append(name)
+                        else:
+                            flat_name = getattr(tool, "name", None)
+                            if isinstance(flat_name, str) and flat_name.strip():
+                                allowed_tools.append(flat_name)
+                    else:
+                        flat_name = getattr(tool, "name", None)
+                        if isinstance(flat_name, str) and flat_name.strip():
+                            allowed_tools.append(flat_name)
 
             from src.core.services.streaming.stream_context_registry import (
                 get_global_streaming_context_registry,

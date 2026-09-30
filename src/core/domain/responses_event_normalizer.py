@@ -60,7 +60,7 @@ def _extract_text_delta(delta_val: Any) -> str:
 def _parse_stream_dicts_from_text(text: str) -> list[dict[str, Any]]:
     if not text:
         return []
-    normalized = text.replace("\r\n", "\n")
+    normalized = text.replace("\n", "\n")
     payloads: list[dict[str, Any]] = []
     if "data:" in normalized:
         for block in normalized.split("\n\n"):
@@ -125,6 +125,8 @@ class ResponsesEventNormalizer:
         self._anthropic_text_buffers: dict[int, list[str]] = {}
         self._anthropic_tool_arg_buffers: dict[int, list[str]] = {}
         self._gemini_text_fragments: list[str] = []
+        # item.id / call_id -> function name from output_item.added
+        self._function_names_by_item_id: dict[str, str] = {}
 
     @staticmethod
     def _build_output_text_part(text: str) -> dict[str, Any]:
@@ -157,6 +159,7 @@ class ResponsesEventNormalizer:
         output_index: int | None = None,
         content_index: int | None = None,
         item_id: str | None = None,
+        name: str | None = None,
         delta: str | None = None,
         text: str | None = None,
         item: dict[str, Any] | None = None,
@@ -174,6 +177,7 @@ class ResponsesEventNormalizer:
             output_index=output_index,
             content_index=content_index,
             item_id=item_id,
+            name=name,
             delta=delta,
             text=text,
             item=item,
@@ -182,6 +186,21 @@ class ResponsesEventNormalizer:
             error=error,
             raw=raw,
         )
+
+    def _remember_function_name(self, *, item_id: str | None, call_id: str | None, name: str) -> None:
+        if not isinstance(name, str) or not name.strip():
+            return
+        for key in (item_id, call_id):
+            if isinstance(key, str) and key.strip():
+                self._function_names_by_item_id[key] = name
+
+    def _lookup_function_name(self, *keys: str | None) -> str | None:
+        for key in keys:
+            if isinstance(key, str) and key:
+                cached = self._function_names_by_item_id.get(key)
+                if cached:
+                    return cached
+        return None
 
     def _consume_openai_response_id(self, payload: dict[str, Any]) -> str:
         response_obj = payload.get("response")
@@ -403,6 +422,10 @@ class ResponsesEventNormalizer:
                 name_s = str(name_val) if isinstance(name_val, str) else ""
                 args_val = fn_d.get("arguments")
                 args_s = args_val if isinstance(args_val, str) else ""
+                if name_s:
+                    self._remember_function_name(
+                        item_id=call_id_s, call_id=call_id_s, name=name_s
+                    )
                 events.append(
                     self._next(
                         type=ResponsesSemanticEventType.OUTPUT_ITEM_ADDED,
@@ -410,6 +433,7 @@ class ResponsesEventNormalizer:
                         output_index=idx,
                         content_index=0,
                         item_id=call_id_s,
+                        name=name_s or None,
                         item={
                             "id": call_id_s,
                             "type": "function_call",
@@ -427,6 +451,7 @@ class ResponsesEventNormalizer:
                             output_index=idx,
                             content_index=0,
                             item_id=call_id_s,
+                            name=name_s or None,
                             delta=args_s,
                         )
                     )
@@ -437,6 +462,7 @@ class ResponsesEventNormalizer:
                             output_index=idx,
                             content_index=0,
                             item_id=call_id_s,
+                            name=name_s or None,
                             text=args_s,
                         )
                     )
@@ -591,6 +617,15 @@ class ResponsesEventNormalizer:
                 item.get("id") if isinstance(item.get("id"), str) else d.get("item_id")
             )
             item_id_s = str(item_id) if item_id is not None else None
+            call_id_raw = item.get("call_id")
+            call_id_s = (
+                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+            )
+            name_raw = item.get("name")
+            if isinstance(name_raw, str) and name_raw.strip():
+                self._remember_function_name(
+                    item_id=item_id_s, call_id=call_id_s, name=name_raw
+                )
             return [
                 self._next(
                     type=ResponsesSemanticEventType.OUTPUT_ITEM_ADDED,
@@ -598,6 +633,7 @@ class ResponsesEventNormalizer:
                     output_index=_coerce_int(d.get("output_index")),
                     content_index=_coerce_int(d.get("content_index")),
                     item_id=item_id_s,
+                    name=name_raw if isinstance(name_raw, str) and name_raw.strip() else None,
                     item=dict(item),
                 )
             ]
@@ -610,6 +646,22 @@ class ResponsesEventNormalizer:
                 else d.get("item_id")
             )
             item_id_s = str(item_id) if item_id is not None else None
+            call_id_raw = item_done.get("call_id")
+            call_id_s = (
+                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+            )
+            name_raw = item_done.get("name")
+            if isinstance(name_raw, str) and name_raw.strip():
+                self._remember_function_name(
+                    item_id=item_id_s, call_id=call_id_s, name=name_raw
+                )
+            elif item_id_s or call_id_s:
+                # Carry name from earlier output_item.added when done omits it.
+                resolved = self._lookup_function_name(item_id_s, call_id_s)
+                if resolved:
+                    item_done = dict(item_done)
+                    item_done["name"] = resolved
+                    name_raw = resolved
             return [
                 self._next(
                     type=ResponsesSemanticEventType.OUTPUT_ITEM_DONE,
@@ -617,6 +669,11 @@ class ResponsesEventNormalizer:
                     output_index=_coerce_int(d.get("output_index")),
                     content_index=_coerce_int(d.get("content_index")),
                     item_id=item_id_s,
+                    name=(
+                        name_raw
+                        if isinstance(name_raw, str) and name_raw.strip()
+                        else None
+                    ),
                     item=dict(item_done),
                 )
             ]
@@ -678,6 +735,20 @@ class ResponsesEventNormalizer:
         if et == "response.function_call_arguments.delta":
             item_id = d.get("item_id")
             item_id_s = str(item_id) if item_id is not None else None
+            call_id_raw = d.get("call_id")
+            call_id_s = (
+                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+            )
+            wire_name = d.get("name")
+            resolved_name = (
+                wire_name
+                if isinstance(wire_name, str) and wire_name.strip()
+                else self._lookup_function_name(item_id_s, call_id_s)
+            )
+            if isinstance(resolved_name, str) and resolved_name.strip():
+                self._remember_function_name(
+                    item_id=item_id_s, call_id=call_id_s, name=resolved_name
+                )
             delta_raw = d.get("delta")
             if isinstance(delta_raw, str):
                 delta_s = delta_raw
@@ -695,12 +766,27 @@ class ResponsesEventNormalizer:
                     output_index=_coerce_int(d.get("output_index")),
                     content_index=_coerce_int(d.get("content_index")),
                     item_id=item_id_s,
+                    name=resolved_name if isinstance(resolved_name, str) else None,
                     delta=delta_s,
                 )
             ]
         if et == "response.function_call_arguments.done":
             item_id = d.get("item_id")
             item_id_s = str(item_id) if item_id is not None else None
+            call_id_raw = d.get("call_id")
+            call_id_s = (
+                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+            )
+            wire_name = d.get("name")
+            resolved_name = (
+                wire_name
+                if isinstance(wire_name, str) and wire_name.strip()
+                else self._lookup_function_name(item_id_s, call_id_s)
+            )
+            if isinstance(resolved_name, str) and resolved_name.strip():
+                self._remember_function_name(
+                    item_id=item_id_s, call_id=call_id_s, name=resolved_name
+                )
             args_val = d.get("arguments")
             args_s = args_val if isinstance(args_val, str) else ""
             return [
@@ -710,6 +796,7 @@ class ResponsesEventNormalizer:
                     output_index=_coerce_int(d.get("output_index")),
                     content_index=_coerce_int(d.get("content_index")),
                     item_id=item_id_s,
+                    name=resolved_name if isinstance(resolved_name, str) else None,
                     text=args_s,
                 )
             ]

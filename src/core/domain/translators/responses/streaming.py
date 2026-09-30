@@ -29,6 +29,60 @@ from src.core.domain.translators.responses.streaming_parse import (
 logger = logging.getLogger(__name__)
 
 
+def _resolve_function_call_name(
+    chunk: dict[str, Any],
+    *,
+    item: dict[str, Any] | None = None,
+) -> str:
+    """Resolve a function-call name from the event, item, or prior cache.
+
+    Responses streams commonly put ``name`` only on ``output_item.added`` while
+    ``function_call_arguments.*`` carry ``item_id`` (item.id) which may differ
+    from ``call_id``. Look up both ids so later events keep the name.
+    """
+    wire = chunk.get("name")
+    if isinstance(wire, str) and wire.strip():
+        return wire
+    if item is not None:
+        item_name = item.get("name")
+        if isinstance(item_name, str) and item_name.strip():
+            return item_name
+    item_id = chunk.get("item_id")
+    call_id = chunk.get("call_id")
+    if item is not None:
+        if not isinstance(item_id, str) or not item_id:
+            raw_id = item.get("id")
+            item_id = raw_id if isinstance(raw_id, str) else item_id
+        if not isinstance(call_id, str) or not call_id:
+            raw_call = item.get("call_id")
+            call_id = raw_call if isinstance(raw_call, str) else call_id
+    keys: list[str] = []
+    for key in (item_id, call_id):
+        if isinstance(key, str) and key and key not in keys:
+            keys.append(key)
+    return get_cached_function_name(*keys) if keys else ""
+
+
+def _cache_function_call_name_aliases(
+    name: str,
+    *,
+    item_id: str | None = None,
+    call_id: str | None = None,
+) -> None:
+    if not isinstance(name, str) or not name.strip():
+        return
+    primary = call_id or item_id
+    if not primary:
+        return
+    aliases: list[str] = []
+    if item_id and item_id != primary:
+        aliases.append(item_id)
+    if call_id and call_id != primary and call_id not in aliases:
+        aliases.append(call_id)
+    cache_function_name(primary, name, *aliases)
+
+
+
 def _local_shell_item_to_arguments_json(item: dict[str, Any]) -> str:
     """Serialize Codex ``local_shell_call`` output items to function ``arguments`` JSON.
 
@@ -352,12 +406,11 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
         return _build_chunk({"reasoning_content": reasoning_text})
 
     if event_type == "response.function_call_arguments.delta":
-        call_id = chunk.get("item_id") or chunk.get("call_id")
+        item_id = chunk.get("item_id")
+        call_id = item_id or chunk.get("call_id")
         wire_name = chunk.get("name")
         wire_name_str = wire_name.strip() if isinstance(wire_name, str) else ""
-        name = wire_name_str
-        if not name and isinstance(call_id, str) and call_id:
-            name = get_cached_function_name(call_id)
+        name = _resolve_function_call_name(chunk)
         delta_payload = chunk.get("delta") or {}
         if isinstance(delta_payload, str):
             arguments_fragment = delta_payload
@@ -368,9 +421,17 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
         tool_index = assign_tool_call_index(
             chunk_id, chunk.get("output_index"), call_id
         )
-        # Cache the function name if provided
-        if name and call_id:
-            cache_function_name(call_id, name)
+        # Cache under item_id and call_id so later done events can resolve name.
+        if name:
+            _cache_function_call_name_aliases(
+                name,
+                item_id=item_id if isinstance(item_id, str) else None,
+                call_id=(
+                    chunk.get("call_id")
+                    if isinstance(chunk.get("call_id"), str)
+                    else (call_id if isinstance(call_id, str) else None)
+                ),
+            )
         # Accumulate arguments fragments for later use in done events
         if call_id and arguments_fragment:
             accumulate_tool_call_arguments(call_id, arguments_fragment)
@@ -405,14 +466,21 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
         return _build_chunk(delta)
 
     if event_type == "response.function_call_arguments.done":
-        call_id = chunk.get("item_id") or chunk.get("call_id")
-        name = chunk.get("name") or ""
-        if not name and isinstance(call_id, str) and call_id:
-            name = get_cached_function_name(call_id)
+        item_id = chunk.get("item_id")
+        call_id = item_id or chunk.get("call_id")
+        name = _resolve_function_call_name(chunk)
         arguments = chunk.get("arguments")
-        # Cache the function name if provided
-        if name and call_id:
-            cache_function_name(call_id, name)
+        # Re-cache under both ids so output_item.done / client mapping stay named.
+        if name:
+            _cache_function_call_name_aliases(
+                name,
+                item_id=item_id if isinstance(item_id, str) else None,
+                call_id=(
+                    chunk.get("call_id")
+                    if isinstance(chunk.get("call_id"), str)
+                    else (call_id if isinstance(call_id, str) else None)
+                ),
+            )
         # The complete tool call will be sent in response.output_item.done event.
         # Just return an empty chunk here to let the client know the event happened.
         if logger.isEnabledFor(logging.DEBUG):
@@ -481,7 +549,7 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
                 clear_tool_call_arguments(call_id)
             if not isinstance(arguments, str):
                 arguments = json.dumps(arguments) if arguments else "{}"
-            tool_name = item.get("name", "")
+            tool_name = _resolve_function_call_name(chunk, item=item)
             if not isinstance(tool_name, str) or not tool_name.strip():
                 # Never emit unnamed tool calls to clients; harnesses (e.g. pi)
                 # persist them and later replay empty-name history that 400s.
@@ -492,6 +560,11 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
                         call_id,
                     )
                 return _build_chunk()
+            _cache_function_call_name_aliases(
+                tool_name,
+                item_id=str(item.get("id")) if item.get("id") is not None else None,
+                call_id=str(call_id) if call_id else None,
+            )
             arguments = _normalize_shell_like_tool_arguments_json(tool_name, arguments)
             emit_name = _openai_client_shell_tool_name(tool_name)
             tool_index = assign_tool_call_index(
@@ -658,18 +731,21 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
         item_type = item.get("type")
 
         if item_type == "function_call":
+            item_id_raw = item.get("id")
+            item_id = item_id_raw if isinstance(item_id_raw, str) else None
             call_id = (
-                item.get("call_id") or item.get("id") or f"call_{uuid.uuid4().hex[:8]}"
+                item.get("call_id") or item_id or f"call_{uuid.uuid4().hex[:8]}"
             )
             name = item.get("name", "")
             if not isinstance(name, str) or not name.strip():
                 return _build_chunk()
+            # Always cache under both item.id and call_id (they often differ).
+            _cache_function_call_name_aliases(
+                name, item_id=item_id, call_id=str(call_id) if call_id else None
+            )
             if _should_buffer_partial_tool_call(str(name)):
-                cache_function_name(call_id, name)
                 return _build_chunk()
             emit_name = _openai_client_shell_tool_name(name)
-
-            cache_function_name(call_id, name)
 
             tool_index = assign_tool_call_index(
                 chunk_id, chunk.get("output_index"), call_id

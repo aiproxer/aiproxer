@@ -114,6 +114,17 @@ def _wire_payload_for_semantic(
     ):
         out["arguments"] = event.text
 
+    if (
+        event.type
+        in {
+            ResponsesSemanticEventType.TOOL_CALL_ARGS_DELTA,
+            ResponsesSemanticEventType.TOOL_CALL_ARGS_DONE,
+        }
+        and isinstance(event.name, str)
+        and event.name.strip()
+    ):
+        out["name"] = event.name
+
     if event.type in {
         ResponsesSemanticEventType.OUTPUT_ITEM_ADDED,
         ResponsesSemanticEventType.OUTPUT_ITEM_DONE,

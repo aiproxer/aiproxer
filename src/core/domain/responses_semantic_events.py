@@ -36,6 +36,7 @@ class ResponsesSemanticEvent(DomainModel):
     output_index: int | None = None
     content_index: int | None = None
     item_id: str | None = None
+    name: str | None = None
     delta: str | None = None
     text: str | None = None
     item: dict[str, Any] | None = None

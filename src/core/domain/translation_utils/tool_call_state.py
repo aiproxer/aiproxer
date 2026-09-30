@@ -68,15 +68,32 @@ def clear_tool_call_arguments(call_id: str) -> None:
         codex_tool_call_arguments_by_call_id.pop(call_id, None)
 
 
-def cache_function_name(call_id: str, name: str) -> None:
-    if call_id and name:
-        with _tool_state_lock:
-            codex_function_name_cache[call_id] = name
+def cache_function_name(call_id: str, name: str, *aliases: str) -> None:
+    """Cache ``name`` under ``call_id`` and any alternate ids (e.g. item id).
 
-
-def get_cached_function_name(call_id: str) -> str:
+    OpenAI Responses puts the function name on ``response.output_item.added``
+    (``item.id`` / ``item.call_id``) while later ``function_call_arguments.*``
+    events only carry ``item_id``. Caching under both keys lets later events
+    resolve the name without OpenCode-specific branching.
+    """
+    if not name or not str(name).strip():
+        return
+    keys = [call_id, *aliases]
     with _tool_state_lock:
-        return codex_function_name_cache.get(call_id, "")
+        for key in keys:
+            if isinstance(key, str) and key.strip():
+                codex_function_name_cache[key] = name
+
+
+def get_cached_function_name(*call_ids: str) -> str:
+    """Return the first cached function name for any of the given ids."""
+    with _tool_state_lock:
+        for call_id in call_ids:
+            if isinstance(call_id, str) and call_id:
+                cached = codex_function_name_cache.get(call_id, "")
+                if cached:
+                    return cached
+        return ""
 
 
 def assign_tool_call_index(
