@@ -149,7 +149,7 @@
 
 ## Phase 6: Operator UX, Automated Conformance and Coexistence Proof
 
-- [ ] 6. Make the new connector operationally usable and prove it automatically before real-service testing
+- [x] 6. Make the new connector operationally usable and prove it automatically before real-service testing
 - [x] 6.1 Add profile-management CLI/script and user-safe diagnostics (P)
   - Implement list/add/show/reauthorize/refresh/signout/remove plus protected import/export operations described in `design.md`.
   - Ensure list/show never print access, refresh, ID tokens, authorization codes or PKCE verifiers.
@@ -176,7 +176,7 @@
   - Mark legacy Codex usage as pending retirement after successful acceptance, but do not remove it yet.
   - _Requirements: 12.1, 12.3, 12.4_
 
-- [ ] 6.5 Run the pre-gate automated verification suite and repair all regressions
+- [x] 6.5 Run the pre-gate automated verification suite and repair all regressions
   - Run focused new connector tests, Responses frontend/integration tests, routing/model discovery, access-mode/resilience tests, lint, format and type checks.
   - Confirm the new connector uses only public OpenAI API inference/model endpoints under mocked boundary capture.
   - Do not proceed to the human gate with known connector, typing, lint or relevant integration failures.
@@ -308,3 +308,4 @@
 - Task 6.2: structural contracts in 	est_openai_chatgpt_plan_contracts.py (AST import isolation, no private Codex URL, header strip/emit proofs). Lifecycle/policy coverage remains in phase 2-5 unit suites.
 - Task 6.3: 	est_openai_chatgpt_plan_cross_frontend.py covers native Responses tools, Chat Completions forced upstream stream, Anthropic-translated canonical path, and profile-state coexistence with Responses/Codex imports.
 - Task 6.4: operator doc docs/user_guide/backends/openai-chatgpt-plan.md; overview link; openai-codex.md pending-retirement note. Legacy backends not removed.
+- Task 6.5: pre-gate suite green — chatgpt-plan unit (340 passed, 1 skipped), related Responses/access-mode/capability (156+79+17), ruff/black/mypy on package+CLI. Fixed CLI main() Any->int mypy. Phase 7+ not started.

@@ -354,7 +354,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return asyncio.run(args.func(args))
+        result = asyncio.run(args.func(args))
+        return int(result)
     except LLMProxyError as exc:
         print(f"Error: {exc.message}")
         details = getattr(exc, "details", None) or {}
