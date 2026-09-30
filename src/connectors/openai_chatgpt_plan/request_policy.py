@@ -7,6 +7,9 @@ injection is prevented by request provenance tags, not by deleting repeated
 text. Client-supplied function/custom tools, ``tool_choice``, call/output
 linkage, and text/image/file content parts are preserved. Explicit hosted
 tools from the SIWC preview matrix are rejected; web search is preserved.
+Explicit unsupported SIWC fields are rejected; incidental null/default
+fields are stripped. Upstream HTTP inference always uses ``store=false``
+and ``stream=true`` and never sends ``previous_response_id``.
 This module does not load bundled prompt resources or client-family adapters.
 """
 
@@ -60,6 +63,41 @@ _UNSUPPORTED_HOSTED_TOOL_TYPES = frozenset(
         "programmatic_tool_calling",
     }
 )
+# Official SIWC preview unsupported fields (2026-09-30).
+# https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations
+_UNSUPPORTED_SIWC_FIELDS = frozenset(
+    {
+        "background",
+        "conversation",
+        "max_output_tokens",
+        "max_tool_calls",
+        "metadata",
+        "moderation",
+        "multi_agent",
+        "prompt",
+        "prompt_cache_retention",
+        "safety_identifier",
+        "temperature",
+        "top_logprobs",
+        "top_p",
+        "truncation",
+        "user",
+    }
+)
+_CANONICAL_TO_SIWC_FIELD: tuple[tuple[str, str], ...] = (
+    ("temperature", "temperature"),
+    ("top_p", "top_p"),
+    ("user", "user"),
+    ("max_tokens", "max_output_tokens"),
+    ("max_completion_tokens", "max_output_tokens"),
+    ("request_metadata", "metadata"),
+    ("top_logprobs", "top_logprobs"),
+)
+_EXTRA_BODY_FIELD_ALIASES: dict[str, str] = {
+    "max_tokens": "max_output_tokens",
+    "max_completion_tokens": "max_output_tokens",
+    "request_metadata": "metadata",
+}
 
 
 @dataclass(frozen=True)
@@ -122,26 +160,92 @@ def _hosted_tool_type(value: Any) -> str | None:
     return None
 
 
+def _reject_hosted_tool_dict(item: Mapping[str, Any]) -> None:
+    hosted = _hosted_tool_type(item.get("type"))
+    if hosted is not None:
+        raise ResponsesProviderLimitationError(hosted, SIWC_PROVIDER)
+    additional = item.get("additional_tools")
+    if not isinstance(additional, list):
+        return
+    for tool in additional:
+        if not isinstance(tool, Mapping):
+            continue
+        nested = _hosted_tool_type(tool.get("type"))
+        if nested is not None:
+            raise ResponsesProviderLimitationError(nested, SIWC_PROVIDER)
+
+
 def _reject_unsupported_hosted_tools(payload: Mapping[str, Any]) -> None:
     for key in ("tools", *_ITEM_LIST_KEYS):
         items = payload.get(key)
         if not isinstance(items, list):
             continue
         for item in items:
-            if not isinstance(item, dict):
-                continue
-            hosted = _hosted_tool_type(item.get("type"))
-            if hosted is not None:
-                raise ResponsesProviderLimitationError(hosted, SIWC_PROVIDER)
+            if isinstance(item, Mapping):
+                _reject_hosted_tool_dict(item)
     tool_choice = payload.get("tool_choice")
-    if isinstance(tool_choice, dict):
+    if isinstance(tool_choice, Mapping):
         hosted = _hosted_tool_type(tool_choice.get("type"))
         if hosted is not None:
             raise ResponsesProviderLimitationError(hosted, SIWC_PROVIDER)
 
 
+def _is_meaningful_explicit_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value is True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, Mapping):
+        return bool(value)
+    if isinstance(value, list | tuple | set):
+        return bool(value)
+    return True
+
+
+def _extra_body_mapping(canonical: Any) -> Mapping[str, Any]:
+    raw = getattr(canonical, "extra_body", None)
+    if isinstance(raw, Mapping):
+        return raw
+    return {}
+
+
+def _reject_explicit_unsupported_fields(
+    request: ConnectorResponsesRequest | ConnectorChatCompletionsRequest,
+) -> None:
+    canonical = request.request
+    extra_body = _extra_body_mapping(canonical)
+    if getattr(canonical, "store", None) is True or extra_body.get("store") is True:
+        raise ResponsesProviderLimitationError("store", SIWC_PROVIDER)
+
+    for attr, field in _CANONICAL_TO_SIWC_FIELD:
+        if _is_meaningful_explicit_value(getattr(canonical, attr, None)):
+            raise ResponsesProviderLimitationError(field, SIWC_PROVIDER)
+
+    for key, value in extra_body.items():
+        if not isinstance(key, str):
+            continue
+        if key in {"store", "stream", "previous_response_id"}:
+            continue
+        field = _EXTRA_BODY_FIELD_ALIASES.get(key, key)
+        if field in _UNSUPPORTED_SIWC_FIELDS and _is_meaningful_explicit_value(value):
+            raise ResponsesProviderLimitationError(field, SIWC_PROVIDER)
+
+
+def _strip_incidental_unsupported_fields(payload: dict[str, Any]) -> None:
+    for field in _UNSUPPORTED_SIWC_FIELDS:
+        payload.pop(field, None)
+
+
+def _apply_required_siwc_transport_flags(payload: dict[str, Any]) -> None:
+    payload["store"] = False
+    payload["stream"] = True
+    payload.pop("previous_response_id", None)
+
+
 class ChatGPTPlanRequestPolicy:
-    """Connector-local SIWC request policy for instruction projection."""
+    """Connector-local SIWC request policy for instruction and field projection."""
 
     def project(
         self,
@@ -173,6 +277,9 @@ class ChatGPTPlanRequestPolicy:
                 )
 
         _reject_unsupported_hosted_tools(payload)
+        _reject_explicit_unsupported_fields(request)
+        _strip_incidental_unsupported_fields(payload)
+        _apply_required_siwc_transport_flags(payload)
 
         stream_flag = getattr(request.request, "stream", False)
         return SIWCProjectedRequest(

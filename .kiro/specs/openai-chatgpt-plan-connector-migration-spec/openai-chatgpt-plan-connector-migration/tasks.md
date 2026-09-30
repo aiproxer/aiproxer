@@ -107,7 +107,7 @@
   - If a defect is generic to Responses translation, repair it in the generic translator/projector with generic tests rather than adding a SIWC harness workaround.
   - _Requirements: 5.4, 5.5, 6.6, 9.3_
 
-- [ ] 4.3 Enforce the SIWC preview field/capability contract
+- [x] 4.3 Enforce the SIWC preview field/capability contract
   - Re-check OpenAI's official SIWC limitations at implementation time and encode the then-current support matrix in connector policy tests.
   - Force upstream `store=false` and `stream=true` for every HTTP inference request.
   - Ensure HTTP `previous_response_id` is not sent upstream; rely on AIProxer's resolved/full input replay.
@@ -300,3 +300,4 @@
 - Task 3.2: `build_chatgpt_plan_model_catalog` caches one catalog/token-manager graph per resolved `profiles_path` so enumerator and connector share invalidation. Register `ChatGPTPlanConfiguredModelEnumerator` in `routing.py`; do not add a ChatGPT-plan application stage. Process-lifetime cache: first-seen `ChatGPTPlanConfig` extras win for that store.
 - Task 4.1: `ChatGPTPlanRequestPolicy.project` in `request_policy.py` — native `instructions` kept; empty instructions filled from `CanonicalChatRequest.system_prompt`; residual `role=system` in `input`/`messages` rewritten to `developer`. Duplicate suppression uses `siwc_instruction_source` provenance tags, not text-equality. Do not import request_policy from package `__init__`. Store/stream/unsupported fields are 4.3.
 - Task 4.2: SIWC preview matrix (docs 2026-09-30): preserve function/custom tools, `tool_choice`, call/output linkage, text/image/file, and web search. Reject image generation, file search, Code Interpreter, `computer_use_preview`, hosted MCP/connectors, `tool_search`, and top-level `programmatic_tool_calling` via `ResponsesProviderLimitationError`. No client-family adapters. Nested `additional_tools` hosted types not walked (possible 4.3 follow-up).
+- Task 4.3: `project()` forces `store=false`/`stream=true`; always omits `previous_response_id`; explicit unsupported fields (canonical + extra_body) raise `ResponsesProviderLimitationError`; incidental serializer defaults are stripped. Explicit `store=True` is rejected; downstream `stream=False` stays `downstream_stream_requested=False`. Nested `additional_tools` hosted types are walked. HTTP/headers are 4.4.
