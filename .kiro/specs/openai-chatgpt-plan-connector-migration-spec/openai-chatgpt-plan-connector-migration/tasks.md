@@ -40,7 +40,7 @@
   - Reuse/add secret-redaction helpers so access, refresh and ID tokens never reach normal logs, captures or exception text.
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 2.2 Implement first-time dynamic registration and loopback authorization
+- [x] 2.2 Implement first-time dynamic registration and loopback authorization
   - Generate fresh state, OIDC nonce, and PKCE S256 verifier/challenge for every attempt.
   - Bind callback handling to `127.0.0.1` and advertise the exact `http://127.0.0.1:<port>/auth/callback` redirect URI.
   - Start authorization with `client_id=dynamic_agent_client`, `agent_name_hint`, stable host ID, required SIWC scopes, and `resource=https://api.openai.com/v1`.
@@ -292,3 +292,4 @@
 - Task 1.2: `BackendCapabilityDescriptor.is_oauth_based` / `requires_personal_auth` default False; ChatGPT-plan declares both True on the connector class. Multi-user discovery imports then unregisters via `_unregister_personal_auth_backends`. Resilience reads the same flags. Do not add the backend ID to name lists.
 - Task 1.3: `ChatGPTPlanConfig` in `src/connectors/openai_chatgpt_plan/config.py`; live ENV overlay is `_apply_openai_chatgpt_plan_backend` in `from_env_part3.py` (`OPENAI_CHATGPT_PLAN_*` only). No main-CLI extra flags (same as Codex extras). Do not treat `OPENAI_CODEX_*` as aliases. Pre-commit secret scan flags `sk-` prefixes in tests — use non-token placeholders.
 - Task 2.1: host.json + profiles/<profile_id>.json; load must require payload profile_id == filename stem or raise ChatGPTPlanProfileStorageError without token details. `id_token` is in DEFAULT_REDACTED_FIELDS.
+- Task 2.2: SIWC authorize `https://auth.openai.com/api/accounts/authorize`, token `https://auth.openai.com/api/accounts/oauth/token`. After token exchange profile is saved with issued client ID and `status=missing_plan_scope`, issuer/subject `pending-oidc-validation` until 2.3 JWKS validation. Package `__init__` must not import `oauth.py`.
