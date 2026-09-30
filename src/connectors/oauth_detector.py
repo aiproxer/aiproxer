@@ -2,8 +2,9 @@
 
 Provides multi-layered OAuth connector detection:
 1. Naming patterns: -oauth- or -oauth suffix
-2. Property check: has_static_credentials = False
-3. Explicit known list: documented OAuth connectors
+2. Explicit known list: documented OAuth connectors
+3. Generic capability flags: is_oauth_based / requires_personal_auth
+4. Property check: has_static_credentials = False
 
 This module is used during connector auto-discovery to filter OAuth connectors
 in Multi User Mode.
@@ -14,6 +15,10 @@ from __future__ import annotations
 from typing import Any
 
 from src.core.common.backend_discovery_state import get_extracted_backend_names
+from src.core.domain.backend_capability_descriptor import (
+    source_is_oauth_based,
+    source_requires_personal_auth,
+)
 
 # OAuth connector naming patterns (converted to underscore for module filenames)
 OAUTH_CONNECTOR_PATTERNS: list[str] = [
@@ -53,7 +58,8 @@ def is_oauth_connector(
     Detection layers (in order of precedence):
     1. Check if module name is in KNOWN_OAUTH_CONNECTORS (explicit list)
     2. Check if module name matches OAUTH_CONNECTOR_PATTERNS (naming convention)
-    3. Check connector_class.has_static_credentials property if available
+    3. Check connector_class capability flags (is_oauth_based / requires_personal_auth)
+    4. Check connector_class.has_static_credentials property if available
 
     Args:
         module_name: The connector module name (e.g., "gemini_oauth_auto", "_openai_codex_connector")
@@ -98,7 +104,14 @@ def is_oauth_connector(
         if pattern in module_name:
             return True
 
-    # Layer 3: Check has_static_credentials property if connector class provided
+    # Layer 3: Generic capability flags declared on the connector class
+    if connector_class is not None and (
+        source_is_oauth_based(connector_class)
+        or source_requires_personal_auth(connector_class)
+    ):
+        return True
+
+    # Layer 4: Check has_static_credentials property if connector class provided
     if connector_class is not None:
         try:
             # Check if class has the property

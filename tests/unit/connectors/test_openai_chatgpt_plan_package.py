@@ -181,6 +181,23 @@ class TestOpenAIChatGPTPlanPackageStructure:
         assert BACKEND_TYPE not in KNOWN_OAUTH_CONNECTORS
         assert "openai_chatgpt_plan" not in KNOWN_OAUTH_CONNECTORS
 
+    def test_not_added_to_personal_backend_types_name_list(self) -> None:
+        from src.core.services.resilience.scope import _PERSONAL_BACKEND_TYPES
+
+        assert BACKEND_TYPE not in _PERSONAL_BACKEND_TYPES
+        assert "openai_chatgpt_plan" not in _PERSONAL_BACKEND_TYPES
+
+    def test_declares_personal_oauth_capability_descriptor(self) -> None:
+        from src.connectors.openai_chatgpt_plan import OpenAIChatGPTPlanConnector
+        from src.core.domain.backend_capability_descriptor import (
+            BackendCapabilityDescriptor,
+        )
+
+        descriptor = OpenAIChatGPTPlanConnector.capability_descriptor
+        assert isinstance(descriptor, BackendCapabilityDescriptor)
+        assert descriptor.is_oauth_based is True
+        assert descriptor.requires_personal_auth is True
+
 
 class TestOpenAIChatGPTPlanRegistration:
     def test_package_import_registers_backend_type(self) -> None:

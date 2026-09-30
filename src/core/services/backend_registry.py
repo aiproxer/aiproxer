@@ -130,6 +130,23 @@ class BackendRegistry:
                 raise ValueError(error_msg)
             return factory
 
+    def unregister_backend(self, name: str) -> bool:
+        """Remove a previously registered backend factory.
+
+        Args:
+            name: The unique name of the backend.
+
+        Returns:
+            True if a factory was removed, False if the name was not registered.
+        """
+        if not name:
+            return False
+        with self._lock:
+            if name not in self._factories:
+                return False
+            del self._factories[name]
+            return True
+
     def get_registered_backends(self) -> list[str]:
         """Returns a list of names of all registered backends."""
         # RACE CONDITION FIX: Thread-safe backend list access

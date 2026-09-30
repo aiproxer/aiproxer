@@ -23,6 +23,8 @@ class TestBackendCapabilityDescriptorDefaults:
         assert d.supports_tool_calls is True
         assert d.supports_vision is False
         assert d.protocol_family == "openai"
+        assert d.is_oauth_based is False
+        assert d.requires_personal_auth is False
 
 
 class TestBackendCapabilityDescriptorFlags:
@@ -98,6 +100,50 @@ class TestBackendCapabilityDescriptorFromDict:
         d = BackendCapabilityDescriptor.from_dict({"supports_streaming": False})
         assert d.supports_streaming is False
         assert d.supports_tool_calls is True  # default preserved
+        assert d.is_oauth_based is False
+        assert d.requires_personal_auth is False
+
+
+class TestBackendCapabilityDescriptorPersonalOAuthFlags:
+    """Generic personal/OAuth capability flags (defaults False when omitted)."""
+
+    def test_explicit_true_flags(self) -> None:
+        from src.core.domain.backend_capability_descriptor import (
+            BackendCapabilityDescriptor,
+        )
+
+        d = BackendCapabilityDescriptor(
+            is_oauth_based=True, requires_personal_auth=True
+        )
+        assert d.is_oauth_based is True
+        assert d.requires_personal_auth is True
+
+    def test_from_dict_accepts_oauth_flags(self) -> None:
+        from src.core.domain.backend_capability_descriptor import (
+            BackendCapabilityDescriptor,
+        )
+
+        d = BackendCapabilityDescriptor.from_dict(
+            {"is_oauth_based": True, "requires_personal_auth": True}
+        )
+        assert d.is_oauth_based is True
+        assert d.requires_personal_auth is True
+
+    def test_backend_config_coerces_oauth_flags(self) -> None:
+        from src.core.config.models.backends import BackendConfig
+        from src.core.domain.backend_capability_descriptor import (
+            BackendCapabilityDescriptor,
+        )
+
+        cfg = BackendConfig(
+            capability_descriptor={
+                "is_oauth_based": True,
+                "requires_personal_auth": True,
+            }
+        )
+        assert isinstance(cfg.capability_descriptor, BackendCapabilityDescriptor)
+        assert cfg.capability_descriptor.is_oauth_based is True
+        assert cfg.capability_descriptor.requires_personal_auth is True
 
 
 # ---------------------------------------------------------------------------

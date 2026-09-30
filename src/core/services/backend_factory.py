@@ -21,6 +21,7 @@ from src.core.common.env_utils import get_env_value_with_windows_persistent_fall
 from src.core.common.exceptions import RoutingError
 from src.core.common.logging_utils import redact_sensitive_value
 from src.core.config.app_config import AppConfig, BackendConfig
+from src.core.domain.backend_capability_descriptor import source_requires_personal_auth
 from src.core.interfaces.activity_tracker_interface import IConnectionActivityTracker
 from src.core.interfaces.backend_factory_interface import IBackendFactory
 from src.core.interfaces.di_interface import IServiceProvider
@@ -117,6 +118,7 @@ def _build_multi_user_oauth_block_error(
             "backend_type": backend_name,
             "access_mode": "multi_user",
             "multi_user_blocked": True,
+            "requires_personal_auth": True,
             "guidance": (
                 "Use --single-user-mode for local OAuth workflows, "
                 "or configure a non-OAuth backend with API keys."
@@ -232,6 +234,8 @@ class BackendFactory(IBackendFactory):
                     },
                 ) from exc
             raise
+        if configured_multi_user and source_requires_personal_auth(backend_factory):
+            raise _build_multi_user_oauth_block_error(normalized_backend)
         # Backend connectors only accept the client and config in constructor
         return backend_factory(
             self._client, effective_config, self._translation_service

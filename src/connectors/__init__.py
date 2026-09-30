@@ -32,6 +32,38 @@ __all__ = [
 _discovery_complete = False
 
 
+def _unregister_personal_auth_backends(
+    registered_before: set[str],
+    skipped_oauth_connectors: list[str],
+    module_name: str,
+) -> bool:
+    """Unregister backends that declare requires_personal_auth after import.
+
+    Used in Multi User Mode so personal OAuth connectors can be classified from
+    capability metadata instead of a backend-name list.
+    """
+    from src.core.domain.backend_capability_descriptor import (
+        source_requires_personal_auth,
+    )
+    from src.core.services.backend_registry import backend_registry
+
+    newly_registered = (
+        set(backend_registry.get_registered_backends()) - registered_before
+    )
+    blocked = False
+    for backend_name in newly_registered:
+        factory = backend_registry.get_backend_factory(backend_name)
+        if not source_requires_personal_auth(factory):
+            continue
+        backend_registry.unregister_backend(backend_name)
+        blocked = True
+        if backend_name not in skipped_oauth_connectors:
+            skipped_oauth_connectors.append(backend_name)
+    if blocked and module_name not in skipped_oauth_connectors:
+        skipped_oauth_connectors.append(module_name)
+    return blocked
+
+
 def reset_builtin_connector_discovery_state() -> None:
     """Reset built-in connector discovery idempotency for isolated test runs."""
     global _discovery_complete
@@ -54,6 +86,7 @@ def ensure_builtin_connectors_discovered() -> None:
         replace_skipped_oauth_connectors,
         set_discovery_mode,
     )
+    from src.core.services.backend_registry import backend_registry
 
     current_dir = Path(__file__).parent
     access_mode = os.environ.get("LLM_PROXY_ACCESS_MODE", "single_user")
@@ -94,7 +127,17 @@ def ensure_builtin_connectors_discovered() -> None:
             continue
 
         try:
+            registered_before = set(backend_registry.get_registered_backends())
             importlib.import_module(f".{module_name}", package=__package__)
+            if is_multi_user_mode and _unregister_personal_auth_backends(
+                registered_before, skipped_oauth_connectors, module_name
+            ):
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Skipping personal-auth connector in Multi User Mode: %s",
+                        module_name,
+                    )
+                continue
             if not is_multi_user_mode and is_oauth_connector(module_name):
                 loaded_oauth_connectors.append(module_name)
             if logger.isEnabledFor(logging.DEBUG):

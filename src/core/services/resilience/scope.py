@@ -45,6 +45,69 @@ def _normalize_backend_list(values: list[str] | None) -> set[str]:
     return {str(value).strip().lower() for value in values if str(value).strip()}
 
 
+def _normalize_backend_key(value: str) -> str:
+    return value.strip().lower().replace("_", "-")
+
+
+def _capability_requires_personal_auth(
+    backend_type: str, context: RequestContext | None
+) -> bool:
+    """Return True when config or registration declares requires_personal_auth."""
+    from src.core.domain.backend_capability_descriptor import (
+        get_declared_capability_descriptor,
+        source_requires_personal_auth,
+    )
+
+    normalized = _normalize_backend_key(backend_type)
+    if context is not None:
+        app_state = getattr(context, "app_state", None)
+        config = (
+            getattr(app_state, "app_config", None) if app_state is not None else None
+        )
+        if config is None and app_state is not None:
+            getter = getattr(app_state, "get_setting", None)
+            if callable(getter):
+                config = getter("app_config")
+        backends = getattr(config, "backends", None) if config is not None else None
+        if backends is not None:
+            named_getter = getattr(backends, "get_named_backend_configs", None)
+            named: dict[str, object] = {}
+            if callable(named_getter):
+                raw_named = named_getter()
+                if isinstance(raw_named, dict):
+                    named = raw_named
+            for name, cfg in named.items():
+                if _normalize_backend_key(str(name)) != normalized:
+                    continue
+                descriptor = get_declared_capability_descriptor(cfg)
+                if descriptor is not None and descriptor.requires_personal_auth:
+                    return True
+            lookup = getattr(backends, "lookup", None)
+            if callable(lookup):
+                for key in (
+                    backend_type,
+                    normalized,
+                    backend_type.replace("-", "_"),
+                    normalized.replace("-", "_"),
+                ):
+                    descriptor = get_declared_capability_descriptor(lookup(key))
+                    if descriptor is not None and descriptor.requires_personal_auth:
+                        return True
+
+    try:
+        from src.core.services.backend_registry import backend_registry
+    except ImportError:
+        return False
+
+    for name in backend_registry.get_registered_backends():
+        if _normalize_backend_key(name) != normalized:
+            continue
+        factory = backend_registry.get_backend_factory(name)
+        if source_requires_personal_auth(factory):
+            return True
+    return False
+
+
 def is_personal_backend_type(
     backend_type: str, context: RequestContext | None = None
 ) -> bool:
@@ -63,6 +126,8 @@ def is_personal_backend_type(
         if normalized in personal:
             return True
 
+    if _capability_requires_personal_auth(normalized, context):
+        return True
     if normalized in _PERSONAL_BACKEND_TYPES:
         return True
     return "oauth" in normalized or "codex" in normalized

@@ -14,7 +14,7 @@
   - Add a structural test that the new package does not import `openai_codex`, `_openai_codex_connector`, `_openai_codex_v2_connector`, `src.resources.codex`, or app-server modules.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 1.2 Implement/consume generic personal-OAuth capability metadata instead of a new name hardcode
+- [x] 1.2 Implement/consume generic personal-OAuth capability metadata instead of a new name hardcode
   - Re-check the then-current `BackendCapabilityDescriptor` and active OAuth-plugin work; if `is_oauth_based` / `requires_personal_auth` (or successor generic contract) already exists, use it.
   - Otherwise add only the generic cross-cutting capability fields and core consumers required to classify personal OAuth backends without provider-name lists.
   - Ensure multi-user/startup availability and resilience scoping can use the generic capability for the new connector.
@@ -289,3 +289,4 @@
 ## Implementation Notes
 
 - Builtin discovery still classifies OAuth connectors by module name (`is_oauth_connector`) without `connector_class`; do not add `openai-chatgpt-plan` to `KNOWN_OAUTH_CONNECTORS` — task 1.2 must use generic capability metadata instead.
+- Task 1.2: `BackendCapabilityDescriptor.is_oauth_based` / `requires_personal_auth` default False; ChatGPT-plan declares both True on the connector class. Multi-user discovery imports then unregisters via `_unregister_personal_auth_backends`. Resilience reads the same flags. Do not add the backend ID to name lists.

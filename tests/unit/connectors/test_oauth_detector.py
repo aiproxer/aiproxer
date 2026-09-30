@@ -17,6 +17,7 @@ from src.connectors.oauth_detector import (
     OAUTH_CONNECTOR_PATTERNS,
     is_oauth_connector,
 )
+from src.core.domain.backend_capability_descriptor import BackendCapabilityDescriptor
 
 
 class MockConnectorWithProperty:
@@ -260,3 +261,50 @@ class TestIsOAuthConnectorCombinedLogic:
         # openai: no pattern match, not in known list, property true
         result = is_oauth_connector("openai", connector_class=mock_class)
         assert result is False
+
+
+class TestIsOAuthConnectorCapabilityDescriptor:
+    """Generic capability flags classify personal OAuth without name lists."""
+
+    def test_openai_chatgpt_plan_name_alone_is_not_oauth(self) -> None:
+        assert "openai-chatgpt-plan" not in KNOWN_OAUTH_CONNECTORS
+        assert "openai_chatgpt_plan" not in KNOWN_OAUTH_CONNECTORS
+        assert is_oauth_connector("openai_chatgpt_plan") is False
+        assert is_oauth_connector("openai-chatgpt-plan") is False
+
+    def test_capability_flags_detect_oauth_without_name_heuristics(self) -> None:
+        mock_class = type(
+            "CapabilityOAuth",
+            (),
+            {
+                "has_static_credentials": True,
+                "capability_descriptor": BackendCapabilityDescriptor(
+                    is_oauth_based=True,
+                    requires_personal_auth=True,
+                ),
+            },
+        )
+        assert is_oauth_connector("custom_backend", connector_class=mock_class) is True
+
+    def test_default_capability_flags_do_not_force_oauth(self) -> None:
+        mock_class = type(
+            "StaticBackend",
+            (),
+            {
+                "has_static_credentials": True,
+                "capability_descriptor": BackendCapabilityDescriptor(),
+            },
+        )
+        assert is_oauth_connector("custom_backend", connector_class=mock_class) is False
+
+    def test_chatgpt_plan_connector_class_is_oauth_via_capability(self) -> None:
+        from src.connectors.openai_chatgpt_plan import OpenAIChatGPTPlanConnector
+
+        assert is_oauth_connector("openai_chatgpt_plan") is False
+        assert (
+            is_oauth_connector(
+                "openai_chatgpt_plan",
+                connector_class=OpenAIChatGPTPlanConnector,
+            )
+            is True
+        )
