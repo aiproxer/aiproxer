@@ -8,6 +8,40 @@ from src.core.interfaces.backend_config_provider_interface import IBackendConfig
 from src.core.services.backend_registry import backend_registry
 
 
+def _backend_config_completeness_score(cfg: BackendConfig) -> tuple[int, ...]:
+    """Rank BackendConfig richness for dash/underscore alias disambiguation.
+
+    Higher tuples win. Prefer credentials first, then non-empty ``extra`` and
+    other fields that differ from a bare discovery default.
+    """
+    defaults = BackendConfig()
+    has_api_key = 1 if cfg.api_key else 0
+    has_extra = 1 if cfg.extra else 0
+    extra_size = len(cfg.extra) if cfg.extra else 0
+
+    semantic_signals = 0
+    if cfg.api_url is not None:
+        semantic_signals += 1
+    if cfg.models:
+        semantic_signals += 1
+    if cfg.credentials_path is not None:
+        semantic_signals += 1
+    if cfg.connector is not None:
+        semantic_signals += 1
+    if cfg.timeout != defaults.timeout:
+        semantic_signals += 1
+    if cfg.identity is not None:
+        semantic_signals += 1
+    if cfg.supported_input_types is not None:
+        semantic_signals += 1
+    if cfg.capability_descriptor is not None:
+        semantic_signals += 1
+    if cfg.allow_concurrent_use != defaults.allow_concurrent_use:
+        semantic_signals += 1
+
+    return (has_api_key, has_extra, extra_size, semantic_signals)
+
+
 class BackendConfigProvider(IBackendConfigProvider):
     """Adapter that exposes AppConfig.backends as a canonical provider.
 
@@ -78,11 +112,10 @@ class BackendConfigProvider(IBackendConfigProvider):
                 found_configs.append(cfg)
 
         if found_configs:
-            for cfg in found_configs:
-                if cfg.api_key:
-                    return BackendConfig(**cfg.model_dump())
-
-            resolved = BackendConfig(**found_configs[0].model_dump())
+            # Prefer the most complete alias match (e.g. filled YAML under the
+            # underscore key over an empty discovery default under the hyphen).
+            best = max(found_configs, key=_backend_config_completeness_score)
+            resolved = BackendConfig(**best.model_dump())
 
             # Credential reuse fallbacks.
             # Some connectors are just protocol variants and should reuse the base backend's credentials

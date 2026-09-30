@@ -198,3 +198,86 @@ class TestBackendConfigProvider:
 
         # Act/Assert
         assert isinstance(provider, IBackendConfigProvider)
+
+    def test_empty_hyphen_discovery_prefers_filled_underscore_yaml(self) -> None:
+        """Empty discovery default under hyphen must not beat filled YAML under underscore."""
+        app_config = AppConfig(
+            backends={
+                "openai-chatgpt-plan": {},
+                "openai_chatgpt_plan": {
+                    "extra": {"chatgpt_plan": {"profile_id": "primary"}},
+                    "api_url": "http://example.com",
+                },
+            }
+        )
+        provider = BackendConfigProvider(app_config)
+
+        for lookup in ("openai-chatgpt-plan", "openai_chatgpt_plan"):
+            config = provider.get_backend_config(lookup)
+            assert config is not None
+            assert config.extra == {"chatgpt_plan": {"profile_id": "primary"}}
+            assert config.api_url == "http://example.com"
+
+    def test_both_filled_aliases_prefer_richer_config(self) -> None:
+        """When both hyphen and underscore entries are filled, prefer the richer one."""
+        app_config = AppConfig(
+            backends={
+                "openai-chatgpt-plan": {
+                    "api_url": "http://hyphen.example",
+                    "models": ["m1"],
+                },
+                "openai_chatgpt_plan": {
+                    "api_url": "http://underscore.example",
+                    "models": ["m1", "m2"],
+                    "extra": {"chatgpt_plan": {"profile_id": "primary"}},
+                    "timeout": 60,
+                },
+            }
+        )
+        provider = BackendConfigProvider(app_config)
+
+        config = provider.get_backend_config("openai-chatgpt-plan")
+        assert config is not None
+        assert config.extra == {"chatgpt_plan": {"profile_id": "primary"}}
+        assert config.api_url == "http://underscore.example"
+        assert config.models == ["m1", "m2"]
+        assert config.timeout == 60
+
+    def test_api_key_preference_still_wins_over_richer_without_key(self) -> None:
+        """Existing credential preference: a config with api_key beats a richer one without."""
+        app_config = AppConfig(
+            backends={
+                "my-backend": {
+                    "api_key": "secret-key",
+                },
+                "my_backend": {
+                    "extra": {"nested": {"value": 1}},
+                    "api_url": "http://rich.example",
+                    "models": ["a", "b"],
+                    "timeout": 30,
+                },
+            }
+        )
+        provider = BackendConfigProvider(app_config)
+
+        config = provider.get_backend_config("my-backend")
+        assert config is not None
+        assert config.api_key == "secret-key"
+
+    def test_openai_responses_fallback_still_works_with_empty_hyphen_and_underscore(
+        self,
+    ) -> None:
+        """openai-responses credential fallback to openai must remain intact."""
+        app_config = AppConfig(
+            backends={
+                "openai": {"api_key": "openai-key"},
+                "openai-responses": {},
+                "openai_responses": {},
+            }
+        )
+        provider = BackendConfigProvider(app_config)
+
+        for lookup in ("openai-responses", "openai_responses"):
+            config = provider.get_backend_config(lookup)
+            assert config is not None
+            assert config.api_key == "openai-key"
