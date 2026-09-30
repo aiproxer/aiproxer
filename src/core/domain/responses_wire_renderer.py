@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any, Literal
 
@@ -15,6 +16,8 @@ from src.core.domain.responses_semantic_events import (
     ResponsesSemanticEventType,
 )
 from src.core.interfaces.responses_session_store_interface import IResponsesSessionStore
+
+logger = logging.getLogger(__name__)
 
 _TERMINAL: frozenset[ResponsesSemanticEventType] = frozenset(
     {
@@ -183,6 +186,7 @@ class ResponsesWireRenderer:
     ) -> AsyncGenerator[str | dict[str, Any], None]:
         collected: list[ResponsesOutputItem] = []
         terminal: ResponsesSemanticEvent | None = None
+        done_emitted = False
         realtime_flag = self._realtime_ws_terminal and self._transport == "websocket"
         deferred_ws_terminal_payloads: list[dict[str, Any]] = []
 
@@ -204,7 +208,13 @@ class ResponsesWireRenderer:
             )
 
             if self._transport == "sse":
-                yield self._sse_line(payload)
+                # Coalesce terminal + [DONE] into one yield so clients that abort
+                # the reader on response.completed still observe the sentinel.
+                frame = self._sse_line(payload)
+                if event.type in _TERMINAL and emit_done_sentinel:
+                    frame = f"{frame}data: [DONE]\n\n"
+                    done_emitted = True
+                yield frame
             elif event.type in _TERMINAL:
                 deferred_ws_terminal_payloads.append(payload)
             else:
@@ -212,7 +222,7 @@ class ResponsesWireRenderer:
 
         if terminal is None:
             if self._transport == "sse":
-                if emit_done_sentinel:
+                if emit_done_sentinel and not done_emitted:
                     yield "data: [DONE]\n\n"
             else:
                 synthetic = ResponsesSemanticEvent(
@@ -229,7 +239,7 @@ class ResponsesWireRenderer:
 
         tid = _terminal_response_id(terminal, response_id)
         if terminal.type != ResponsesSemanticEventType.RESPONSE_COMPLETED:
-            if self._transport == "sse" and emit_done_sentinel:
+            if self._transport == "sse" and emit_done_sentinel and not done_emitted:
                 yield "data: [DONE]\n\n"
             elif self._transport == "websocket":
                 for ws_payload in deferred_ws_terminal_payloads:
@@ -250,17 +260,25 @@ class ResponsesWireRenderer:
                     if terminal_items:
                         collected = terminal_items
 
-        await self._session_store.store(
-            tid,
-            collected,
-            ttl_seconds,
-            instructions=instructions,
-            history_items=[*(history_items or []), *collected],
-        )
-
+        # Fallback [DONE] if coalescing above did not run (should be rare).
         if self._transport == "sse":
-            if emit_done_sentinel:
+            if emit_done_sentinel and not done_emitted:
                 yield "data: [DONE]\n\n"
         else:
             for ws_payload in deferred_ws_terminal_payloads:
                 yield ws_payload
+
+        try:
+            await self._session_store.store(
+                tid,
+                collected,
+                ttl_seconds,
+                instructions=instructions,
+                history_items=[*(history_items or []), *collected],
+            )
+        except Exception:
+            # Persistence must not fail the already-closed SSE turn. Chaining via
+            # previous_response_id may miss this id; the client already got [DONE].
+            logger.exception(
+                "Responses session store failed after SSE terminal for %s", tid
+            )

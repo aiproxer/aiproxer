@@ -298,3 +298,130 @@ def test_responses_domain_tools_project_onto_canonical_shape() -> None:
     )
     assert domain.tools is not None
     assert domain.tools[0]["name"] == "read"
+
+
+@pytest.mark.asyncio
+async def test_tool_only_completed_maps_finish_reason_tool_calls_and_stays_terminal() -> None:
+    """response.completed with only function_call output must finalize tool loop.
+
+    Domain finish_reason=tool_calls (not stop) plus _responses_terminal keeps the
+    connector early-break closing after completed without treating intermediate
+    tool chunks as terminal.
+    """
+    from src.connectors.openai import is_responses_stream_terminal_chunk
+
+    created = responses_to_domain_stream_chunk(
+        {"type": "response.created", "response": {"id": "resp_tool_only_fin"}}
+    )
+    assert created["choices"][0]["delta"].get("role") == "assistant"
+
+    done = responses_to_domain_stream_chunk(
+        {
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": {
+                "id": "fc_tool_only_1",
+                "type": "function_call",
+                "status": "completed",
+                "call_id": "call_tool_only_1",
+                "name": "read",
+                "arguments": '{"filePath":"."}',
+            },
+        }
+    )
+    assert done["choices"][0]["delta"]["tool_calls"]
+    assert done["choices"][0].get("finish_reason") is None
+    assert not is_responses_stream_terminal_chunk(done)
+
+    completed = responses_to_domain_stream_chunk(
+        {
+            "type": "response.completed",
+            "response": {
+                "id": "resp_tool_only_fin",
+                "status": "completed",
+                "output": [
+                    {
+                        "id": "fc_tool_only_1",
+                        "type": "function_call",
+                        "status": "completed",
+                        "call_id": "call_tool_only_1",
+                        "name": "read",
+                        "arguments": '{"filePath":"."}',
+                    }
+                ],
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+            },
+        }
+    )
+    assert completed["choices"][0]["finish_reason"] == "tool_calls"
+    assert completed.get("_responses_terminal") is True
+    assert is_responses_stream_terminal_chunk(completed)
+
+
+@pytest.mark.asyncio
+async def test_semantic_sse_coalesces_done_before_hanging_store() -> None:
+    """Client must observe [DONE] even when session store never returns."""
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.domain.responses_wire_renderer import ResponsesWireRenderer
+
+    hang = asyncio.Event()
+
+    class HangingStore:
+        async def store(self, *args: Any, **kwargs: Any) -> None:
+            await hang.wait()
+
+    normalizer = ResponsesEventNormalizer(
+        source=ResponsesStreamSource.OPENAI_RESPONSES,
+        response_id="resp_hang_done",
+    )
+
+    async def gen() -> AsyncIterator[dict[str, Any]]:
+        yield {
+            "id": "resp_hang_done",
+            "object": "response.chunk",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "id": "call_hang_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "read",
+                                    "arguments": '{"filePath":"C:\\tmp"}',
+                                },
+                            }
+                        ]
+                    },
+                    "finish_reason": None,
+                }
+            ],
+        }
+        yield {
+            "id": "resp_hang_done",
+            "object": "response.chunk",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        }
+
+    renderer = ResponsesWireRenderer(HangingStore(), transport="sse")  # type: ignore[arg-type]
+    frames: list[str] = []
+
+    async def consume() -> None:
+        async for frame in renderer.render(
+            normalizer.normalize(gen()),
+            "resp_hang_done",
+            emit_done_sentinel=True,
+        ):
+            frames.append(frame if isinstance(frame, str) else str(frame))
+            if any("[DONE]" in f for f in frames):
+                return
+
+    await asyncio.wait_for(consume(), timeout=1.0)
+    blob = "".join(frames)
+    assert "response.output_item.done" in blob or "function_call" in blob
+    assert "response.completed" in blob
+    assert "data: [DONE]" in blob
+    hang.set()

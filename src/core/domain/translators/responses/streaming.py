@@ -708,7 +708,34 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
     # as ``response.completed``). Treat both as terminal completion with usage.
     if event_type in {"response.completed", "response.done"}:
         response_info = chunk.get("response") or {}
-        result = _build_chunk({}, "stop")
+        output_items = response_info.get("output")
+        has_function_call = False
+        has_message_text = False
+        if isinstance(output_items, list):
+            for out_item in output_items:
+                if not isinstance(out_item, dict):
+                    continue
+                out_type = out_item.get("type")
+                if out_type == "function_call":
+                    has_function_call = True
+                elif out_type == "message":
+                    for part in out_item.get("content") or []:
+                        if not isinstance(part, dict):
+                            continue
+                        if part.get("type") in {"output_text", "text"} and str(
+                            part.get("text") or ""
+                        ).strip():
+                            has_message_text = True
+                            break
+        # Tool-only Responses turns should surface finish_reason=tool_calls so
+        # chat-shaped consumers finalize the tool loop. Keep an explicit terminal
+        # marker because connector early-break treats bare tool_calls as non-terminal
+        # (parallel tools may still follow on intermediate chunks).
+        completed_finish_reason = (
+            "tool_calls" if has_function_call and not has_message_text else "stop"
+        )
+        result = _build_chunk({}, completed_finish_reason)
+        result["_responses_terminal"] = True
         usage = response_info.get("usage")
         if usage:
             result["usage"] = usage

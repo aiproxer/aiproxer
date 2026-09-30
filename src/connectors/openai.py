@@ -477,13 +477,16 @@ def _is_retryable_http2_stream_termination(exc: httpx.RequestError) -> bool:
 def is_responses_stream_terminal_chunk(chunk: Any) -> bool:
     """True when a Responses-domain chunk ends the upstream turn.
 
-    ``finish_reason=tool_calls`` is NOT terminal: Responses streams may emit
-    multiple function_call items before ``response.completed``. Treat only
-    definitive end states as terminal so early-break cannot drop trailing tools
-    or the completed event.
+    ``finish_reason=tool_calls`` is NOT terminal on intermediate tool chunks:
+    Responses streams may emit multiple function_call items before
+    ``response.completed``. The completed translator stamps
+    ``_responses_terminal`` on the final domain chunk (including tool-only
+    turns that use finish_reason=tool_calls) so early-break still closes.
     """
     if not isinstance(chunk, dict):
         return False
+    if chunk.get("_responses_terminal") is True:
+        return True
     event_type = chunk.get("type")
     if isinstance(event_type, str) and event_type in {
         "response.completed",

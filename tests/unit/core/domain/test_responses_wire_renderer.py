@@ -71,8 +71,13 @@ class _OrderingSpyStore(InMemoryResponsesSessionStore):
 
 
 @pytest.mark.asyncio
-async def test_sse_store_completes_before_done_marker_yielded() -> None:
-    """Session must be durable before [DONE] so clients can chain previous_response_id."""
+async def test_sse_done_is_not_blocked_by_session_store() -> None:
+    """[DONE] must reach the client even if session store awaits/hangs.
+
+    OpenCode finalizes on response.completed and may abort the SSE reader.
+    If [DONE] is only yielded after store(), the client retries the turn and
+    loops (assistant-only follow-ups that claim tool output was "shown above").
+    """
     store = _OrderingSpyStore()
     renderer = ResponsesWireRenderer(store, transport="sse")
 
@@ -84,14 +89,34 @@ async def test_sse_store_completes_before_done_marker_yielded() -> None:
         )
 
     async for frame in renderer.render(events(), "resp_chain"):
-        if isinstance(frame, str) and frame.strip() == "data: [DONE]":
+        if isinstance(frame, str) and "[DONE]" in frame:
             store.timeline.append("yield_sse_done")
         elif isinstance(frame, str):
             store.timeline.append("yield_sse_data")
 
     assert "yield_sse_done" in store.timeline
     assert "store_leave" in store.timeline
-    assert store.timeline.index("store_leave") < store.timeline.index("yield_sse_done")
+    # DONE must not wait on store completion.
+    assert store.timeline.index("yield_sse_done") < store.timeline.index("store_enter")
+
+
+@pytest.mark.asyncio
+async def test_sse_coalesces_completed_and_done_in_one_frame() -> None:
+    store = InMemoryResponsesSessionStore()
+    renderer = ResponsesWireRenderer(store, transport="sse")
+
+    async def events() -> AsyncGenerator[ResponsesSemanticEvent, None]:
+        yield _ev(
+            etype=ResponsesSemanticEventType.RESPONSE_COMPLETED,
+            sequence_number=0,
+            response={"id": "resp_coalesce", "output": []},
+        )
+
+    frames = [frame async for frame in renderer.render(events(), "resp_coalesce")]
+    assert len(frames) == 1
+    assert isinstance(frames[0], str)
+    assert '"type": "response.completed"' in frames[0] or '"type":"response.completed"' in frames[0].replace(" ", "")
+    assert "data: [DONE]" in frames[0]
 
 
 @pytest.mark.asyncio
