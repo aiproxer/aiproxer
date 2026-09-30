@@ -32,7 +32,7 @@
 ## Phase 2: Implement Official SIWC Identity and Credential Lifecycle
 
 - [ ] 2. Build secure host/profile persistence and dynamic SIWC authorization
-- [ ] 2.1 Implement stable host state and profile storage
+- [x] 2.1 Implement stable host state and profile storage
   - Create a schema-versioned host store containing one stable opaque `ext_agent_host_id` for the AIProxer installation.
   - Create schema-versioned per-profile files keyed by validated local profile IDs, not by email.
   - Store issued client ID, validated issuer/subject, safe display identity, granted scopes, token set, expiry metadata, and profile status.
@@ -291,3 +291,4 @@
 - Builtin discovery still classifies OAuth connectors by module name (`is_oauth_connector`) without `connector_class`; do not add `openai-chatgpt-plan` to `KNOWN_OAUTH_CONNECTORS` — task 1.2 must use generic capability metadata instead.
 - Task 1.2: `BackendCapabilityDescriptor.is_oauth_based` / `requires_personal_auth` default False; ChatGPT-plan declares both True on the connector class. Multi-user discovery imports then unregisters via `_unregister_personal_auth_backends`. Resilience reads the same flags. Do not add the backend ID to name lists.
 - Task 1.3: `ChatGPTPlanConfig` in `src/connectors/openai_chatgpt_plan/config.py`; live ENV overlay is `_apply_openai_chatgpt_plan_backend` in `from_env_part3.py` (`OPENAI_CHATGPT_PLAN_*` only). No main-CLI extra flags (same as Codex extras). Do not treat `OPENAI_CODEX_*` as aliases. Pre-commit secret scan flags `sk-` prefixes in tests — use non-token placeholders.
+- Task 2.1: host.json + profiles/<profile_id>.json; load must require payload profile_id == filename stem or raise ChatGPTPlanProfileStorageError without token details. `id_token` is in DEFAULT_REDACTED_FIELDS.

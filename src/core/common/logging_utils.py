@@ -151,6 +151,7 @@ DEFAULT_REDACTED_FIELDS = {
     "api_key",
     "access_token",
     "refresh_token",
+    "id_token",
     "password",
     "secret",
     "authorization",
