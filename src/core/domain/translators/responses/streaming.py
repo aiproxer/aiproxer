@@ -591,7 +591,11 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
             }
             if tool_text:
                 delta["_tool_call_text"] = tool_text  # type: ignore[assignment]
-            return _build_chunk(delta, "tool_calls")
+            # Do not attach finish_reason here. Parallel tool calls may still
+            # follow, and response.completed is the true Responses turn end.
+            # Emitting finish_reason=tool_calls caused a3a0f80cf early-break
+            # logic (and wire_emitter.is_finished) to close after the first tool.
+            return _build_chunk(delta)
 
         if item_type == "custom_tool_call":
             input_payload = item.get("input", "")

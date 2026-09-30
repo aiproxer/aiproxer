@@ -473,6 +473,46 @@ def _is_retryable_http2_stream_termination(exc: httpx.RequestError) -> bool:
     return "server disconnected" in lowered
 
 
+
+def is_responses_stream_terminal_chunk(chunk: Any) -> bool:
+    """True when a Responses-domain chunk ends the upstream turn.
+
+    ``finish_reason=tool_calls`` is NOT terminal: Responses streams may emit
+    multiple function_call items before ``response.completed``. Treat only
+    definitive end states as terminal so early-break cannot drop trailing tools
+    or the completed event.
+    """
+    if not isinstance(chunk, dict):
+        return False
+    event_type = chunk.get("type")
+    if isinstance(event_type, str) and event_type in {
+        "response.completed",
+        "response.done",
+        "response.failed",
+        "response.incomplete",
+    }:
+        return True
+    error = chunk.get("error")
+    if isinstance(error, dict) and error:
+        return True
+    if isinstance(error, str) and error.strip():
+        return True
+    choices = chunk.get("choices")
+    if isinstance(choices, list) and choices:
+        choice0 = choices[0]
+        if isinstance(choice0, dict):
+            finish_reason = choice0.get("finish_reason")
+            if finish_reason in {
+                "stop",
+                "length",
+                "max_output_tokens",
+                "content_filter",
+                "error",
+            }:
+                return True
+    return False
+
+
 class OpenAIConnector(LLMBackend):
     """Minimal OpenAI-compatible connector used by OpenRouterBackend in tests.
 
@@ -2061,26 +2101,7 @@ class OpenAIConnector(LLMBackend):
                         message=f"Streaming connection interrupted ({exc})"
                     ) from exc
 
-            def _is_responses_stream_terminal_chunk(chunk: Any) -> bool:
-                """True when a Responses-domain chunk ends the upstream turn."""
-                if not isinstance(chunk, dict):
-                    return False
-                event_type = chunk.get("type")
-                if isinstance(event_type, str) and event_type in {
-                    "response.completed",
-                    "response.done",
-                    "response.failed",
-                    "response.incomplete",
-                }:
-                    return True
-                if chunk.get("error"):
-                    return True
-                choices = chunk.get("choices")
-                if isinstance(choices, list) and choices:
-                    choice0 = choices[0]
-                    if isinstance(choice0, dict) and choice0.get("finish_reason"):
-                        return True
-                return False
+            # Use module-level predicate (testable; tool_calls is non-terminal).
 
             pending_error: Exception | None = None
             try:
@@ -2100,7 +2121,7 @@ class OpenAIConnector(LLMBackend):
                         )
                         # Stop reading upstream after the Responses turn completes so
                         # frontend SSE can close (provider may keep the body open).
-                        if _is_responses_stream_terminal_chunk(chunk):
+                        if is_responses_stream_terminal_chunk(chunk):
                             break
                     else:
                         yield ProcessedResponse(content=chunk)

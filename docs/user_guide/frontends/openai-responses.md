@@ -277,6 +277,22 @@ The `input` field is converted to `messages` format, and `instructions` becomes 
 | Reasoning config | `reasoning_effort` only | Full `reasoning` object |
 | Conversation state | Manual | `conversation`, `previous_response_id` |
 
+
+## OpenCode dual `/v1/responses` submit
+
+OpenCode may POST two Responses turns for the same session nearly simultaneously
+(for example a probe/title turn plus the real prompt). Both share one proxy
+session id, so a slow session-scoped auxiliary call (hybrid project-directory
+LLM fallback via `openrouter:openrouter/free`) used to block the second turn
+for tens of seconds and make the UI look dead.
+
+The proxy now single-flights project-directory LLM resolution per session,
+skips LLM fallback for tiny prompts, and bounds the aux call with a short
+timeout so the main Responses stream can start promptly. If the UI still shows
+no tokens, check whether OpenCode cancelled the connection that carried the
+useful stream (`client_disconnect` in proxy logs) while the twin request was
+still resolving auxiliaries.
+
 ## Related Documentation
 
 - [OpenAI Chat Completions Frontend](openai-chat-completions.md) - Legacy Chat Completions API

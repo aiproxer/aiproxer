@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Service for resolving project directories from the first request."""
 
+import asyncio
 import json
 import logging
 import os
@@ -38,6 +39,11 @@ from src.core.services.project_directory_agent_workspace_hints import (
 from src.core.utils.xml_safety import XMLSafetyError, safe_xml_parse
 
 logger = logging.getLogger(__name__)
+
+# Bound OpenRouter/free (and other aux) project-dir LLM calls so a slow
+# hybrid fallback cannot stall the main Responses/Chat turn for a minute+.
+_LLM_RESOLUTION_TIMEOUT_SECONDS = 20.0
+_MIN_LLM_PROMPT_CHARS = 8
 
 # Type alias for recognized absolute path categories
 _PathType = Literal["windows", "unc", "unix"]
@@ -248,6 +254,11 @@ class ProjectDirectoryResolutionService:
             for prefix in sorted(command_prefixes)
             if prefix
         )
+
+        # Single-flight gate: OpenCode dual-POSTs the same session and must
+        # not launch two blocking openrouter project-dir LLM calls.
+        self._llm_resolution_gate = asyncio.Lock()
+        self._llm_resolution_inflight: dict[str, asyncio.Future[None]] = {}
 
     def _normalize_unc_path(self, path: str) -> str:
         """Normalize UNC path backslashes to the expected format (\\\\server\\share\\folder)."""
@@ -906,6 +917,28 @@ class ProjectDirectoryResolutionService:
         normalized = self._normalize_directory_candidate(path, path_type)
         return normalized or path
 
+
+    async def _try_begin_llm_resolution(self, session_id: str) -> bool:
+        """Claim ownership of the in-flight LLM project-dir call for ``session_id``.
+
+        Returns True if this coroutine should run the LLM call. Concurrent peers
+        return False immediately (they must not await the slow call — that is what
+        made OpenCode dual-submit look dead for ~70s).
+        """
+        async with self._llm_resolution_gate:
+            existing = self._llm_resolution_inflight.get(session_id)
+            if existing is not None and not existing.done():
+                return False
+            loop = asyncio.get_running_loop()
+            self._llm_resolution_inflight[session_id] = loop.create_future()
+            return True
+
+    async def _finish_llm_resolution(self, session_id: str) -> None:
+        async with self._llm_resolution_gate:
+            fut = self._llm_resolution_inflight.pop(session_id, None)
+            if fut is not None and not fut.done():
+                fut.set_result(None)
+
     async def maybe_resolve_project_directory(
         self, session: Session, request: ChatRequest
     ) -> None:
@@ -1087,65 +1120,125 @@ class ProjectDirectoryResolutionService:
                     )
                 return
 
+            if len(prompt_text.strip()) < _MIN_LLM_PROMPT_CHARS:
+                await self._persist_state(
+                    session,
+                    directory=None,
+                    message=(
+                        "Project directory auto-detection did not identify a directory"
+                        " (prompt too short for LLM path detection)"
+                    ),
+                )
+                return
+
+            if not await self._try_begin_llm_resolution(session.id):
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Project directory LLM resolution already in flight for "
+                        "session %s; skipping duplicate call",
+                        session.id,
+                    )
+                return
+
             try:
-                response = await self._call_resolution_model(
-                    prompt_text,
-                    model_identifier=llm_model_identifier,
-                    backend_type=llm_backend_type,
-                )
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.warning(
-                    "Project directory auto-detection call failed: %s",
-                    exc,
-                    exc_info=True,
-                )
-                await self._persist_state(
-                    session,
-                    directory=None,
-                    message="Project directory auto-detection did not identify a directory (request failure)",
-                )
-                return
+                # Claim attempted immediately so concurrent peers that re-check
+                # session state also skip instead of stacking another LLM call.
+                if not getattr(session.state, "project_dir_resolution_attempted", False):
+                    session.state = session.state.with_project_dir_resolution_attempted(
+                        True
+                    )
+                    try:
+                        await self._session_service.update_session(session)
+                    except Exception as exc:  # pragma: no cover - defensive logging
+                        logger.warning(
+                            "Failed to persist early project-dir resolution claim: %s",
+                            exc,
+                            exc_info=True,
+                        )
 
-            if isinstance(response, StreamingResponseEnvelope):
-                await self._persist_state(
-                    session,
-                    directory=None,
-                    message=(
-                        "Project directory auto-detection did not identify a directory"
-                        " (streaming response unsupported)"
-                    ),
-                )
-                return
+                try:
+                    response = await asyncio.wait_for(
+                        self._call_resolution_model(
+                            prompt_text,
+                            model_identifier=llm_model_identifier,
+                            backend_type=llm_backend_type,
+                        ),
+                        timeout=_LLM_RESOLUTION_TIMEOUT_SECONDS,
+                    )
+                except TimeoutError:
+                    logger.warning(
+                        "Project directory auto-detection timed out after %.1fs",
+                        _LLM_RESOLUTION_TIMEOUT_SECONDS,
+                    )
+                    await self._persist_state(
+                        session,
+                        directory=None,
+                        message=(
+                            "Project directory auto-detection did not identify a "
+                            "directory (LLM timeout)"
+                        ),
+                    )
+                    return
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    logger.warning(
+                        "Project directory auto-detection call failed: %s",
+                        exc,
+                        exc_info=True,
+                    )
+                    await self._persist_state(
+                        session,
+                        directory=None,
+                        message=(
+                            "Project directory auto-detection did not identify a "
+                            "directory (request failure)"
+                        ),
+                    )
+                    return
 
-            response_text = self._extract_response_text(response)
-            if not response_text:
-                await self._persist_state(
-                    session,
-                    directory=None,
-                    message=(
-                        "Project directory auto-detection did not identify a directory"
-                        " (empty model response)"
-                    ),
-                )
-                return
+                if isinstance(response, StreamingResponseEnvelope):
+                    await self._persist_state(
+                        session,
+                        directory=None,
+                        message=(
+                            "Project directory auto-detection did not identify a "
+                            "directory (streaming response unsupported)"
+                        ),
+                    )
+                    return
 
-            directory, error_reason = self._parse_directory_response(response_text)
-            if directory:
-                await self._persist_state(
-                    session,
-                    directory=directory,
-                    message=f"Project directory auto-detected (LLM): {directory}",
-                )
-            else:
-                reason_suffix = f" ({error_reason})" if error_reason else ""
-                await self._persist_state(
-                    session,
-                    directory=None,
-                    message=(
-                        "Project directory auto-detection did not identify a directory"
-                        f"{reason_suffix}"
-                    ),
-                )
+                response_text = self._extract_response_text(response)
+                if not response_text:
+                    await self._persist_state(
+                        session,
+                        directory=None,
+                        message=(
+                            "Project directory auto-detection did not identify a "
+                            "directory (empty model response)"
+                        ),
+                    )
+                    return
+
+                directory, error_reason = self._parse_directory_response(response_text)
+                if directory:
+                    await self._persist_state(
+                        session,
+                        directory=directory,
+                        message=(
+                            f"Project directory auto-detected (LLM): {directory}"
+                        ),
+                    )
+                else:
+                    reason_suffix = f" ({error_reason})" if error_reason else ""
+                    await self._persist_state(
+                        session,
+                        directory=None,
+                        message=(
+                            "Project directory auto-detection did not identify a "
+                            f"directory{reason_suffix}"
+                        ),
+                    )
+            finally:
+                await self._finish_llm_resolution(session.id)
         else:  # This handles deterministic mode when nothing is found
             await self._persist_state(
                 session,
