@@ -74,7 +74,7 @@
 
 ## Phase 3: Replace Private Catalog Discovery With Public Per-Profile Models
 
-- [ ] 3. Implement account-specific public model discovery
+- [x] 3. Implement account-specific public model discovery
 - [x] 3.1 Add a per-profile `/v1/models` catalog service
   - Authenticate with the selected SIWC profile and call `GET https://api.openai.com/v1/models`.
   - Preserve provider model slugs/order and documented list visibility.
@@ -82,7 +82,7 @@
   - Treat transient discovery failure as temporary catalog unavailability; do not load private Codex endpoint results, bundled snapshots, or Codex client-version fallbacks.
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 3.2 Integrate the new catalog with generic routing/model enumeration
+- [x] 3.2 Integrate the new catalog with generic routing/model enumeration
   - Expose account-specific models through the current generic backend/model capability discovery seam.
   - Avoid adding a new provider-specific application initialization stage.
   - Ensure model-only and explicit `openai-chatgpt-plan:<model>` selectors behave according to the project's routing conventions without leaking another profile's catalog.
@@ -297,3 +297,4 @@
 - Task 2.4: `ChatGPTPlanTokenManager` in `tokens.py` — per-profile lock, post-lock reload, full rotated token persist, HTTP 400/401/403 treated as terminal `needs_reauth`. `sign_out` revokes then `clear_tokens`; keeps issued_client_id.
 - Task 2.5: `ChatGPTPlanProfileSelector` precedence is request, backend-instance, config profile_id, sole/default profile, else error listing IDs. Import never writes dest `ext_agent_host_id`. No auto-import of `.codex/auth.json`. CLI is task 6.1.
 - Task 3.1: `ChatGPTPlanModelCatalog` GET `https://api.openai.com/v1/models` only; cache fingerprint is issued_client_id+issuer+subject; connector `bind_chatgpt_plan_model_catalog` so package import stays catalog-free. Routing integration is 3.2.
+- Task 3.2: `build_chatgpt_plan_model_catalog` caches one catalog/token-manager graph per resolved `profiles_path` so enumerator and connector share invalidation. Register `ChatGPTPlanConfiguredModelEnumerator` in `routing.py`; do not add a ChatGPT-plan application stage. Process-lifetime cache: first-seen `ChatGPTPlanConfig` extras win for that store.

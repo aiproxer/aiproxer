@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from src.connectors.openai_responses import OpenAIResponsesConnector
 from src.core.domain.backend_capability_descriptor import BackendCapabilityDescriptor
@@ -46,12 +47,32 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
     ) -> None:
         """Attach a per-profile catalog used by ``get_available_models_async``.
 
-        Generic routing/model enumeration integration is owned by a later task.
-        This hook does not register an application initialization stage.
+        Catalog construction is lazy (initialize / enumerator). This hook does
+        not register an application initialization stage.
         """
 
         self._chatgpt_plan_model_catalog = catalog
         self._chatgpt_plan_profile_id = profile_id
+
+    def _bind_chatgpt_plan_catalog_from_init_kwargs(
+        self, kwargs: Mapping[str, Any]
+    ) -> None:
+        from src.connectors.openai_chatgpt_plan.enumerator import (
+            build_chatgpt_plan_model_catalog,
+            chatgpt_plan_config_from_init_kwargs,
+            profile_id_from_init_kwargs,
+        )
+
+        profile_id = profile_id_from_init_kwargs(kwargs)
+        if profile_id is None:
+            return
+        plan_config = chatgpt_plan_config_from_init_kwargs(kwargs)
+        catalog = build_chatgpt_plan_model_catalog(plan_config)
+        self.bind_chatgpt_plan_model_catalog(catalog, profile_id)
+
+    async def initialize(self, **kwargs: Any) -> None:
+        await super().initialize(**kwargs)
+        self._bind_chatgpt_plan_catalog_from_init_kwargs(kwargs)
 
     async def get_available_models_async(self) -> list[str]:
         catalog = self._chatgpt_plan_model_catalog

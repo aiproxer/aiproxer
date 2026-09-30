@@ -44,6 +44,7 @@ class ModelCatalogService:
         "antigravity-oauth": "google",
         "kiro-oauth-auto": "google",
         "openai-responses": "openai",
+        "openai-chatgpt-plan": "openai",
     }
 
     def __init__(self, config: ModelRegistryConfig) -> None:

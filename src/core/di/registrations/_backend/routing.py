@@ -47,6 +47,9 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             from src.connectors.nvidia import (
                 NvidiaConfiguredModelEnumerator,
             )
+            from src.connectors.openai_chatgpt_plan.enumerator import (
+                ChatGPTPlanConfiguredModelEnumerator,
+            )
             from src.connectors.openai_codex.catalog.provider import (
                 CodexModelCatalogProvider,
             )
@@ -159,6 +162,17 @@ def register_backend_routing_service(services: ServiceCollection) -> None:
             enumerators.register(
                 "nvidia",
                 NvidiaConfiguredModelEnumerator(),
+                timeout_seconds=None,
+            )
+            chatgpt_plan_enumerator = ChatGPTPlanConfiguredModelEnumerator()
+            enumerators.register(
+                "openai-chatgpt-plan",
+                chatgpt_plan_enumerator,
+                timeout_seconds=None,
+            )
+            enumerators.register(
+                "openai_chatgpt_plan",
+                chatgpt_plan_enumerator,
                 timeout_seconds=None,
             )
             enumerators.register(
