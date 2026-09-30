@@ -1,11 +1,13 @@
-"""SIWC Responses instruction projection for the ChatGPT-plan connector.
+"""SIWC Responses request projection for the ChatGPT-plan connector.
 
 Projects generic Responses payloads onto supported high-priority instruction
 semantics: top-level ``instructions`` and ``developer`` items. Explicit
 ``role=system`` input/message items are never sent upstream. Duplicate
 injection is prevented by request provenance tags, not by deleting repeated
-text. This module does not load bundled prompt resources or client-family
-adapters.
+text. Client-supplied function/custom tools, ``tool_choice``, call/output
+linkage, and text/image/file content parts are preserved. Explicit hosted
+tools from the SIWC preview matrix are rejected; web search is preserved.
+This module does not load bundled prompt resources or client-family adapters.
 """
 
 from __future__ import annotations
@@ -19,11 +21,13 @@ from src.connectors.contracts import (
     ConnectorChatCompletionsRequest,
     ConnectorResponsesRequest,
 )
+from src.core.common.exceptions import ResponsesProviderLimitationError
 
 SIWC_INSTRUCTION_SOURCE_KEY = "siwc_instruction_source"
 SOURCE_NATIVE_INSTRUCTIONS = "native_instructions"
 SOURCE_CANONICAL_SYSTEM_PROMPT = "canonical_system_prompt"
 SOURCE_RESIDUAL_SYSTEM_ITEM = "residual_system_item"
+SIWC_PROVIDER = "openai-chatgpt-plan"
 
 _ITEM_LIST_KEYS = ("input", "messages")
 _KNOWN_INSTRUCTION_SOURCES = frozenset(
@@ -31,6 +35,29 @@ _KNOWN_INSTRUCTION_SOURCES = frozenset(
         SOURCE_NATIVE_INSTRUCTIONS,
         SOURCE_CANONICAL_SYSTEM_PROMPT,
         SOURCE_RESIDUAL_SYSTEM_ITEM,
+    }
+)
+# Official SIWC preview (2026-09-30) + design matrix. Web search is supported.
+# https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations
+_UNSUPPORTED_HOSTED_TOOL_TYPES = frozenset(
+    {
+        "image_generation",
+        "image_generation_call",
+        "file_search",
+        "file_search_call",
+        "code_interpreter",
+        "code_interpreter_call",
+        "computer",
+        "computer_call",
+        "computer_use",
+        "computer_use_preview",
+        "mcp",
+        "mcp_call",
+        "mcp_list_tools",
+        "connectors",
+        "tool_search",
+        "tool_search_call",
+        "programmatic_tool_calling",
     }
 )
 
@@ -86,6 +113,33 @@ def _project_item_list(items: list[Any], *, represented_sources: set[str]) -> li
     return projected
 
 
+def _hosted_tool_type(value: Any) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    normalized = value.strip().casefold()
+    if normalized in _UNSUPPORTED_HOSTED_TOOL_TYPES:
+        return normalized
+    return None
+
+
+def _reject_unsupported_hosted_tools(payload: Mapping[str, Any]) -> None:
+    for key in ("tools", *_ITEM_LIST_KEYS):
+        items = payload.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            hosted = _hosted_tool_type(item.get("type"))
+            if hosted is not None:
+                raise ResponsesProviderLimitationError(hosted, SIWC_PROVIDER)
+    tool_choice = payload.get("tool_choice")
+    if isinstance(tool_choice, dict):
+        hosted = _hosted_tool_type(tool_choice.get("type"))
+        if hosted is not None:
+            raise ResponsesProviderLimitationError(hosted, SIWC_PROVIDER)
+
+
 class ChatGPTPlanRequestPolicy:
     """Connector-local SIWC request policy for instruction projection."""
 
@@ -117,6 +171,8 @@ class ChatGPTPlanRequestPolicy:
                 payload[key] = _project_item_list(
                     items, represented_sources=represented_sources
                 )
+
+        _reject_unsupported_hosted_tools(payload)
 
         stream_flag = getattr(request.request, "stream", False)
         return SIWCProjectedRequest(

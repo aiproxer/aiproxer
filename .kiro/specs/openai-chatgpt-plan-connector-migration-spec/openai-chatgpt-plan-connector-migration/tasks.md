@@ -100,7 +100,7 @@
   - Add negative tests proving the outbound payload contains no bundled Codex prompt, `<user_instructions>`, Codex environment context, or client-family prompt wrapper.
   - _Requirements: 5.1, 5.2, 5.3, 5.6_
 
-- [ ] 4.2 Preserve standard client-side tool and input semantics without client-family adapters
+- [x] 4.2 Preserve standard client-side tool and input semantics without client-family adapters
   - Preserve function/custom tool schemas, `tool_choice`, tool call IDs, arguments, and function-call-output linkage where supported by current SIWC documentation.
   - Preserve supported text/image/file input content according to model/provider constraints.
   - Do not add OpenCode/Kilo/Droid/`pi`/Letta client detection, XML tool parsers, proxy-side Codex tool execution, or hidden built-in Codex tools.
@@ -299,3 +299,4 @@
 - Task 3.1: `ChatGPTPlanModelCatalog` GET `https://api.openai.com/v1/models` only; cache fingerprint is issued_client_id+issuer+subject; connector `bind_chatgpt_plan_model_catalog` so package import stays catalog-free. Routing integration is 3.2.
 - Task 3.2: `build_chatgpt_plan_model_catalog` caches one catalog/token-manager graph per resolved `profiles_path` so enumerator and connector share invalidation. Register `ChatGPTPlanConfiguredModelEnumerator` in `routing.py`; do not add a ChatGPT-plan application stage. Process-lifetime cache: first-seen `ChatGPTPlanConfig` extras win for that store.
 - Task 4.1: `ChatGPTPlanRequestPolicy.project` in `request_policy.py` — native `instructions` kept; empty instructions filled from `CanonicalChatRequest.system_prompt`; residual `role=system` in `input`/`messages` rewritten to `developer`. Duplicate suppression uses `siwc_instruction_source` provenance tags, not text-equality. Do not import request_policy from package `__init__`. Store/stream/unsupported fields are 4.3.
+- Task 4.2: SIWC preview matrix (docs 2026-09-30): preserve function/custom tools, `tool_choice`, call/output linkage, text/image/file, and web search. Reject image generation, file search, Code Interpreter, `computer_use_preview`, hosted MCP/connectors, `tool_search`, and top-level `programmatic_tool_calling` via `ResponsesProviderLimitationError`. No client-family adapters. Nested `additional_tools` hosted types not walked (possible 4.3 follow-up).
