@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any, Protocol
 
+from src.connectors.contracts import ConnectorResponsesRequest
 from src.connectors.openai_responses import OpenAIResponsesConnector
+from src.core.common.exceptions import AuthenticationError
 from src.core.domain.backend_capability_descriptor import BackendCapabilityDescriptor
+from src.core.domain.responses import ResponseEnvelope, StreamingResponseEnvelope
+from src.core.domain.responses_native_wiring import (
+    RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY,
+)
+from src.core.interfaces.configuration_interface import IAppIdentityConfig
 from src.core.services.backend_registry import backend_registry
 
 CHATGPT_PLAN_CAPABILITY_DESCRIPTOR = BackendCapabilityDescriptor(
@@ -17,11 +25,46 @@ CHATGPT_PLAN_CAPABILITY_DESCRIPTOR = BackendCapabilityDescriptor(
     requires_personal_auth=True,
 )
 
+PUBLIC_OPENAI_API_BASE = "https://api.openai.com/v1"
+
+_CODEX_OUTBOUND_HEADER_NAMES = frozenset(
+    {
+        "originator",
+        "codex-task-type",
+        "chatgpt-account-id",
+        "openai-beta",
+        "conversation_id",
+        "session_id",
+        "version",
+    }
+)
+
 
 class _ChatGPTPlanModelLister(Protocol):
     async def list_models(
         self, profile_id: str, *, force_refresh: bool = False
     ) -> list[str]: ...
+
+
+class _ChatGPTPlanAccessTokenSource(Protocol):
+    async def get_access_token(self, profile_id: str) -> str: ...
+
+
+def _looks_like_codex_user_agent(value: str) -> bool:
+    folded = value.casefold()
+    return "codex_cli_rs" in folded or folded.strip() == "originator"
+
+
+def _strip_codex_outbound_headers(headers: Mapping[str, str]) -> dict[str, str]:
+    cleaned: dict[str, str] = {}
+    for name, value in headers.items():
+        lowered = name.lower()
+        if lowered in _CODEX_OUTBOUND_HEADER_NAMES:
+            continue
+        if lowered == "user-agent" and _looks_like_codex_user_agent(value):
+            continue
+        cleaned[name] = value
+    return cleaned
 
 
 class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
@@ -37,6 +80,7 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
     capability_descriptor = CHATGPT_PLAN_CAPABILITY_DESCRIPTOR
     _chatgpt_plan_model_catalog: _ChatGPTPlanModelLister | None = None
     _chatgpt_plan_profile_id: str | None = None
+    _chatgpt_plan_token_manager: _ChatGPTPlanAccessTokenSource | None = None
 
     @property
     def has_static_credentials(self) -> bool:
@@ -53,6 +97,9 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
 
         self._chatgpt_plan_model_catalog = catalog
         self._chatgpt_plan_profile_id = profile_id
+        token_manager = getattr(catalog, "_token_manager", None)
+        if token_manager is not None:
+            self._chatgpt_plan_token_manager = token_manager
 
     def _bind_chatgpt_plan_catalog_from_init_kwargs(
         self, kwargs: Mapping[str, Any]
@@ -72,7 +119,76 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
 
     async def initialize(self, **kwargs: Any) -> None:
         await super().initialize(**kwargs)
+        self.api_base_url = PUBLIC_OPENAI_API_BASE
+        self._use_websocket = False
         self._bind_chatgpt_plan_catalog_from_init_kwargs(kwargs)
+
+    def get_headers(self, identity: IAppIdentityConfig | None = None) -> dict[str, str]:
+        headers = super().get_headers(identity=identity)
+        return _strip_codex_outbound_headers(headers)
+
+    async def _chatgpt_plan_access_token(self) -> str:
+        profile_id = self._chatgpt_plan_profile_id
+        manager = self._chatgpt_plan_token_manager
+        if manager is None:
+            catalog = self._chatgpt_plan_model_catalog
+            nested = getattr(catalog, "_token_manager", None)
+            if nested is not None:
+                manager = nested
+                self._chatgpt_plan_token_manager = nested
+        if not profile_id:
+            raise AuthenticationError(
+                message="ChatGPT-plan profile is not selected.",
+            )
+        if manager is None:
+            raise AuthenticationError(
+                message="ChatGPT-plan token manager is not bound.",
+            )
+        return await manager.get_access_token(profile_id)
+
+    def _projected_generic_payload(
+        self, request: ConnectorResponsesRequest, extra_body: dict[str, Any]
+    ) -> dict[str, Any]:
+        native_raw = extra_body.get(RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY)
+        if isinstance(native_raw, dict):
+            return native_raw
+        domain_request = self.translation_service.to_domain_request(
+            request.request, "responses"
+        )
+        return self.translation_service.from_domain_to_responses_request(domain_request)
+
+    async def responses(
+        self, request: ConnectorResponsesRequest
+    ) -> ResponseEnvelope | StreamingResponseEnvelope:
+        from src.connectors.openai_chatgpt_plan.request_policy import (
+            ChatGPTPlanRequestPolicy,
+        )
+
+        request_data = request.request
+        raw_extra = getattr(request_data, "extra_body", None)
+        extra_body = dict(raw_extra) if isinstance(raw_extra, dict) else {}
+        generic_payload = self._projected_generic_payload(request, extra_body)
+        projected = ChatGPTPlanRequestPolicy().project(
+            request=request,
+            generic_payload=generic_payload,
+        )
+        extra_body[RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY] = projected.payload
+        forwarded_request = request_data.model_copy(update={"extra_body": extra_body})
+
+        self.api_key = await self._chatgpt_plan_access_token()
+        self.api_base_url = PUBLIC_OPENAI_API_BASE
+        self._use_websocket = False
+
+        options = dict(request.options) if request.options else {}
+        options["openai_url"] = PUBLIC_OPENAI_API_BASE
+        options["use_websocket"] = False
+
+        forwarded = replace(
+            request,
+            request=forwarded_request,
+            options=options,
+        )
+        return await super().responses(forwarded)
 
     async def get_available_models_async(self) -> list[str]:
         catalog = self._chatgpt_plan_model_catalog

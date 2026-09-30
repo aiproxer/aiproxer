@@ -91,7 +91,7 @@
 
 ## Phase 4: Implement SIWC Request Projection Without Codex Prompt Emulation
 
-- [ ] 4. Build a strict SIWC Responses request-policy layer
+- [x] 4. Build a strict SIWC Responses request-policy layer
 - [x] 4.1 Preserve native harness instructions using supported Responses semantics
   - Preserve native top-level `instructions` without injecting a Codex default prompt.
   - Project canonical high-priority system instructions to top-level `instructions` when not already represented.
@@ -116,7 +116,7 @@
   - Never work around an unsupported hosted tool by calling ChatGPT private endpoints.
   - _Requirements: 6.2, 6.3, 6.4, 6.5, 6.6_
 
-- [ ] 4.4 Prove the outbound request/header boundary is public Responses only
+- [x] 4.4 Prove the outbound request/header boundary is public Responses only
   - Target `POST https://api.openai.com/v1/responses` with the selected SIWC bearer token.
   - Reuse normal public OpenAI headers/correlation behavior only.
   - Add structural/wire tests forbidding `originator=codex_cli_rs`, Codex `version`, `Codex-Task-Type`, `chatgpt-account-id`, legacy conversation/session identity headers, and `chatgpt.com/backend-api/codex` URLs.
