@@ -386,6 +386,43 @@ class TestOpenAIChatGPTPlanOutboundWire:
         assert payload["stream"] is True
 
 
+    @pytest.mark.asyncio
+    async def test_chat_shaped_tools_emitted_with_top_level_name(
+        self, mock_client: Mock
+    ) -> None:
+        """Chat Completions nested function tools must flatten before upstream."""
+        connector, _manager = _make_connector(mock_client)
+        native = {
+            "model": "gpt-4o",
+            "stream": True,
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "bash",
+                        "description": "Run bash",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"command": {"type": "string"}},
+                        },
+                    },
+                }
+            ],
+            "messages": [{"role": "user", "content": "ls"}],
+        }
+        extra_body = {RESPONSES_NATIVE_PROJECTED_PAYLOAD_KEY: native}
+        await connector.responses(_make_responses_request(connector, extra_body))
+
+        payload = _captured_call(mock_client)[1]["json"]
+        assert "messages" not in payload
+        tools = payload["tools"]
+        assert tools[0]["name"] == "bash"
+        assert tools[0]["type"] == "function"
+        assert "function" not in tools[0]
+        assert payload["store"] is False
+        assert payload["stream"] is True
+
+
 class TestOpenAIChatGPTPlanOutboundSourceBoundary:
     def test_connector_source_forbids_codex_private_url_and_originator_literals(
         self,

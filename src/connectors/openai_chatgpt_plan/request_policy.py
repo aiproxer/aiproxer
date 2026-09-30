@@ -12,6 +12,12 @@ Chat Completions-shaped translator output that still carries top-level
 ``messages`` is normalized onto Responses ``input`` before upstream send so
 SIWC preview never receives the unsupported ``messages`` parameter.
 
+Chat Completions tool schemas nested under ``function`` (missing top-level
+``name``) are flattened to the Responses flat-function shape SIWC accepts
+(``tools[i].name`` / ``description`` / ``parameters``). Nested
+``additional_tools`` entries are normalized the same way. Hosted tools remain
+rejected; no client-family adapters are introduced.
+
 Product decision (harness compatibility): unsupported SIWC preview scalar
 fields are soft-dropped (stripped / never sent upstream) rather than hard-
 failing with ``ResponsesProviderLimitationError``. Harness clients commonly
@@ -177,6 +183,108 @@ def _normalize_messages_to_input(payload: dict[str, Any]) -> None:
         payload["input"] = list(messages)
 
 
+# Fields lifted from Chat Completions nested ``function`` onto Responses tools.
+_FLAT_FUNCTION_FIELDS = ("name", "description", "parameters", "strict", "format")
+
+
+def _callable_tool_type(value: Any) -> str | None:
+    """Return normalized function/custom type, or None if not a callable tool type."""
+    if value is None:
+        return "function"
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().casefold()
+    if not normalized:
+        return "function"
+    if normalized in {"function", "custom"}:
+        return normalized
+    return None
+
+
+def _flatten_chat_shaped_tool_dict(item: dict[str, Any]) -> dict[str, Any]:
+    """Lift Chat nested ``function`` fields to Responses flat tool shape when needed.
+
+    Chat Completions emits ``{"type":"function","function":{"name":...}}``.
+    Responses / SIWC require top-level ``name`` (and related fields). Already-flat
+    tools and non-callable hosted/search tools are left unchanged.
+    """
+    out = dict(item)
+
+    additional = out.get("additional_tools")
+    if isinstance(additional, list):
+        flattened_additional: list[Any] = []
+        for tool in additional:
+            if isinstance(tool, dict):
+                flattened_additional.append(_flatten_chat_shaped_tool_dict(tool))
+            elif isinstance(tool, Mapping):
+                flattened_additional.append(_flatten_chat_shaped_tool_dict(dict(tool)))
+            else:
+                flattened_additional.append(tool)
+        out["additional_tools"] = flattened_additional
+
+    nested = out.get("function")
+    if not isinstance(nested, Mapping):
+        return out
+
+    resolved_type = _callable_tool_type(out.get("type"))
+    if resolved_type is None:
+        return out
+
+    if _non_empty_str(out.get("name")) is not None:
+        return out
+
+    nested_name = _non_empty_str(nested.get("name"))
+    if nested_name is None:
+        return out
+
+    if not isinstance(out.get("type"), str) or not str(out.get("type")).strip():
+        out["type"] = resolved_type
+
+    for field in _FLAT_FUNCTION_FIELDS:
+        if field in out and out[field] is not None:
+            continue
+        if field not in nested:
+            continue
+        value = nested[field]
+        if value is None:
+            continue
+        out[field] = value
+
+    out.pop("function", None)
+    return out
+
+
+def _normalize_chat_shaped_tools(payload: dict[str, Any]) -> None:
+    """Flatten Chat Completions tool schemas onto Responses flat-function shape."""
+    tools = payload.get("tools")
+    if isinstance(tools, list):
+        payload["tools"] = [
+            _flatten_chat_shaped_tool_dict(dict(tool))
+            if isinstance(tool, Mapping)
+            else tool
+            for tool in tools
+        ]
+
+    tool_choice = payload.get("tool_choice")
+    if isinstance(tool_choice, Mapping):
+        nested = tool_choice.get("function")
+        resolved_type = _callable_tool_type(tool_choice.get("type"))
+        if (
+            resolved_type is not None
+            and isinstance(nested, Mapping)
+            and _non_empty_str(tool_choice.get("name")) is None
+            and _non_empty_str(nested.get("name")) is not None
+        ):
+            choice = dict(tool_choice)
+            if not isinstance(choice.get("type"), str) or not str(
+                choice.get("type")
+            ).strip():
+                choice["type"] = resolved_type
+            choice["name"] = nested["name"]
+            choice.pop("function", None)
+            payload["tool_choice"] = choice
+
+
 def _hosted_tool_type(value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         return None
@@ -280,6 +388,7 @@ class ChatGPTPlanRequestPolicy:
                 )
 
         _normalize_messages_to_input(payload)
+        _normalize_chat_shaped_tools(payload)
         _reject_unsupported_hosted_tools(payload)
         _reject_explicit_store_true(request)
         _strip_unsupported_siwc_fields(payload)

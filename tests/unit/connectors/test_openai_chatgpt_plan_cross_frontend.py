@@ -299,3 +299,46 @@ async def test_coexistence_profile_state_does_not_cross_backends() -> None:
     assert not hasattr(responses, "_chatgpt_plan_identity_fingerprint") or (
         getattr(responses, "_chatgpt_plan_identity_fingerprint", None) is None
     )
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_chat_shaped_tools_flatten_upstream() -> None:
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.build_request = MagicMock(return_value=MagicMock())
+    client.send = AsyncMock(return_value=_sse_response("done"))
+    connector = _connector(client)
+    chat_tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "bash",
+                "description": "Run bash",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"command": {"type": "string"}},
+                },
+            },
+        }
+    ]
+    chat_req = ConnectorChatCompletionsRequest(
+        request=CanonicalChatRequest(
+            model="gpt-4o",
+            messages=[ChatMessage(role="user", content="ls")],
+            stream=False,
+            tools=chat_tools,
+        ),
+        processed_messages=[],
+        effective_model="gpt-4o",
+        identity=None,
+        cancellation_token=None,
+        cancellation_coordinator=None,
+        context=None,
+        options={},
+    )
+    result = await connector.chat_completions(chat_req)
+    assert isinstance(result, ResponseEnvelope)
+    payload = client.build_request.call_args[1]["json"]
+    assert payload["tools"][0]["name"] == "bash"
+    assert "function" not in payload["tools"][0]
+    assert "messages" not in payload
+

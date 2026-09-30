@@ -626,3 +626,199 @@ class TestInstructionProjectionNotRegressedWithTools:
         assert projected.payload["tool_choice"] == "required"
         for item in items:
             assert SOURCE_KEY not in item
+
+
+class TestChatShapedToolsFlattenedToResponses:
+    """Compatibility: Chat Completions nested function tools -> flat SIWC tools."""
+
+    def _chat_shaped_bash_tool(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"command": {"type": "string"}},
+                    "required": ["command"],
+                },
+                "strict": None,
+            },
+        }
+
+    def test_chat_shaped_tools_gain_top_level_name_and_drop_nested_function(
+        self,
+    ) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [self._chat_shaped_bash_tool()],
+            "tool_choice": {
+                "type": "function",
+                "function": {"name": "bash"},
+            },
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "run ls"}],
+                }
+            ],
+        }
+        projected = _project(generic)
+        tools = projected.payload["tools"]
+        assert len(tools) == 1
+        tool = tools[0]
+        assert tool["type"] == "function"
+        assert tool["name"] == "bash"
+        assert tool["description"] == "Run a shell command."
+        assert tool["parameters"]["required"] == ["command"]
+        assert "function" not in tool
+        assert "name" in tool
+        assert projected.payload["tool_choice"] == {
+            "type": "function",
+            "name": "bash",
+        }
+
+    def test_missing_type_with_nested_function_blob_flattened(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [
+                {
+                    "function": {
+                        "name": "read_file",
+                        "description": "Read a file.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"path": {"type": "string"}},
+                        },
+                    }
+                }
+            ],
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "read"}],
+                }
+            ],
+        }
+        projected = _project(generic)
+        tool = projected.payload["tools"][0]
+        assert tool["type"] == "function"
+        assert tool["name"] == "read_file"
+        assert tool["description"] == "Read a file."
+        assert "function" not in tool
+
+    def test_nested_additional_tools_chat_shaped_entries_flattened(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "orchestrator",
+                    "parameters": {"type": "object", "properties": {}},
+                    "additional_tools": [
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": "nested_bash",
+                                "description": "Nested shell.",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {"cmd": {"type": "string"}},
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "go"}],
+                }
+            ],
+        }
+        projected = _project(generic)
+        tool = projected.payload["tools"][0]
+        assert tool["name"] == "orchestrator"
+        nested = tool["additional_tools"][0]
+        assert nested["type"] == "function"
+        assert nested["name"] == "nested_bash"
+        assert nested["description"] == "Nested shell."
+        assert "function" not in nested
+
+    def test_already_flat_responses_tools_unchanged(self) -> None:
+        flat = _function_tool()
+        generic = {
+            "model": "gpt-4o",
+            "tools": [flat],
+            "tool_choice": {"type": "function", "name": "get_weather"},
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "weather"}],
+                }
+            ],
+        }
+        projected = _project(generic)
+        assert projected.payload["tools"] == [flat]
+        assert projected.payload["tool_choice"] == {
+            "type": "function",
+            "name": "get_weather",
+        }
+
+    def test_chat_shaped_custom_tool_flattened(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [
+                {
+                    "type": "custom",
+                    "function": {
+                        "name": "submit_patch",
+                        "description": "Submit a unified diff.",
+                        "format": {
+                            "type": "grammar",
+                            "syntax": "lark",
+                            "definition": "start: patch",
+                        },
+                    },
+                }
+            ],
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "patch"}],
+                }
+            ],
+        }
+        projected = _project(generic)
+        tool = projected.payload["tools"][0]
+        assert tool["type"] == "custom"
+        assert tool["name"] == "submit_patch"
+        assert tool["format"]["syntax"] == "lark"
+        assert "function" not in tool
+
+    def test_hosted_tools_still_rejected_alongside_chat_shaped_tools(self) -> None:
+        generic = {
+            "model": "gpt-4o",
+            "tools": [
+                self._chat_shaped_bash_tool(),
+                {"type": "file_search", "vector_store_ids": ["vs_demo"]},
+            ],
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "search"}],
+                }
+            ],
+        }
+        with pytest.raises(ResponsesProviderLimitationError) as exc_info:
+            _project(generic)
+        assert exc_info.value.feature == "file_search"
+        assert exc_info.value.provider == PROVIDER
+
