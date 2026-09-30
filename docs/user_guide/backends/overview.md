@@ -252,3 +252,6 @@ For detailed configuration and usage information for each backend, see:
 - [Model Name Rewrites](../features/model-name-rewrites.md) - Transform model names dynamically
 - [Hybrid Backend](../features/hybrid-backend.md) - Use two models in sequence
 - [URI Model Parameters](../features/uri-model-parameters.md) - Specify parameters in model strings
+
+
+- [OpenAI ChatGPT Plan](openai-chatgpt-plan.md) (`openai-chatgpt-plan`) — official SIWC ChatGPT subscription path (public Responses API). Distinct from API-key OpenAI and legacy Codex.

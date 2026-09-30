@@ -156,13 +156,13 @@
   - Provide actionable states for missing plan scope, needs reauth, signed out, model discovery unavailable and ambiguous profile selection.
   - _Requirements: 2.7, 3.5, 3.6, 3.8, 8.1, 12.1_
 
-- [ ] 6.2 Add complete unit and contract coverage for SIWC lifecycle and request policy
+- [x] 6.2 Add complete unit and contract coverage for SIWC lifecycle and request policy
   - Mock OAuth authorize/token endpoints, OIDC discovery/JWKS/revocation, public `/models`, and Responses SSE deterministically.
   - Cover dynamic client registration, ID-token validation failures, scope gating, refresh rotation/races, import/host identity invariants, model isolation, instruction projection, unsupported fields, forced upstream streaming, terminal stream states and error mapping.
   - Add structural tests proving the new connector has no legacy Codex package/resource/private-endpoint dependency.
   - _Requirements: 9.1, 9.2, 9.4, 9.5_
 
-- [ ] 6.3 Add cross-frontend integration tests and coexistence tests
+- [x] 6.3 Add cross-frontend integration tests and coexistence tests
   - Native Responses frontend: instructions + tool call/output round trip.
   - OpenAI Chat Completions frontend: system/developer/tool semantics projected legally to SIWC Responses.
   - At least one other supported translated frontend path: verify no client-family special casing is required.
@@ -170,7 +170,7 @@
   - Run new and old backends in the same test process and prove profile/catalog/continuation state does not cross between them.
   - _Requirements: 1.2, 5.1, 5.4, 5.5, 6.2, 9.3, 9.6_
 
-- [ ] 6.4 Document the new connector before empirical testing
+- [x] 6.4 Document the new connector before empirical testing
   - Add operator docs for authorization, profiles, current SIWC limitations, model discovery, refresh/reauth/sign-out, profile switching, remote import/export and troubleshooting.
   - Clearly distinguish `openai-chatgpt-plan` from API-key `openai`/`openai-responses` and from the still-temporarily-available legacy Codex backends.
   - Mark legacy Codex usage as pending retirement after successful acceptance, but do not remove it yet.
@@ -305,4 +305,6 @@
 - Task 5.2: `errors.ChatGPTPlanErrorMapper` maps SIWC codes to typed errors; connector does one force_refresh+retry on refresh-eligible 401; no profile rotation; capability rejections are non-retryable; `ChatGPTPlanStreamError` preserved.
 - Task 5.3: connector `_get_log_extra` adds safe `profile_id` / `profile_identity_fingerprint`; `redact_chatgpt_plan_mapping` fully masks Authorization/PKCE/auth codes for capture; streaming cancel_callback and accumulated usage covered by observability tests.
 - Task 6.1: `scripts/manage_openai_chatgpt_plan_profiles.py` supports list/add/show/reauthorize/refresh/signout/remove/export/import; list/show omit token values and print actionable status details.
-
+- Task 6.2: structural contracts in 	est_openai_chatgpt_plan_contracts.py (AST import isolation, no private Codex URL, header strip/emit proofs). Lifecycle/policy coverage remains in phase 2-5 unit suites.
+- Task 6.3: 	est_openai_chatgpt_plan_cross_frontend.py covers native Responses tools, Chat Completions forced upstream stream, Anthropic-translated canonical path, and profile-state coexistence with Responses/Codex imports.
+- Task 6.4: operator doc docs/user_guide/backends/openai-chatgpt-plan.md; overview link; openai-codex.md pending-retirement note. Legacy backends not removed.

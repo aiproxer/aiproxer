@@ -1,5 +1,8 @@
 # OpenAI Codex Backend
 
+> **Pending retirement:** Prefer `openai-chatgpt-plan` for ChatGPT subscription usage. Legacy `openai-codex*` backends remain available only until the empirical acceptance gate for the official SIWC path succeeds.
+
+
 The OpenAI Codex backend connector is a specialized integration designed to route requests through the OpenAI Codex / Responses API infrastructure using OAuth tokens. It mimics the authentication and request patterns of the Codex CLI to facilitate development and compatibility testing.
 
 ## History context compaction
