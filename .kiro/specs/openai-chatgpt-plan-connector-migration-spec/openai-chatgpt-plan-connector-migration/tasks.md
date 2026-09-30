@@ -140,7 +140,7 @@
   - Keep ordinary network/5xx retry behavior bounded and compatible with the generic resilience layer.
   - _Requirements: 7.3, 7.4, 7.5, 7.6, 7.7_
 
-- [ ] 5.3 Preserve cancellation, usage accounting, capture, correlation and redaction (P)
+- [x] 5.3 Preserve cancellation, usage accounting, capture, correlation and redaction (P)
   - Ensure public Responses cancellation/stream cleanup still works for both downstream streaming and accumulated non-streaming calls.
   - Preserve request/session/capture attribution and normalized usage metadata.
   - Add safe `profile_id`/identity-fingerprint diagnostics without logging bearer/refresh/ID token values.
@@ -303,4 +303,5 @@
 - Task 4.3: `project()` forces `store=false`/`stream=true`; always omits `previous_response_id`; explicit unsupported fields (canonical + extra_body) raise `ResponsesProviderLimitationError`; incidental serializer defaults are stripped. Explicit `store=True` is rejected; downstream `stream=False` stays `downstream_stream_requested=False`. Nested `additional_tools` hosted types are walked. HTTP/headers are 4.4.
 - Task 5.1: connector.responses forces request stream=True into OpenAIResponsesConnector; non-streaming clients accumulate via ChatGPTPlanStreamAccumulator (raises ChatGPTPlanStreamError on failed/incomplete/missing completed). Generic translator maps response.incomplete to error chunk code=response_incomplete.
 - Task 5.2: `errors.ChatGPTPlanErrorMapper` maps SIWC codes to typed errors; connector does one force_refresh+retry on refresh-eligible 401; no profile rotation; capability rejections are non-retryable; `ChatGPTPlanStreamError` preserved.
+- Task 5.3: connector `_get_log_extra` adds safe `profile_id` / `profile_identity_fingerprint`; `redact_chatgpt_plan_mapping` fully masks Authorization/PKCE/auth codes for capture; streaming cancel_callback and accumulated usage covered by observability tests.
 

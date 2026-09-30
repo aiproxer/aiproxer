@@ -85,6 +85,7 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
     _chatgpt_plan_model_catalog: _ChatGPTPlanModelLister | None = None
     _chatgpt_plan_profile_id: str | None = None
     _chatgpt_plan_token_manager: _ChatGPTPlanAccessTokenSource | None = None
+    _chatgpt_plan_identity_fingerprint: str | None = None
 
     @property
     def has_static_credentials(self) -> bool:
@@ -130,6 +131,23 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
     def get_headers(self, identity: IAppIdentityConfig | None = None) -> dict[str, str]:
         headers = super().get_headers(identity=identity)
         return _strip_codex_outbound_headers(headers)
+
+    def set_chatgpt_plan_identity_fingerprint(self, fingerprint: str) -> None:
+        """Attach a non-secret profile identity fingerprint for diagnostics."""
+
+        stripped = fingerprint.strip()
+        if stripped:
+            self._chatgpt_plan_identity_fingerprint = stripped
+
+    def _get_log_extra(self, context: Any) -> dict[str, str]:
+        extra = super()._get_log_extra(context)
+        profile_id = self._chatgpt_plan_profile_id
+        if profile_id:
+            extra["profile_id"] = profile_id
+        fingerprint = self._chatgpt_plan_identity_fingerprint
+        if fingerprint:
+            extra["profile_identity_fingerprint"] = fingerprint
+        return extra
 
     def _require_token_manager(self) -> _ChatGPTPlanAccessTokenSource:
         manager = self._chatgpt_plan_token_manager

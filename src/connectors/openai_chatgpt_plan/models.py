@@ -21,6 +21,17 @@ ChatGPTPlanProfileStatus = Literal[
 ]
 
 CHATGPT_PLAN_SECRET_FIELDS = frozenset({"access_token", "refresh_token", "id_token"})
+CHATGPT_PLAN_CAPTURE_SECRET_FIELDS = frozenset(
+    {
+        "access_token",
+        "refresh_token",
+        "id_token",
+        "authorization",
+        "pkce_verifier",
+        "code_verifier",
+        "authorization_code",
+    }
+)
 
 
 def redact_chatgpt_plan_mapping(
@@ -28,8 +39,24 @@ def redact_chatgpt_plan_mapping(
 ) -> dict[str, Any]:
     """Redact SIWC token fields using the shared logging redaction helper."""
 
-    fields = set(DEFAULT_REDACTED_FIELDS) | set(CHATGPT_PLAN_SECRET_FIELDS)
-    return redact_dict(dict(data), redacted_fields=fields, mask=mask)
+    fields = set(DEFAULT_REDACTED_FIELDS) | set(CHATGPT_PLAN_CAPTURE_SECRET_FIELDS)
+    redacted = redact_dict(dict(data), redacted_fields=fields, mask=mask)
+    # Force full mask for Authorization bearer values so capture dumps never
+    # retain recoverable token material from partial redaction.
+    for key in list(redacted):
+        lowered = str(key).casefold()
+        if lowered == "authorization":
+            redacted[key] = mask
+        if lowered in {
+            "pkce_verifier",
+            "code_verifier",
+            "authorization_code",
+            "code",
+        }:
+            value = redacted.get(key)
+            if isinstance(value, str) and value and value != mask:
+                redacted[key] = mask
+    return redacted
 
 
 def is_valid_profile_id(profile_id: str) -> bool:
