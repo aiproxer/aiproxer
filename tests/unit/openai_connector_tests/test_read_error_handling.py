@@ -165,3 +165,31 @@ class TestRetryableHttp2StreamTermination:
             request=httpx.Request("POST", "https://example.com/v1/chat/completions"),
         )
         assert _is_retryable_http2_stream_termination(exc)
+
+
+    def test_write_error_maps_to_backend_error_502(self) -> None:
+        """httpx.WriteError should map to BackendError(502), not opaque 503."""
+        exc = httpx.WriteError(
+            "write failed",
+            request=httpx.Request("POST", "https://example.com/v1/responses"),
+        )
+
+        with pytest.raises(BackendError) as ctx:
+            _raise_for_httpx_request_error(
+                exc,
+                url="https://example.com/v1/responses",
+                log_extra=None,
+            )
+
+        assert ctx.value.status_code == 502
+        assert ctx.value.details.get("reason") == "write_error"
+        assert ctx.value.details.get("retryable") is True
+        assert "Could not connect to backend" not in ctx.value.message
+
+    def test_write_error_is_retryable(self) -> None:
+        """httpx.WriteError is retryable once (HTTP/2 concurrent write disruption)."""
+        exc = httpx.WriteError(
+            "write failed",
+            request=httpx.Request("POST", "https://example.com/v1/responses"),
+        )
+        assert _is_retryable_http2_stream_termination(exc)

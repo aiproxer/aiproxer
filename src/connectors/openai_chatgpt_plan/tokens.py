@@ -8,10 +8,13 @@ POSTs when several requests race. Terminal refresh failures mark the profile
 from __future__ import annotations
 
 import asyncio
+import contextlib
+from contextlib import AbstractAsyncContextManager
 import logging
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
+from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 import httpx
@@ -87,6 +90,10 @@ class IChatGPTPlanTokenManager(Protocol):
 
     async def mark_needs_reauth(self, profile_id: str, reason: str) -> None: ...
 
+    def profile_request_slot(
+        self, profile_id: str
+    ) -> AbstractAsyncContextManager[None]: ...
+
 
 class ChatGPTPlanTokenManager:
     """Acquire a valid access token with per-profile refresh serialization."""
@@ -105,6 +112,12 @@ class ChatGPTPlanTokenManager:
         self._timeout_seconds = timeout_seconds
         self._locks: dict[str, asyncio.Lock] = {}
         self._locks_guard = asyncio.Lock()
+        # Serialize refresh against in-flight upstream requests on the same
+        # profile so concurrent HTTP/2 writers are not disrupted mid-write.
+        self._inflight: dict[str, int] = {}
+        self._inflight_guard = asyncio.Lock()
+        self._inflight_zero: dict[str, asyncio.Event] = {}
+        self._refresh_gate: dict[str, asyncio.Event] = {}
 
     async def get_access_token(self, profile_id: str) -> str:
         profile = await self._require_profile(profile_id)
@@ -165,6 +178,63 @@ class ChatGPTPlanTokenManager:
                 self._locks[profile_id] = lock
             return lock
 
+    async def _ensure_inflight_events(self, profile_id: str) -> tuple[asyncio.Event, asyncio.Event]:
+        async with self._inflight_guard:
+            zero = self._inflight_zero.get(profile_id)
+            if zero is None:
+                zero = asyncio.Event()
+                zero.set()
+                self._inflight_zero[profile_id] = zero
+            gate = self._refresh_gate.get(profile_id)
+            if gate is None:
+                gate = asyncio.Event()
+                gate.set()
+                self._refresh_gate[profile_id] = gate
+            return zero, gate
+
+    @contextlib.asynccontextmanager
+    async def profile_request_slot(
+        self, profile_id: str
+    ) -> AsyncIterator[None]:
+        """Hold a per-profile in-flight slot for the duration of an upstream call.
+
+        New slots wait while a refresh is in progress so additional concurrent
+        HTTP/2 writers are not opened under token rotation. In-flight writers keep
+        their slots; WriteError is retried once at the HTTP client layer.
+        """
+        _zero, gate = await self._ensure_inflight_events(profile_id)
+        await gate.wait()
+        async with self._inflight_guard:
+            self._inflight[profile_id] = self._inflight.get(profile_id, 0) + 1
+            zero = self._inflight_zero[profile_id]
+            zero.clear()
+        try:
+            yield
+        finally:
+            async with self._inflight_guard:
+                remaining = max(0, self._inflight.get(profile_id, 1) - 1)
+                self._inflight[profile_id] = remaining
+                if remaining == 0:
+                    self._inflight_zero[profile_id].set()
+
+    @contextlib.asynccontextmanager
+    async def _refresh_exclusion(
+        self, profile_id: str
+    ) -> AsyncIterator[None]:
+        """Block new profile slots for the duration of a token refresh.
+
+        In-flight HTTP/2 writers keep their slots; new requests wait on the gate
+        so they do not open concurrent writes on a connection mid-refresh.
+        WriteError from writers already in flight is retried once at the HTTP
+        client layer.
+        """
+        _zero, gate = await self._ensure_inflight_events(profile_id)
+        gate.clear()
+        try:
+            yield
+        finally:
+            gate.set()
+
     async def _require_profile(self, profile_id: str) -> ChatGPTPlanProfile:
         profile = await self._profile_store.load(profile_id)
         if profile is None:
@@ -206,6 +276,12 @@ class ChatGPTPlanTokenManager:
         return token
 
     async def _refresh_locked(self, profile: ChatGPTPlanProfile) -> ChatGPTPlanProfile:
+        async with self._refresh_exclusion(profile.profile_id):
+            return await self._refresh_locked_inner(profile)
+
+    async def _refresh_locked_inner(
+        self, profile: ChatGPTPlanProfile
+    ) -> ChatGPTPlanProfile:
         refresh_token = (profile.refresh_token or "").strip()
         if not refresh_token:
             await self.mark_needs_reauth(profile.profile_id, "missing_refresh_token")

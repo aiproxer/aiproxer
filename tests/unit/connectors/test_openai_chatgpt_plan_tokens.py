@@ -500,3 +500,55 @@ class TestChatGPTPlanTokenImportSafety:
             "src.connectors.openai_chatgpt_plan.oidc",
         }
         assert imported.isdisjoint(forbidden)
+
+
+@pytest.mark.asyncio
+async def test_refresh_gate_blocks_new_slots_until_refresh_completes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """New profile slots wait while refresh exclusion is active."""
+    from src.connectors.openai_chatgpt_plan.storage import ChatGPTPlanProfileStore
+    from src.connectors.openai_chatgpt_plan.tokens import ChatGPTPlanTokenManager
+
+    store = ChatGPTPlanProfileStore(tmp_path)
+    profile = _profile(
+        access_token_expires_at=_now() + timedelta(hours=1),
+    )
+    await store.save_atomic(profile)
+    manager = ChatGPTPlanTokenManager(store)
+
+    order: list[str] = []
+    refresh_holding = asyncio.Event()
+    release_refresh = asyncio.Event()
+
+    async def _slow_refresh_inner(self, profile):  # type: ignore[no-untyped-def]
+        order.append("refresh_start")
+        refresh_holding.set()
+        await release_refresh.wait()
+        order.append("refresh_end")
+        return profile
+
+    monkeypatch.setattr(
+        ChatGPTPlanTokenManager,
+        "_refresh_locked_inner",
+        _slow_refresh_inner,
+    )
+
+    async def do_refresh() -> None:
+        await manager.force_refresh(PROFILE_ID)
+
+    refresh_task = asyncio.create_task(do_refresh())
+    await refresh_holding.wait()
+
+    async def do_slot() -> None:
+        order.append("slot_wait")
+        async with manager.profile_request_slot(PROFILE_ID):
+            order.append("slot_enter")
+
+    slot_task = asyncio.create_task(do_slot())
+    # Give the slot task time to block on the refresh gate.
+    await asyncio.sleep(0.05)
+    assert "slot_enter" not in order
+    release_refresh.set()
+    await asyncio.gather(refresh_task, slot_task)
+    assert order.index("slot_enter") > order.index("refresh_end")

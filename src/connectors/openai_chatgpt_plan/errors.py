@@ -226,6 +226,21 @@ class ChatGPTPlanErrorMapper:
         if isinstance(exc, LLMProxyError):
             status_code = int(getattr(exc, "status_code", 500) or 500)
             details = getattr(exc, "details", None)
+            # Preserve transport WriteError / HTTP/2 disruption markers so the
+            # connector can retry once instead of bouncing as opaque 502/503.
+            if isinstance(details, Mapping) and details.get("reason") == "write_error":
+                preserved = dict(details)
+                preserved.setdefault("profile_id", profile_id)
+                preserved.setdefault("provider", SIWC_PROVIDER)
+                preserved["retryable"] = True
+                return BackendError(
+                    message=getattr(exc, "message", None)
+                    or "Upstream write error during ChatGPT-plan request.",
+                    backend_name=SIWC_PROVIDER,
+                    details=_safe_details(preserved),
+                    status_code=status_code or 502,
+                    code=getattr(exc, "code", None),
+                )
             payload = details
             if isinstance(details, Mapping):
                 payload = details.get("error_payload", details)
@@ -266,6 +281,27 @@ class ChatGPTPlanErrorMapper:
                 return bool(details.get("refresh_eligible", False))
             return False
         return False
+
+    def should_retry_write_error(
+        self, exc: Exception, *, already_retried: bool
+    ) -> bool:
+        """Retry once when a concurrent HTTP/2 write failed during refresh.
+
+        ``httpx.WriteError`` is mapped to BackendError(502, reason=write_error).
+        Surfacing that as an opaque bounce is avoidable when a single refresh +
+        resend recovers the turn.
+        """
+        if already_retried:
+            return False
+        details = getattr(exc, "details", None)
+        if not isinstance(details, Mapping):
+            return False
+        if details.get("reason") == "write_error":
+            return True
+        return bool(details.get("retryable") is True and details.get("reason") in {
+            "write_error",
+            "remote_protocol_error",
+        })
 
     def should_rotate_profile(self, exc: Exception) -> bool:
         del exc

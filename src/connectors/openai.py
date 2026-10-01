@@ -423,6 +423,23 @@ def _raise_for_httpx_request_error(
             status_code=504,
         ) from exc
 
+    if isinstance(exc, httpx.WriteError):
+        # Concurrent HTTP/2 writers (e.g. OpenCode title+main) can fail mid-write
+        # when the shared connection is disrupted during token refresh. Map to 502
+        # with an actionable reason instead of an opaque 503 bounce.
+        if logger.isEnabledFor(logging.WARNING):
+            logger.warning(
+                "Upstream write error (HTTP/2 connection disrupted mid-write): %s: %s",
+                url,
+                exc,
+                extra=log_extra,
+            )
+        raise BackendError(
+            message=f"Upstream write error: connection disrupted during write ({exc!s})",
+            details={"url": url, "reason": "write_error", "retryable": True},
+            status_code=502,
+        ) from exc
+
     if isinstance(exc, httpx.ReadError):
         if logger.isEnabledFor(logging.WARNING):
             logger.warning(
@@ -464,6 +481,10 @@ def _raise_for_httpx_request_error(
 
 
 def _is_retryable_http2_stream_termination(exc: httpx.RequestError) -> bool:
+    # WriteError: shared HTTP/2 connection disrupted under concurrent writers
+    # (typical during ChatGPT-plan token refresh + parallel title/main POSTs).
+    if isinstance(exc, httpx.WriteError):
+        return True
     if not isinstance(exc, httpx.RemoteProtocolError):
         return False
     message = str(exc)

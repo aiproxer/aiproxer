@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import AbstractAsyncContextManager
 from dataclasses import replace
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from src.connectors.contracts import ConnectorResponsesRequest
 from src.connectors.openai_responses import OpenAIResponsesConnector
@@ -52,6 +53,10 @@ class _ChatGPTPlanAccessTokenSource(Protocol):
     async def force_refresh(self, profile_id: str) -> Any: ...
 
     async def mark_needs_reauth(self, profile_id: str, reason: str) -> None: ...
+
+    def profile_request_slot(
+        self, profile_id: str
+    ) -> AbstractAsyncContextManager[None]: ...
 
 
 def _looks_like_codex_user_agent(value: str) -> bool:
@@ -260,22 +265,45 @@ class OpenAIChatGPTPlanConnector(OpenAIResponsesConnector):
 
         mapper = ChatGPTPlanErrorMapper()
         profile_id = self._chatgpt_plan_profile_id
-        try:
+        manager = self._require_token_manager()
+
+        async def _run_once() -> ResponseEnvelope | StreamingResponseEnvelope:
             return await self._chatgpt_plan_run_projected(
                 forwarded,
                 downstream_stream_requested=projected.downstream_stream_requested,
             )
+
+        async def _run_with_optional_slot() -> (
+            ResponseEnvelope | StreamingResponseEnvelope
+        ):
+            slot = getattr(manager, "profile_request_slot", None)
+            if profile_id and callable(slot):
+                cm = cast(AbstractAsyncContextManager[None], slot(profile_id))
+                async with cm:
+                    return await _run_once()
+            return await _run_once()
+            return await _run_once()
+
+        try:
+            return await _run_with_optional_slot()
         except Exception as first_exc:
             mapped = mapper.map_exception(first_exc, profile_id=profile_id)
-            if not mapper.should_refresh_and_retry(mapped, already_retried=False):
+            refresh_retry = mapper.should_refresh_and_retry(
+                mapped, already_retried=False
+            )
+            write_retry = mapper.should_retry_write_error(
+                mapped, already_retried=False
+            )
+            if not refresh_retry and not write_retry:
                 raise mapped from first_exc
             try:
-                await self._chatgpt_plan_force_refresh()
-                self.api_key = await self._chatgpt_plan_access_token()
-                return await self._chatgpt_plan_run_projected(
-                    forwarded,
-                    downstream_stream_requested=projected.downstream_stream_requested,
-                )
+                if refresh_retry or write_retry:
+                    # Refresh under exclusion so new concurrent writers wait;
+                    # then retry once with a fresh bearer (WriteError often
+                    # coincides with token rotation under HTTP/2 multiplexing).
+                    await self._chatgpt_plan_force_refresh()
+                    self.api_key = await self._chatgpt_plan_access_token()
+                return await _run_with_optional_slot()
             except Exception as second_exc:
                 mapped_second = mapper.map_exception(second_exc, profile_id=profile_id)
                 if isinstance(mapped_second, LLMProxyError) and int(
