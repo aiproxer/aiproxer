@@ -410,8 +410,6 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
         # Prefer SIWC/OpenAI call_id (call_...) over item_id (fc_...); OpenCode
         # links function_call_output by call_id.
         call_id = chunk.get("call_id") or item_id
-        wire_name = chunk.get("name")
-        wire_name_str = wire_name.strip() if isinstance(wire_name, str) else ""
         name = _resolve_function_call_name(chunk)
         delta_payload = chunk.get("delta") or {}
         if isinstance(delta_payload, str):
@@ -420,9 +418,6 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
             arguments_fragment = _extract_text(delta_payload)
             if not arguments_fragment:
                 arguments_fragment = json.dumps(delta_payload)
-        tool_index = assign_tool_call_index(
-            chunk_id, chunk.get("output_index"), call_id
-        )
         # Cache under item_id and call_id so later done events can resolve name.
         if name:
             _cache_function_call_name_aliases(
@@ -447,35 +442,18 @@ def responses_to_domain_stream_chunk(chunk: Any) -> dict[str, Any]:
                     accum_keys.append(accum_key)
             for accum_key in accum_keys:
                 accumulate_tool_call_arguments(accum_key, arguments_fragment)
-        # If the provider still hasn't supplied a tool name, never emit a partial
-        # tool-call delta. Strict clients reject unnamed function chunks.
-        if not str(name).strip():
-            return _build_chunk()
-        # Codex often omits `name` on argument deltas and relies on prior
-        # `response.output_item.added` caching. Suppress those wire-anonymous deltas
-        # until `response.output_item.done` (see streaming regression tests).
-        if not wire_name_str:
-            return _build_chunk()
-        # Do not emit placeholder tool-call deltas for shell-like tools.
-        # Clients such as OpenCode validate tool arguments immediately and reject
-        # `bash` calls with empty arguments before the final done event arrives.
-        if _should_buffer_partial_tool_call(str(name)):
-            return _build_chunk()
-
-        function_payload: dict[str, Any] = {"arguments": arguments_fragment}
-        if name:
-            function_payload["name"] = _openai_client_shell_tool_name(name)
-        delta = {
-            "tool_calls": [
-                {
-                    "index": tool_index,
-                    "id": call_id or "",
-                    "type": "function",
-                    "function": function_payload,
-                }
-            ]
-        }
-        return _build_chunk(delta)
+        # Never emit domain tool_calls from argument deltas.
+        #
+        # The Responses semantic pipeline reconstructs wire events via the
+        # legacy chat mapper, which treats ANY non-empty tool_calls chunk as a
+        # *completed* function_call cycle (added + args.done + item.done).
+        # Emitting here AND again from response.output_item.done therefore
+        # duplicates the same tool on the OpenCode wire (often once under
+        # item_id fc_... and once under call_id call_...), which breaks
+        # function_call_output linking and triggers client disconnect/retry
+        # loops. Accumulate only; output_item.done is the single emit site
+        # (mirrors response.function_call_arguments.done below).
+        return _build_chunk()
 
     if event_type == "response.function_call_arguments.done":
         item_id = chunk.get("item_id")

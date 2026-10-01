@@ -425,3 +425,98 @@ async def test_semantic_sse_coalesces_done_before_hanging_store() -> None:
     assert "response.completed" in blob
     assert "data: [DONE]" in blob
     hang.set()
+
+
+@pytest.mark.asyncio
+async def test_args_delta_does_not_duplicate_function_call_on_wire() -> None:
+    """Named args.delta must not finalize a tool before output_item.done.
+
+    Legacy semantic mapping treats any non-empty tool_calls chunk as a full
+    function_call cycle. Emitting from both args.delta and output_item.done
+    duplicated tools on the OpenCode wire (repro 2026-10-01).
+    """
+    args = '{"filePath":"C:\\\\tmp"}'
+    backend_events = [
+        {"type": "response.created", "response": {"id": "resp_dup1", "model": "gpt-6.1-sol"}},
+        {"type": "response.in_progress", "response": {"id": "resp_dup1"}},
+        {
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": {
+                "id": "fc_1",
+                "call_id": "call_1",
+                "type": "function_call",
+                "name": "read",
+                "arguments": "",
+                "status": "in_progress",
+            },
+        },
+        {
+            "type": "response.function_call_arguments.delta",
+            "item_id": "fc_1",
+            "output_index": 0,
+            "delta": args,
+            "name": "read",
+        },
+        {
+            "type": "response.function_call_arguments.done",
+            "item_id": "fc_1",
+            "call_id": "call_1",
+            "output_index": 0,
+            "arguments": args,
+            "name": "read",
+        },
+        {
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": {
+                "id": "fc_1",
+                "call_id": "call_1",
+                "type": "function_call",
+                "name": "read",
+                "arguments": args,
+                "status": "completed",
+            },
+        },
+        {
+            "type": "response.completed",
+            "response": {
+                "id": "resp_dup1",
+                "status": "completed",
+                "output": [
+                    {
+                        "id": "fc_1",
+                        "call_id": "call_1",
+                        "type": "function_call",
+                        "name": "read",
+                        "arguments": args,
+                        "status": "completed",
+                    }
+                ],
+            },
+        },
+    ]
+
+    delta_chunk = responses_to_domain_stream_chunk(backend_events[3])
+    assert "tool_calls" not in (delta_chunk["choices"][0].get("delta") or {})
+
+    domain_chunks = [responses_to_domain_stream_chunk(ev) for ev in backend_events]
+
+    async def gen():
+        for c in domain_chunks:
+            yield c
+
+    normalizer = ResponsesEventNormalizer(
+        source=ResponsesStreamSource.OPENAI_RESPONSES, response_id="resp_dup1"
+    )
+    added = 0
+    completed_output = None
+    async for ev in normalizer.normalize(gen()):
+        if ev.type == ResponsesSemanticEventType.OUTPUT_ITEM_ADDED:
+            added += 1
+        if ev.type == ResponsesSemanticEventType.RESPONSE_COMPLETED:
+            completed_output = (ev.response or {}).get("output")
+    assert added == 1
+    assert isinstance(completed_output, list)
+    assert len(completed_output) == 1
+    assert completed_output[0].get("call_id") == "call_1"

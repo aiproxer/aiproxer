@@ -443,6 +443,16 @@ class ResponsesEventNormalizer:
                 if not name_s.strip():
                     # Never emit unnamed tool calls on the Responses wire.
                     continue
+                # Dedupe: a prior args.delta may already have finalized this
+                # call_id (or its fc_/call_ alias). OpenCode disconnects or
+                # double-executes when the same tool appears twice.
+                already = {
+                    str(it.get("call_id") or it.get("id") or "")
+                    for it in self._legacy_function_call_items
+                    if isinstance(it, dict)
+                }
+                if call_id_s in already:
+                    continue
                 if name_s:
                     self._remember_function_name(
                         item_id=call_id_s, call_id=call_id_s, name=name_s
