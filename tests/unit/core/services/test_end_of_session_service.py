@@ -14,6 +14,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
@@ -89,6 +90,27 @@ def sample_signal() -> EndOfSessionSignal:
         protocol="openai",
         backend="openai",
     )
+
+
+@pytest.mark.asyncio
+async def test_request_metrics_claim_preserves_conversation_event_identity(
+    service: EndOfSessionService,
+    mock_session_repository: MagicMock,
+    mock_event_bus: MagicMock,
+    sample_signal: EndOfSessionSignal,
+) -> None:
+    # HTTP metrics are initialized by request_id, even when the conversation is shared.
+    mock_session_repository.claim_eos_emission.side_effect = lambda **kwargs: kwargs[
+        "session_id"
+    ] in {"req-main", "req-title"}
+    for request_id in ("req-main", "req-title", "req-main"):
+        await service.record_signal(replace(sample_signal, request_id=request_id))
+    assert mock_event_bus.publish.await_count == 2
+    events = [call.args[0] for call in mock_event_bus.publish.await_args_list]
+    assert [event.request_id for event in events] == ["req-main", "req-title"]
+    assert all(event.session_id == sample_signal.session_id for event in events)
+    assert await service.has_ended(sample_signal.session_id, "req-main")
+    assert not await service.has_ended(sample_signal.session_id, "req-next")
 
 
 class TestConfigGating:

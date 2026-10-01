@@ -54,9 +54,10 @@ class SessionMetricsInitializer(ISessionMetricsInitializer):
         self._session_repository = session_repository
         self._timeout_seconds = timeout_seconds
         self._cache_ttl_seconds = cache_ttl_seconds
-        # Cache: session_id -> (timestamp, lock)
+        # Cache: session_id -> (successful initialization timestamp, lock).
+        # None means the lock exists but persistence has not succeeded yet.
         # Lock prevents concurrent initialization of the same session
-        self._initialization_cache: dict[str, tuple[float, asyncio.Lock]] = {}
+        self._initialization_cache: dict[str, tuple[float | None, asyncio.Lock]] = {}
         self._cache_lock = asyncio.Lock()
 
     async def ensure_session_metrics(
@@ -76,14 +77,17 @@ class SessionMetricsInitializer(ISessionMetricsInitializer):
             observed_at: Timestamp when the session was observed
         """
         session_id = session_key.primary_id
-        current_time = time.time()
 
         # Check cache first to avoid redundant database queries
         async with self._cache_lock:
             if session_id in self._initialization_cache:
                 cached_time, lock = self._initialization_cache[session_id]
                 # Check if cache entry is still valid
-                if current_time - cached_time < self._cache_ttl_seconds:
+                if (
+                    cached_time is not None
+                    and self._cache_ttl_seconds > 0
+                    and time.time() - cached_time < self._cache_ttl_seconds
+                ):
                     # Cache hit - skip database query
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(
@@ -96,13 +100,13 @@ class SessionMetricsInitializer(ISessionMetricsInitializer):
                             },
                         )
                     return
-                else:
+                elif cached_time is not None:
                     # Cache expired - remove entry
                     del self._initialization_cache[session_id]
 
             # Create lock for this session to prevent concurrent initialization
             if session_id not in self._initialization_cache:
-                self._initialization_cache[session_id] = (current_time, asyncio.Lock())
+                self._initialization_cache[session_id] = (None, asyncio.Lock())
             _, session_lock = self._initialization_cache[session_id]
 
         # Acquire session-specific lock to prevent concurrent initialization
@@ -111,7 +115,11 @@ class SessionMetricsInitializer(ISessionMetricsInitializer):
             async with self._cache_lock:
                 if session_id in self._initialization_cache:
                     cached_time, _ = self._initialization_cache[session_id]
-                    if current_time - cached_time < self._cache_ttl_seconds:
+                    if (
+                        cached_time is not None
+                        and self._cache_ttl_seconds > 0
+                        and time.time() - cached_time < self._cache_ttl_seconds
+                    ):
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug(
                                 "Session metrics already initialized (cache hit after lock) for session %s",

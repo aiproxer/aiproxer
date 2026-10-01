@@ -65,6 +65,7 @@ from src.core.domain.responses_wire_renderer import ResponsesWireRenderer
 from src.core.domain.translators.responses.wire_stream_emitter import (
     ResponsesWireStreamEmitter,
 )
+from src.core.domain.usage_summary import UsageSummary
 from src.core.interfaces.backend_config_provider_interface import (
     IBackendConfigProvider,
 )
@@ -841,7 +842,11 @@ class ResponsesController:
             # If it's a dict that looks like a ChatResponse, convert it first
             if isinstance(content, dict) and "choices" in content:
                 try:
-                    chat_response = ChatResponse(**content)
+                    chat_content = dict(content)
+                    raw_usage = chat_content.get("usage")
+                    if isinstance(raw_usage, dict):
+                        chat_content["usage"] = UsageSummary.from_dict(raw_usage)
+                    chat_response = ChatResponse(**chat_content)
                     converted_response = self._translation_service.from_domain_response(
                         chat_response, target_format="responses"
                     )
@@ -1178,6 +1183,52 @@ class ResponsesController:
             "usage": normalized_usage,
         }
 
+    @classmethod
+    def _normalize_nonstream_responses_object(
+        cls,
+        content: object,
+        *,
+        responses_model: str,
+        envelope: ResponseEnvelope,
+    ) -> dict[str, Any]:
+        """Enforce the client Responses contract independently of the backend."""
+        if hasattr(content, "model_dump"):
+            content = content.model_dump(exclude_none=True)  # type: ignore[union-attr]
+        original_fields = dict(content) if isinstance(content, dict) else {}
+        if isinstance(content, dict) and isinstance(content.get("response"), dict):
+            content = content["response"]
+        if isinstance(content, dict) and isinstance(content.get("choices"), list):
+            content = dict(content)
+            usage = content.get("usage")
+            if isinstance(usage, UsageSummary):
+                content["usage"] = usage.to_legacy_dict()
+            content = cls._chat_completion_to_responses_object(
+                content, responses_model=responses_model, envelope=envelope
+            )
+        if not isinstance(content, dict) or not isinstance(content.get("output"), list):
+            content = cls._chat_completion_to_responses_object(
+                content, responses_model=responses_model, envelope=envelope
+            )
+        # Keep existing extension fields for clients using the legacy structured
+        # output representation, alongside the native Responses fields.
+        payload = {**original_fields, **content}
+        payload.setdefault("created_at", int(payload.get("created") or time.time()))
+        payload.setdefault("status", "completed")
+        output = []
+        for item in payload["output"]:
+            normalized_item = dict(item)
+            if item.get("type") == "message":
+                parts = []
+                for part in item.get("content", []):
+                    normalized_part = dict(part)
+                    if part.get("type") == "output_text":
+                        normalized_part.setdefault("annotations", [])
+                    parts.append(normalized_part)
+                normalized_item["content"] = parts
+            output.append(normalized_item)
+        payload["output"] = output
+        return payload
+
     async def handle_responses_request(
         self,
         request: Request,
@@ -1367,7 +1418,7 @@ class ResponsesController:
                 # exact client-facing SSE bytes (Responses previously skipped p2c).
                 async def _responses_client_byte_stream() -> AsyncIterator[bytes]:
                     async for chunk in stream_generator:
-                        if isinstance(chunk, (bytes, bytearray, memoryview)):
+                        if isinstance(chunk, bytes | bytearray | memoryview):
                             yield bytes(chunk)
                         elif isinstance(chunk, str):
                             yield chunk.encode("utf-8")
@@ -1422,6 +1473,11 @@ class ResponsesController:
                     responses_model=responses_domain.model,
                 )
 
+            converted_content = self._normalize_nonstream_responses_object(
+                converted_content,
+                responses_model=responses_domain.model,
+                envelope=response,
+            )
             final_response = domain_response_to_fastapi(
                 dataclasses.replace(response, content=cast(Any, converted_content)),
                 wire_capture=self._wire_capture,
@@ -2091,11 +2147,8 @@ class ResponsesController:
                                 exc_info=True,
                             )
 
-                try:
+                with contextlib.suppress(RuntimeError):
                     asyncio.get_running_loop().create_task(_ge_cleanup())
-                except RuntimeError:
-                    # No running loop — best-effort skip.
-                    pass
                 raise
             except asyncio.CancelledError:
                 stream_terminated = True
@@ -2146,6 +2199,7 @@ class ResponsesController:
                 # (defensive fallback for edge cases). Avoid awaiting during an
                 # in-progress GeneratorExit aclose — schedule instead.
                 if stream_terminated and not termination_reported["reported"]:
+
                     async def _final_term_report() -> None:
                         try:
                             await report_client_termination(
@@ -2163,10 +2217,8 @@ class ResponsesController:
                                     },
                                 )
 
-                    try:
+                    with contextlib.suppress(RuntimeError):
                         asyncio.get_running_loop().create_task(_final_term_report())
-                    except RuntimeError:
-                        pass
 
                 # Always close the upstream iterator when the client SSE ends so
                 # connector teardown (HTTP aclose / cancel) cannot outlive the turn.

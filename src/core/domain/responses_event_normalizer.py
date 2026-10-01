@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import AsyncIterator
 from enum import Enum
 from typing import Any
@@ -118,6 +119,11 @@ class ResponsesEventNormalizer:
         self._openai_legacy_text_finalized = False
         self._openai_legacy_response_id: str | None = None
         self._openai_legacy_model: str | None = None
+        self._openai_legacy_usage: dict[str, Any] = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        }
         self._openai_legacy_text_fragments: list[str] = []
         self._gemini_lifecycle_started = False
         self._anthropic_message_id: str | None = None
@@ -201,7 +207,9 @@ class ResponsesEventNormalizer:
             raw=raw,
         )
 
-    def _remember_function_name(self, *, item_id: str | None, call_id: str | None, name: str) -> None:
+    def _remember_function_name(
+        self, *, item_id: str | None, call_id: str | None, name: str
+    ) -> None:
         if not isinstance(name, str) or not name.strip():
             return
         for key in (item_id, call_id):
@@ -325,6 +333,7 @@ class ResponsesEventNormalizer:
                         "object": "response",
                         "status": "completed",
                         "model": self._openai_legacy_model,
+                        "usage": dict(self._openai_legacy_usage),
                         "output": (
                             [
                                 self._build_message_item(
@@ -356,8 +365,28 @@ class ResponsesEventNormalizer:
         self, d: dict[str, Any], rid: str
     ) -> list[ResponsesSemanticEvent] | None:
         choices = d.get("choices")
-        if not isinstance(choices, list) or not choices:
+        if not isinstance(choices, list):
             return None
+        usage = d.get("usage")
+        if isinstance(usage, dict):
+            self._openai_legacy_usage = {
+                "input_tokens": usage.get(
+                    "prompt_tokens", usage.get("input_tokens", 0)
+                ),
+                "output_tokens": usage.get(
+                    "completion_tokens", usage.get("output_tokens", 0)
+                ),
+                "total_tokens": usage.get("total_tokens", 0),
+            }
+            for source, target in (
+                ("prompt_tokens_details", "input_tokens_details"),
+                ("completion_tokens_details", "output_tokens_details"),
+            ):
+                details = usage.get(source, usage.get(target))
+                if isinstance(details, dict):
+                    self._openai_legacy_usage[target] = dict(details)
+        if not choices:
+            return []
         choice0 = choices[0]
         if not isinstance(choice0, dict):
             return None
@@ -377,9 +406,11 @@ class ResponsesEventNormalizer:
             # Role-only chunks still establish a valid legacy stream lifecycle.
             # They are otherwise non-informative and must not leak as passthrough
             # events on the Responses wire.
-            return self._start_openai_legacy_stream(rid, d.get("model"))
+            return self._start_openai_legacy_stream(
+                rid, d.get("model"), d.get("created")
+            )
 
-        events = self._start_openai_legacy_stream(rid, d.get("model"))
+        events = self._start_openai_legacy_stream(rid, d.get("model"), d.get("created"))
         if self._openai_legacy_response_id is not None:
             rid = self._openai_legacy_response_id
 
@@ -555,13 +586,14 @@ class ResponsesEventNormalizer:
                         "status": "completed",
                         "model": d.get("model"),
                         "output": output,
+                        "usage": dict(self._openai_legacy_usage),
                     },
                 )
             )
         return events
 
     def _start_openai_legacy_stream(
-        self, rid: str, model: Any
+        self, rid: str, model: Any, created: Any = None
     ) -> list[ResponsesSemanticEvent]:
         if self._openai_legacy_stream_started:
             return []
@@ -575,7 +607,8 @@ class ResponsesEventNormalizer:
                 response_id=rid,
                 response={
                     "id": rid,
-                    "model": model,
+                    "model": model if isinstance(model, str) else "unknown",
+                    "created_at": _coerce_int(created) or int(time.time()),
                     "object": "response",
                 },
             ),
@@ -655,7 +688,9 @@ class ResponsesEventNormalizer:
             item_id_s = str(item_id) if item_id is not None else None
             call_id_raw = item.get("call_id")
             call_id_s = (
-                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+                str(call_id_raw)
+                if isinstance(call_id_raw, str) and call_id_raw
+                else None
             )
             name_raw = item.get("name")
             if isinstance(name_raw, str) and name_raw.strip():
@@ -669,7 +704,11 @@ class ResponsesEventNormalizer:
                     output_index=_coerce_int(d.get("output_index")),
                     content_index=_coerce_int(d.get("content_index")),
                     item_id=item_id_s,
-                    name=name_raw if isinstance(name_raw, str) and name_raw.strip() else None,
+                    name=(
+                        name_raw
+                        if isinstance(name_raw, str) and name_raw.strip()
+                        else None
+                    ),
                     item=dict(item),
                 )
             ]
@@ -684,7 +723,9 @@ class ResponsesEventNormalizer:
             item_id_s = str(item_id) if item_id is not None else None
             call_id_raw = item_done.get("call_id")
             call_id_s = (
-                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+                str(call_id_raw)
+                if isinstance(call_id_raw, str) and call_id_raw
+                else None
             )
             name_raw = item_done.get("name")
             if isinstance(name_raw, str) and name_raw.strip():
@@ -782,7 +823,9 @@ class ResponsesEventNormalizer:
             item_id_s = str(item_id) if item_id is not None else None
             call_id_raw = d.get("call_id")
             call_id_s = (
-                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+                str(call_id_raw)
+                if isinstance(call_id_raw, str) and call_id_raw
+                else None
             )
             wire_name = d.get("name")
             resolved_name = (
@@ -820,7 +863,9 @@ class ResponsesEventNormalizer:
             item_id_s = str(item_id) if item_id is not None else None
             call_id_raw = d.get("call_id")
             call_id_s = (
-                str(call_id_raw) if isinstance(call_id_raw, str) and call_id_raw else None
+                str(call_id_raw)
+                if isinstance(call_id_raw, str) and call_id_raw
+                else None
             )
             wire_name = d.get("name")
             resolved_name = (

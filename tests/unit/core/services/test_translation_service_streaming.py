@@ -1,8 +1,35 @@
 import unittest
 
+from src.core.services.translation_service import TranslationService
 from src.core.services.translation_service_streaming import (
     dict_to_canonical_stream_chunk,
 )
+
+
+class TestResponsesStreamUsage(unittest.TestCase):
+    def test_native_usage_survives_canonical_and_chat_stream_conversion(self):
+        service = TranslationService()
+        chunk = service.to_domain_stream_chunk(
+            {
+                "type": "response.completed",
+                "response": {
+                    "id": "resp_usage",
+                    "output": [],
+                    "usage": {
+                        "input_tokens": 8000,
+                        "output_tokens": 1326,
+                        "total_tokens": 9326,
+                        "input_tokens_details": {"cached_tokens": 1024},
+                        "output_tokens_details": {"reasoning_tokens": 326},
+                    },
+                },
+            },
+            "responses",
+        )
+        assert chunk.usage.prompt_tokens == 8000
+        assert chunk.usage.completion_tokens == 1326
+        assert chunk.usage.total_tokens == 9326
+        assert chunk.usage.extensions["input_tokens_details"] == {"cached_tokens": 1024}
 
 
 class TestDictToCanonicalStreamChunkReasoningSummary(unittest.TestCase):

@@ -11,6 +11,7 @@ from src.core.domain.translation_utils.content_utils import (
     coerce_reasoning_text,
     strip_empty_html_comment_markers,
 )
+from src.core.domain.usage_summary import UsageSummary
 
 
 def _normalize_reasoning_summary(delta_dict: dict[str, Any]) -> dict[str, Any]:
@@ -78,12 +79,16 @@ def dict_to_canonical_stream_chunk(chunk_dict: dict[str, Any]) -> CanonicalStrea
         )
         choices.append(choice)
 
+    usage = chunk_dict.get("usage")
+    if isinstance(usage, dict):
+        usage = UsageSummary.from_dict(usage)
+
     return CanonicalStreamChunk(
         id=chunk_dict.get("id"),
         object=chunk_dict.get("object", "chat.completion.chunk"),
         created=chunk_dict.get("created"),
         model=chunk_dict.get("model"),
         choices=choices,
-        usage=chunk_dict.get("usage"),
+        usage=usage,
         system_fingerprint=chunk_dict.get("system_fingerprint"),
     )

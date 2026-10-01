@@ -64,6 +64,40 @@ def sample_observed_at() -> datetime:
         return datetime.now(timezone.utc)
 
 
+@pytest.mark.asyncio
+async def test_default_cache_initializes_once_for_concurrent_first_calls(
+    mock_session_repository: SessionMetricsRepository,
+    sample_session_key: SessionKey,
+    sample_observed_at: datetime,
+) -> None:
+    initializer = SessionMetricsInitializer(mock_session_repository)
+    await asyncio.gather(
+        *(
+            initializer.ensure_session_metrics(
+                sample_session_key, observed_at=sample_observed_at
+            )
+            for _ in range(3)
+        )
+    )
+    cast(Any, mock_session_repository).upsert.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_default_cache_retries_failed_initialization(
+    mock_session_repository: SessionMetricsRepository,
+    sample_session_key: SessionKey,
+    sample_observed_at: datetime,
+) -> None:
+    initializer = SessionMetricsInitializer(mock_session_repository)
+    mock_repo = cast(Any, mock_session_repository)
+    mock_repo.upsert.side_effect = [RuntimeError("database unavailable"), None]
+    for _ in range(2):
+        await initializer.ensure_session_metrics(
+            sample_session_key, observed_at=sample_observed_at
+        )
+    assert mock_repo.upsert.await_count == 2
+
+
 class TestSuccessCase:
     """Test successful metrics initialization."""
 

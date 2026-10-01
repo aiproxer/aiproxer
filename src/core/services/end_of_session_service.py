@@ -101,9 +101,10 @@ class EndOfSessionService(IEndOfSessionService):
         reason = signal.reason
 
         try:
-            # Atomic update for session-level aggregates (turn count, etc.)
+            # Metrics use the request lifecycle key. Keep the conversation ID
+            # on the emitted event for existing subscribers.
             claim_succeeded = await self._session_repository.claim_eos_emission(
-                session_id=signal.session_id,
+                session_id=dedupe_key,
                 emitted_at=emitted_at,
                 signal_type=signal_type_str,
                 reason=reason,
@@ -121,8 +122,8 @@ class EndOfSessionService(IEndOfSessionService):
                 # to avoid repeatedly attempting claims on every request.
                 await self._mark_ended(dedupe_key)
                 try:
-                    if await self._session_repository.has_ended(signal.session_id):
-                        await self._mark_ended(signal.session_id)
+                    if await self._session_repository.has_ended(dedupe_key):
+                        await self._mark_ended(dedupe_key)
                 except Exception:
                     # Fail-open: never block response finalization due to EoS checks.
                     if logger.isEnabledFor(logging.DEBUG):
@@ -132,8 +133,7 @@ class EndOfSessionService(IEndOfSessionService):
                         )
                 return
 
-            # Mark both the request and the session as ended for hot-path dedupe.
-            await self._mark_ended(signal.session_id)
+            # A finished request must not suppress other turns in the conversation.
             await self._mark_ended(dedupe_key)
 
             error_classification = signal.error_classification

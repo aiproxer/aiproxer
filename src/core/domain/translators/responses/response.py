@@ -36,6 +36,10 @@ def responses_to_domain_response(response: Any) -> CanonicalChatResponse:
     for idx, item in enumerate(output_items):
         if not isinstance(item, dict):
             continue
+        # Reasoning is a separate Responses output item, not an assistant choice.
+        # An empty choice here hides the subsequent message in chat consumers.
+        if item.get("type") == "reasoning":
+            continue
 
         role = item.get("role", "assistant")
         content_parts = item.get("content")
@@ -113,7 +117,7 @@ def responses_to_domain_response(response: Any) -> CanonicalChatResponse:
 
         choices.append(
             ChatCompletionChoice(
-                index=idx,
+                index=len(choices),
                 message=message,
                 finish_reason=finish_reason,
             )

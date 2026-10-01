@@ -489,7 +489,7 @@ async def test_cursor_acp_non_streaming_chat_response_becomes_responses_object()
     assert payload["model"] == "cursor/glm-5.2-max"
     assert payload["output"][0]["type"] == "message"
     assert payload["output"][0]["content"] == [
-        {"type": "output_text", "text": "PROXY_ROUTE_OK"}
+        {"type": "output_text", "text": "PROXY_ROUTE_OK", "annotations": []}
     ]
     assert payload["usage"] == {
         "input_tokens": 3,
@@ -646,7 +646,9 @@ async def test_cursor_acp_semantic_stream_disconnect_calls_backend_cancel() -> N
 
 
 @pytest.mark.asyncio
-async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_backend() -> None:
+async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_backend() -> (
+    None
+):
     """Native /v1/responses must route openai-chatgpt-plan via OpenAI Responses wire.
 
     Phase 7.2 proof: without this allowlist entry the frontend raises
@@ -684,7 +686,9 @@ async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_backend()
 
 
 @pytest.mark.asyncio
-async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_instance_backend() -> None:
+async def test_prepare_responses_execution_accepts_openai_chatgpt_plan_instance_backend() -> (
+    None
+):
     """Instance backends (openai-chatgpt-plan.home) must share the same wire path."""
 
     kwargs = build_responses_controller_backend_kwargs()

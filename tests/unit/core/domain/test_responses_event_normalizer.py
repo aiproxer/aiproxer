@@ -37,6 +37,92 @@ def _chunks(*items: Any) -> AsyncGenerator[Any, None]:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("finish", [True, False])
+async def test_legacy_responses_lifecycle_has_sdk_required_metadata(
+    finish: bool,
+) -> None:
+    normalizer = ResponsesEventNormalizer(
+        source=ResponsesStreamSource.OPENAI_CHAT_COMPLETIONS, response_id="resp_sdk"
+    )
+    chunks: list[dict[str, Any]] = [
+        {
+            "id": "resp_sdk",
+            "model": "test-model",
+            "created": 1790860000,
+            "choices": [{"delta": {"content": "hello"}}],
+        },
+        {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 17,
+                "completion_tokens": 5,
+                "total_tokens": 22,
+                "prompt_tokens_details": {"cached_tokens": 7},
+                "completion_tokens_details": {"reasoning_tokens": 2},
+            },
+        },
+    ]
+    if finish:
+        chunks.append({"choices": [{"delta": {}, "finish_reason": "stop"}]})
+    events = await _collect(normalizer.normalize(_chunks(*chunks)))
+    created = next(
+        e for e in events if e.type == ResponsesSemanticEventType.RESPONSE_CREATED
+    )
+    assert created.response is not None
+    assert created.response["created_at"] == 1790860000
+    terminal = events[-1]
+    assert terminal.response is not None
+    assert terminal.response["usage"] == {
+        "input_tokens": 17,
+        "output_tokens": 5,
+        "total_tokens": 22,
+        "input_tokens_details": {"cached_tokens": 7},
+        "output_tokens_details": {"reasoning_tokens": 2},
+    }
+
+
+@pytest.mark.asyncio
+async def test_legacy_responses_tool_terminal_has_numeric_usage_without_provider_usage() -> (
+    None
+):
+    normalizer = ResponsesEventNormalizer(
+        source=ResponsesStreamSource.OPENAI_CHAT_COMPLETIONS,
+        response_id="resp_tool_sdk",
+    )
+    events = await _collect(
+        normalizer.normalize(
+            _chunks(
+                {
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "id": "call_read",
+                                        "function": {"name": "read", "arguments": "{}"},
+                                    }
+                                ]
+                            },
+                            "finish_reason": "tool_calls",
+                        }
+                    ]
+                }
+            )
+        )
+    )
+    assert events[0].response is not None
+    assert isinstance(events[0].response["created_at"], int)
+    assert isinstance(events[0].response["model"], str)
+    assert events[-1].response is not None
+    assert events[-1].response["usage"] == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+    }
+    assert events[-1].response["output"][0]["call_id"] == "call_read"
+
+
+@pytest.mark.asyncio
 async def test_openai_maps_lifecycle_and_positions() -> None:
     n = ResponsesEventNormalizer(
         source=ResponsesStreamSource.OPENAI_RESPONSES, response_id="resp_x"
@@ -494,8 +580,6 @@ async def test_mid_stream_exception_emits_failed_terminal() -> None:
     assert events[-1].error is not None
 
 
-
-
 @pytest.mark.asyncio
 async def test_stops_consuming_upstream_after_completed() -> None:
     """After response.completed, do not wait for upstream EOF before finishing.
@@ -519,9 +603,7 @@ async def test_stops_consuming_upstream_after_completed() -> None:
         timeout=0.5,
     )
     assert events[-1].type == ResponsesSemanticEventType.RESPONSE_COMPLETED
-    assert any(
-        e.type == ResponsesSemanticEventType.RESPONSE_COMPLETED for e in events
-    )
+    assert any(e.type == ResponsesSemanticEventType.RESPONSE_COMPLETED for e in events)
 
 
 @pytest.mark.asyncio
@@ -776,11 +858,14 @@ async def test_acp_role_only_chunk_emits_lifecycle_before_completed() -> None:
         ResponsesSemanticEventType.RESPONSE_COMPLETED,
     ]
     assert [event.sequence_number for event in events] == [0, 1, 2]
+    assert events[0].response is not None
     assert events[0].response == {
         "id": "chat-role",
         "model": "cursor/glm-5.2-max",
         "object": "response",
+        "created_at": events[0].response["created_at"],
     }
+    assert isinstance(events[0].response["created_at"], int)
 
 
 @pytest.mark.asyncio

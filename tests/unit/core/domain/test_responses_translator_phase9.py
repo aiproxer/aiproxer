@@ -6,6 +6,33 @@ from src.core.domain.translators.responses_translator import ResponsesTranslator
 from src.core.services.translation_service import TranslationService
 
 
+def test_reasoning_item_does_not_become_an_empty_assistant_choice() -> None:
+    service = TranslationService()
+    response = service.to_domain_response(
+        {
+            "id": "resp_reasoning_then_answer",
+            "model": "any-model",
+            "status": "completed",
+            "output": [
+                {"id": "rs_1", "type": "reasoning", "summary": []},
+                {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": "PROOF"}],
+                },
+            ],
+            "usage": {"input_tokens": 17, "output_tokens": 5, "total_tokens": 22},
+        },
+        "responses",
+    )
+    assert len(response.choices) == 1
+    assert response.choices[0].message.content == "PROOF"
+    assert response.usage is not None
+    assert response.usage.prompt_tokens == 17
+
+
 def test_responses_translator_format_names() -> None:
     translator = ResponsesTranslator()
     assert "responses" in set(translator.format_names)
