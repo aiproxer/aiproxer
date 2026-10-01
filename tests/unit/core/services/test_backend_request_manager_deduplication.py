@@ -823,3 +823,79 @@ class TestBackendRequestManagerDeduplication:
         mock_dedup_service.mark_request_complete.assert_awaited_once_with(
             "hash_unhandled", session_id, status_code=500
         )
+
+
+    def test_should_bypass_dedup_for_responses_semantic_pipeline_stream(
+        self, backend_request_manager: BackendRequestManager
+    ) -> None:
+        request = ChatRequest(
+            model="openai-chatgpt-plan:gpt-6.1-sol",
+            messages=[ChatMessage(role="user", content="x")],
+            stream=True,
+        )
+        context = RequestContext(
+            headers={}, cookies={}, state=MagicMock(), app_state=MagicMock()
+        )
+        context.extensions["responses_semantic_pipeline"] = True
+        assert backend_request_manager._should_bypass_dedup(request, context) is True
+
+    def test_should_not_bypass_dedup_for_plain_chat_stream(
+        self, backend_request_manager: BackendRequestManager
+    ) -> None:
+        request = ChatRequest(
+            model="gpt-4",
+            messages=[ChatMessage(role="user", content="x")],
+            stream=True,
+        )
+        context = RequestContext(
+            headers={}, cookies={}, state=MagicMock(), app_state=MagicMock()
+        )
+        assert backend_request_manager._should_bypass_dedup(request, context) is False
+
+    @pytest.mark.asyncio
+    async def test_done_only_stream_responses_path_emits_incomplete_not_chat_chunk(
+        self,
+        backend_request_manager: BackendRequestManager,
+        mock_dedup_service: AsyncMock,
+        mock_backend_processor: MagicMock,
+    ) -> None:
+        """Regression: Responses dedup must not emit chat.completion.chunk / empty completed."""
+        request = ChatRequest(
+            model="openai-chatgpt-plan:gpt-6.1-sol",
+            messages=[ChatMessage(role="user", content="Call read once")],
+            stream=True,
+        )
+        context = RequestContext(
+            headers={}, cookies={}, state=MagicMock(), app_state=MagicMock()
+        )
+        # Force the done-only path (bypass off) to validate shape.
+        context.extensions["responses_semantic_pipeline"] = True
+        # Temporarily disable bypass by clearing the flag after we want shape test:
+        # Instead call _done_only indirectly: mark as duplicate AND clear bypass flag.
+        context.extensions.pop("responses_semantic_pipeline", None)
+        context.extensions["responses_semantic_pipeline"] = True
+
+        # Monkeypatch bypass to False so done-only runs while responses_path is True.
+        backend_request_manager._should_bypass_dedup = lambda req, ctx: False  # type: ignore[method-assign]
+        mock_dedup_service.check_and_register.return_value = (True, "hashdup", 1.0)
+        mock_backend_processor.process_backend_request = AsyncMock()
+
+        result = await backend_request_manager.process_backend_request(
+            request, "sess", context
+        )
+        assert isinstance(result, StreamingResponseEnvelope)
+        assert result.headers.get("x-llmproxy-duplicate-request") == "true"
+        chunks: list[bytes] = []
+        assert result.content is not None
+        async for item in result.content:
+            content = getattr(item, "content", item)
+            if isinstance(content, bytes):
+                chunks.append(content)
+            elif isinstance(content, str):
+                chunks.append(content.encode())
+        blob = b"".join(chunks)
+        assert b"chat.completion.chunk" not in blob
+        assert b"response.incomplete" in blob
+        assert b"duplicate_request" in blob
+        assert b"[DONE]" in blob
+

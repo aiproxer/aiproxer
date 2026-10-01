@@ -1257,6 +1257,46 @@ class ResponsesController:
                 await self._responses_history_for_turn(responses_domain, []),
             )
             request.state.responses_semantic_pipeline = True
+
+            # Capture CLIENT_TO_PROXY for Responses HTTP (CBOR / JSON wire capture).
+            # Backend p2b/b2p are captured elsewhere; without this, Responses sessions
+            # only show B-leg traffic in CBOR captures.
+            if self._wire_capture and self._wire_capture.enabled():
+                try:
+                    await self._wire_capture.capture_inbound_request(
+                        context=ctx,
+                        session_id=getattr(ctx, "session_id", None),
+                        request_payload=responses_request,
+                        capture_metadata={
+                            "transport": "http",
+                            "protocol_event": "request",
+                            "http_method": request.method,
+                            "url": str(request.url),
+                        },
+                    )
+                except OSError as exc:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            "Wire capture (Responses inbound request) failed: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                except (ValueError, TypeError, AttributeError, RuntimeError) as exc:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            "Wire capture (Responses inbound request) failed: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                except Exception as exc:  # pragma: no cover - defensive
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            "Wire capture (Responses inbound request) failed "
+                            "(unexpected): %s",
+                            exc,
+                            exc_info=True,
+                        )
+
             # Requirement 5.5: Proactive session metrics initialization
             # Initialize session metrics early in lifecycle before backend work begins
             # This ensures metrics exist for EoS emission even if client disconnects immediately
@@ -1323,8 +1363,45 @@ class ResponsesController:
                 if response.headers:
                     streaming_headers.update(response.headers)
 
+                # Normalize to bytes so PROXY_TO_CLIENT CBOR capture can tee the
+                # exact client-facing SSE bytes (Responses previously skipped p2c).
+                async def _responses_client_byte_stream() -> AsyncIterator[bytes]:
+                    async for chunk in stream_generator:
+                        if isinstance(chunk, (bytes, bytearray, memoryview)):
+                            yield bytes(chunk)
+                        elif isinstance(chunk, str):
+                            yield chunk.encode("utf-8")
+                        else:
+                            yield str(chunk).encode("utf-8")
+
+                outbound_stream: AsyncIterator[bytes] = _responses_client_byte_stream()
+                if self._wire_capture and self._wire_capture.enabled():
+                    try:
+                        outbound_stream = self._wire_capture.wrap_outbound_stream(
+                            context=ctx,
+                            session_id=getattr(ctx, "session_id", None),
+                            backend=None,
+                            model=getattr(domain_request, "model", None)
+                            or getattr(responses_domain, "model", None),
+                            key_name=None,
+                            stream=outbound_stream,
+                            capture_metadata={
+                                "transport": "http",
+                                "protocol_event": "response",
+                                "http_status_code": 200,
+                            },
+                        )
+                    except Exception as exc:
+                        if logger.isEnabledFor(logging.WARNING):
+                            logger.warning(
+                                "Wire capture failed wrapping Responses outbound "
+                                "stream: %s",
+                                exc,
+                                exc_info=True,
+                            )
+
                 return StreamingResponse(
-                    content=stream_generator,
+                    content=outbound_stream,
                     status_code=200,
                     media_type="text/event-stream",
                     headers=streaming_headers,

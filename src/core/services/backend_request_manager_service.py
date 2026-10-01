@@ -266,6 +266,17 @@ class BackendRequestManager(IBackendRequestManager):
         ):
             return True
 
+        # OpenCode (and other Responses clients) abort mid-tool then retry the same
+        # body. A done-only / empty response.completed (output:[]) clears the UI.
+        # Bypass streaming Responses semantic pipeline so retries re-hit upstream.
+        extensions = getattr(context, "extensions", None)
+        if (
+            bool(getattr(request, "stream", False))
+            and isinstance(extensions, Mapping)
+            and extensions.get("responses_semantic_pipeline") is True
+        ):
+            return True
+
         headers = getattr(context, "headers", {})
         if isinstance(headers, Mapping):
             dedup_override = headers.get("x-llmproxy-no-dedup")
@@ -397,13 +408,60 @@ class BackendRequestManager(IBackendRequestManager):
                                 max(0, math.ceil(float(retry_after_seconds)))
                             )
 
+                        extensions = getattr(context, "extensions", None)
+                        responses_path = (
+                            isinstance(extensions, Mapping)
+                            and extensions.get("responses_semantic_pipeline") is True
+                        )
+
                         async def _done_only_stream() -> AsyncIterator[Any]:
                             from src.core.interfaces.response_processor_interface import (
                                 ProcessedResponse,
                             )
 
-                            # Emit a minimal terminal chunk and [DONE] sentinel.
-                            # This keeps OpenAI-streaming clients happy without surfacing errors.
+                            if responses_path:
+                                # Never emit chat.completion.chunk on /v1/responses.
+                                # Empty response.completed (output:[]) clears OpenCode UI;
+                                # mark incomplete so clients retry instead of accepting empty.
+                                import json as _json
+                                import time as _time
+
+                                resp_id = f"resp_dup_{int(_time.time())}"
+                                events = [
+                                    {
+                                        "type": "response.created",
+                                        "sequence_number": 0,
+                                        "response": {
+                                            "id": resp_id,
+                                            "object": "response",
+                                            "status": "in_progress",
+                                        },
+                                    },
+                                    {
+                                        "type": "response.incomplete",
+                                        "sequence_number": 1,
+                                        "response": {
+                                            "id": resp_id,
+                                            "object": "response",
+                                            "status": "incomplete",
+                                            "output": [],
+                                            "incomplete_details": {
+                                                "reason": "duplicate_request"
+                                            },
+                                        },
+                                    },
+                                ]
+                                for evt in events:
+                                    payload = _json.dumps(
+                                        evt, separators=(",", ":")
+                                    ).encode("utf-8")
+                                    yield ProcessedResponse(
+                                        content=b"data: " + payload + b"\n\n"
+                                    )
+                                yield ProcessedResponse(content=b"data: [DONE]\n\n")
+                                return
+
+                            # Chat Completions: minimal terminal chunk + [DONE].
                             yield ProcessedResponse(
                                 content=b'data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'
                             )
