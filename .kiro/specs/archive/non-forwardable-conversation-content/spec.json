@@ -1,0 +1,24 @@
+{
+  "feature_name": "non-forwardable-conversation-content",
+  "created_at": "2026-08-18T18:42:00+02:00",
+  "updated_at": "2026-08-23T22:00:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Introduce one protocol-neutral A-leg conversation-projection capability for proxy-owned content with asymmetric visibility: (1) client-visible/backend-hidden complete messages that remain in A-leg history but are deterministically removed from every B-leg, and (2) backend-visible/client-hidden persistent steering overlays that the proxy stores and deterministically reinjects on every later B-leg at a stable placement anchor. Use authoritative A-leg continuity, versioned semantic identities, bounded Memory/Bun persistence, early projection before backend-oriented transforms/routing/context/billing, a final projection guard before PTB/backend Open, a generic two-phase local-turn seam, and a trusted steering writer. Persistent steering must be cache-friendly: unchanged overlay revisions and append-only client history preserve an append-only/exact-prefix model-visible sequence; activation/update/deactivation is an explicit cache discontinuity, and anchor loss never causes tail-following relocation. Do not implement interactive commands, command handlers, quota-notification policy, verifier policy, or any concrete producer."
+}

@@ -1,0 +1,14 @@
+# After atomic publish of a new artifact tree, retarget discovery to the candidate root.
+plugins:
+  backend_discovery:
+    enabled: true
+    development_mode: true
+    strict: true
+    paths:
+      - .aip-plugins/upgrade-candidate/localstub
+  backends:
+    - kind: local-stub
+      id: upgraded-stub
+      enabled: true
+      config:
+        text: "[operator] upgrade candidate"

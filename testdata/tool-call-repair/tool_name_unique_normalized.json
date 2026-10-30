@@ -1,0 +1,30 @@
+{
+  "name": "tool_name_unique_normalized",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "Get-Weather",
+    "args_json": "{\"location\":\"NYC\"}"
+  },
+  "expect": {
+    "action": "rewrite",
+    "tool_name": "get_weather",
+    "args_json_unchanged": true,
+    "reason_code": "tool_name_normalized"
+  },
+  "normalize": {
+    "input": "Get-Weather",
+    "want": "getweather"
+  }
+}

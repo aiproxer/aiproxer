@@ -1,0 +1,26 @@
+{
+  "name": "property_ambiguous",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "userId": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"User-Id\":\"abc\"}"
+  },
+  "expect": {
+    "action": "unrepairable",
+    "args_json_unchanged": true,
+    "reason_code": "ambiguous_property",
+    "must_not_mutate": true
+  }
+}

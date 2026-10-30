@@ -1,0 +1,63 @@
+{
+  "Messages": [
+    {
+      "Role": "user",
+      "Parts": [{ "Kind": "text", "Text": "use tools" }]
+    },
+    {
+      "Role": "assistant",
+      "Parts": [
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "anthropic.thinking.v1",
+            "Text": "Need weather data.",
+            "Signature": "sig_before_tool"
+          }
+        },
+        { "Kind": "text", "Text": "Checking weather." },
+        {
+          "Kind": "json",
+          "Content": {
+            "tool_use_id": "toolu_01",
+            "name": "get_weather",
+            "input": { "city": "NYC" }
+          }
+        },
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "anthropic.thinking.v1",
+            "Text": "After tool planning.",
+            "Signature": "sig_after_tool_plan"
+          }
+        }
+      ]
+    },
+    {
+      "Role": "tool",
+      "Parts": [
+        {
+          "Kind": "tool_result",
+          "ToolCallID": "toolu_01",
+          "ToolName": "get_weather",
+          "Content": { "temp_c": 21 }
+        }
+      ]
+    },
+    {
+      "Role": "assistant",
+      "Parts": [
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "anthropic.thinking.v1",
+            "Text": "Compose final reply.",
+            "Signature": "sig_final"
+          }
+        },
+        { "Kind": "text", "Text": "It is 21C in NYC." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+# Implementation Plan
+
+> MCP implementation remains a separate follow-up (#1193). Its own validation prerequisite is unchanged; permissions use the connector's policy (default bypass), not a separate permission-profile gate.
+
+- [ ] 1. Configuration and gates
+- [ ] 1.1 Add `mcp_passthrough` and the validated `mcp_servers` schema
+  - Strict schema per design: name regex/uniqueness/≤32, transport shapes, absolute stdio command, bounded args/env, secret-shaped value rejection, URL policy (https, or loopback http), userinfo rejection. Fail-closed, entry-named diagnostics, no partial config.
+  - Done when red-first table tests cover every acceptance and rejection path, including oversized values and secret-shaped entries.
+  - _Requirements: 1.2, 2.3, 2.4_
+  - _Boundary: backend plugin (Config, validation)_
+- [ ] 1.2 Compose certification gates
+  - MCP `allow` requires existing honor/local-only gates and the MCP validation digest; permission policy remains independently selected (default bypass). Restart-required binding for list changes.
+  - Done when gate-composition tests cover default, missing honor, missing MCP digest, both permission policies, and identity drift.
+  - _Requirements: 1.1, 1.4, 3.2_
+  - _Boundary: backend plugin (Config, AuthEnv, gates)_
+  - _Depends: 1.1_
+- [ ] 2. Session wiring and hygiene
+- [ ] 2.1 Emit `session/new` top-level `mcpServers` under allow; pin deny byte-identity
+  - Replace `SessionNewMCPServers: []` with the adapter-shaped array (stdio/http/sse) under `allow`; keep `strictMcpConfig: true`, settings/plugins/hooks isolation, permission policy, env rules and roots unchanged. Deny output compares byte-identical with V1 fixtures.
+  - Done when metadata tests cover both policies and prove client extensions cannot contribute or override entries.
+  - _Requirements: 1.3, 3.3, 3.4_
+  - _Boundary: backend plugin (AuthEnv)_
+  - _Depends: 1.2_
+- [ ] 2.2 Prove credential isolation for server environments
+  - Server env comes only from the validated block; connector secrets (api_key, subscription token, host-login state) never reach server env/args/logs. Tests assert absence across all three credential sources.
+  - Done when isolation tests cover every source and a secret-shaped config entry is rejected pre-exec.
+  - _Requirements: 2.1, 2.2_
+  - _Boundary: backend plugin (AuthEnv, diagnostics)_
+  - _Depends: 2.1_
+- [ ] 3. Permission interplay and lifecycle
+- [ ] 3.1 Permission interplay under deny and bypass
+  - Under permission deny, MCP-related permission requests decline; under default bypass, offered one-time approvals are selected, persistent-only offers cancel, and lifetime approval policy stays consistent.
+  - Done when tests cover denied calls, bypass selection/fallback, and lifetime-policy parity.
+  - _Requirements: 3.1, 3.3_
+  - _Boundary: backend plugin (PermissionHandler tests)_
+  - _Depends: 2.1_
+- [ ] 3.2 Lifecycle and failure semantics with configured servers
+  - Server processes die with the runtime tree on cancel/reap/reconfigure/close; connection failures map through existing classification with bounded redacted diagnostics; pre-output eligibility and post-output terminality unchanged; identity drift rejects.
+  - Done when process-tree and error-mapping tests pass with a configured fake server fixture.
+  - _Requirements: 4.1, 4.2, 4.3_
+  - _Boundary: backend plugin (service), connector-support (process-tree tests)_
+  - _Depends: 2.2_
+- [ ] 4. Certification, disclosure and regression
+- [ ] 4.1 Certification run and disclosure
+  - Record: advertisement in a real session, denied call under permission deny, execution under permission bypass, cleanup with an active server. Set the MCP enabling constant only for the observed digest; disclose MCP posture and server names (no secrets) in startup/resolved-profile output.
+  - Done when evidence is attached to the spec and constants only match the certified digest.
+  - _Requirements: 5.1, 5.2_
+  - _Boundary: certification evidence, backend plugin (Disclosure)_
+  - _Depends: 3.2_
+- [ ] 4.2 Operator documentation and example
+  - Document both policies, validation rules, credential isolation, certification requirement and restart-required binding; add a disabled `allow` example. Docs checks pass.
+  - _Requirements: 5.3_
+  - _Boundary: docs, config example_
+  - _Depends: 4.1_
+- [ ] 4.3 Regression and integration proof
+  - Deny byte-identity, other credential sources, and cursor/agy/gemini suites and archtests unchanged; fake-adapter integration with a configured server proves advertisement and cleanup; delivery report shows no budget violations.
+  - _Requirements: 5.4_
+  - _Boundary: regression suites, integration test_
+  - _Depends: 4.1_

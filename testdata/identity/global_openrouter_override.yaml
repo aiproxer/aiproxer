@@ -1,0 +1,36 @@
+# ID-147-CFG: reconstruction fixture for root identity + OpenRouter backend override.
+continuity:
+  in_memory: true
+identity:
+  upstream:
+    user_agent:
+      mode: custom
+      value: "FixtureGlobalUA/1"
+    openrouter:
+      app_url:
+        mode: custom
+        value: "https://fixture.example/global"
+      app_title:
+        mode: custom
+        value: "FixtureGlobalTitle"
+  downstream:
+    server:
+      mode: custom
+      value: "FixtureServer/1"
+plugins:
+  backends:
+    - id: openrouter
+      enabled: true
+      config:
+        base_url: https://openrouter.ai/api/v1
+        api_key: sk-fixture
+        identity:
+          user_agent:
+            mode: custom
+            value: "FixtureORUA/2"
+          openrouter:
+            app_url:
+              mode: custom
+              value: "https://fixture.example/or-backend"
+            app_title:
+              mode: drop

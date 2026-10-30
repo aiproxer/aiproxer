@@ -1,0 +1,144 @@
+[
+  {
+    "id": 1,
+    "name": "ask-architecture-before-structuring",
+    "description": "Tests whether the model asks the developer about architecture preference before imposing one",
+    "prompt": "I'm starting a new Go web service project. Set up the directory structure for me.",
+    "trap": "Without the skill, the model immediately generates a directory structure without asking. The skill says to ASK the developer what architecture they prefer before structuring.",
+    "assertions": [{"id": "1.1", "text": "Inspects or asks for requirements when they materially affect layout; proceeds with a stated minimal assumption when sufficient"}, {"id": "1.2", "text": "Right-sizes structure without imposing a framework"}, {"id": "1.3", "text": "Does not require an architecture questionnaire or DI choice before progress"}]
+  },
+  {
+    "id": 2,
+    "name": "cmd-directory-minimal-logic",
+    "description": "Tests separation of process wiring from reusable behavior",
+    "prompt": "I'm organizing a Go project with an HTTP server. Here's my cmd/server/main.go that has 200 lines including request parsing, database queries, and response formatting. Is this OK?",
+    "trap": "The skill recommends thin entry points without claiming that every main package must live under cmd/ or contain only one file.",
+    "assertions": [
+      {"id": "2.1", "text": "Says business logic does NOT belong in cmd/server/main.go"},
+      {"id": "2.2", "text": "Says cmd/ should contain minimal logic: parse flags, wire dependencies, call Run()"},
+      {"id": "2.3", "text": "Recommends moving business logic to internal/ or pkg/"},
+      {"id": "2.4", "text": "main.go should primarily do dependency wiring and startup"},
+      {"id": "2.5", "text": "Avoids reusable request, database, and response behavior in the entry point while allowing process-specific wiring there"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "no-src-utils-helpers-common",
+    "description": "Tests whether the model chooses domain-specific packages without treating a layout as mandatory",
+    "prompt": "I'm organizing my Go project. I created these directories: src/ for source code, utils/ for utility functions, helpers/ for helper functions, and common/ for shared code. Here's my structure:\n\n```\nmyproject/\n  src/\n    main.go\n  utils/\n    string_utils.go\n  helpers/\n    http_helper.go\n  common/\n    types.go\n```\n\nDoes this look good?",
+    "trap": "Generic names can hide ownership, but an existing repository may have a justified convention; recommend a focused rename only when it improves a real boundary.",
+    "assertions": [
+      {"id": "3.1", "text": "Explains that src/ is optional in Go and checks repository conventions before moving code"},
+      {"id": "3.2", "text": "Rejects utils/ as a generic package name"},
+      {"id": "3.3", "text": "Rejects helpers/ as a generic package name"},
+      {"id": "3.4", "text": "Rejects common/ as a generic package name"},
+      {"id": "3.5", "text": "Suggests domain-specific package names instead (e.g. format/, stringconv/)"},
+      {"id": "3.6", "text": "Suggests cmd/{name}/ for multiple binaries while acknowledging a root main.go can be valid"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "module-naming-conventions",
+    "description": "Tests whether the model follows Go module naming conventions",
+    "prompt": "I'm initializing a new Go module. Which of these module names is correct?\n\n1. `module myproject`\n2. `module github.com/jdoe/MyProject`\n3. `module github.com/jdoe/my-project`\n4. `module github.com/jdoe/my_project`\n5. `module utils`",
+    "trap": "A published module path should be fetchable and stable; private module paths follow repository policy, and naming conventions are not all language requirements.",
+    "assertions": [{"id": "4.1", "text": "Distinguishes valid local paths from fetchable published paths"}, {"id": "4.2", "text": "Recognizes myproject can be valid for an unpublished module"}, {"id": "4.3", "text": "Does not reject uppercase or underscore-containing repository paths solely as language rules"}, {"id": "4.4", "text": "Matches the actual remote path when publishing"}]
+  },
+  {
+    "id": 5,
+    "name": "internal-vs-pkg-decision",
+    "description": "Tests whether the model correctly decides between internal/ and pkg/ based on export requirements",
+    "prompt": "I'm building a Go project with both a web service and a shared logging library that other teams want to import. I also have some private request parsing code. Where should I put each?",
+    "trap": "Without the skill, the model may put everything in internal/ or everything in pkg/. The skill says internal/ for non-exported, pkg/ only when code is useful to external consumers.",
+    "assertions": [
+      {"id": "5.1", "text": "Places logging in a coherent public package, root or pkg according to repository convention"},
+      {"id": "5.2", "text": "Puts the private request parsing code in internal/ (not exported)"},
+      {"id": "5.3", "text": "Explains internal import eligibility follows the parent tree rather than blanket module privacy"},
+      {"id": "5.4", "text": "Mentions that pkg/ should only be used when code is genuinely intended for external use"},
+      {"id": "5.5", "text": "Service/business logic goes in internal/ by default"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "workspace-when-to-use",
+    "description": "Tests whether the model recommends go.work only for multi-module scenarios, not single-module projects",
+    "prompt": "I have a single Go module project (one go.mod) with about 10 packages. A colleague suggested I add go.work for better organization. Should I?",
+    "trap": "Without the skill, the model may recommend go.work for any multi-package project. The skill says don't use workspaces for single-module projects or simple applications.",
+    "assertions": [
+      {"id": "6.1", "text": "Recommends AGAINST using go.work for a single-module project"},
+      {"id": "6.2", "text": "Explains that go.work is for multiple related Go modules that import each other"},
+      {"id": "6.3", "text": "Mentions that a single module with multiple packages does not need a workspace"},
+      {"id": "6.4", "text": "Lists valid use cases: monorepo with separate modules, local cross-module development"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "twelve-factor-app-conventions",
+    "description": "Tests configuration and logging choices without imposing a universal deployment model",
+    "prompt": "I'm building a Go microservice that reads its database URL from a config.yaml file checked into the repository. It writes logs to a file at /var/log/myapp.log. Is this a good approach?",
+    "trap": "Configuration sources and log routing depend on deployment; secrets and retention still require an explicit safe policy.",
+    "assertions": [
+      {"id": "7.1", "text": "Checks whether the URL contains secrets; safe non-secret defaults may be committed"},
+      {"id": "7.2", "text": "Chooses deployment-appropriate log collection and lifecycle; stdout is common but files are not universally invalid"},
+      {"id": "7.3", "text": "Describes explicit configuration precedence and deployment-appropriate log routing"},
+      {"id": "7.4", "text": "Mentions that sensitive values (like DB URLs) should never be in config files committed to source control"},
+      {"id": "7.5", "text": "Explains WHY: environment-based config allows different values per deployment without code changes"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "library-layout-no-cmd",
+    "description": "Tests whether the model uses the correct layout for a Go library (no cmd/, public packages at root level)",
+    "prompt": "I'm creating a Go library for other developers to import (a logging package). How should I structure the project? Should I put the code in cmd/ or pkg/?",
+    "trap": "Without the skill, the model may use the application layout (cmd/, internal/, pkg/) for a library. The skill shows that libraries put public API in root-level directories, no cmd/ unless example binaries.",
+    "assertions": [
+      {"id": "8.1", "text": "Places public API in a coherent importable package; root or pkg depends on repository policy"},
+      {"id": "8.2", "text": "No cmd/ directory (unless for example binaries)"},
+      {"id": "8.3", "text": "Uses internal/ for private implementation details"},
+      {"id": "8.4", "text": "Adds examples near the package or in examples only when useful"},
+      {"id": "8.5", "text": "Structure follows the library layout pattern, not the application layout pattern"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "test-file-colocation",
+    "description": "Tests whether the model co-locates test files with the code they test",
+    "prompt": "I'm organizing tests in my Go project. Should I create a separate tests/ directory at the root to hold all test files, or should I put them somewhere else?",
+    "trap": "Without the skill, the model may accept a centralized tests/ directory (common in Python/Java). The skill says co-locate _test.go files with the code they test.",
+    "assertions": [
+      {"id": "9.1", "text": "Recommends co-locating test files with the code they test (same directory)"},
+      {"id": "9.2", "text": "Test files use the _test.go suffix"},
+      {"id": "9.3", "text": "Does NOT recommend a centralized tests/ directory for unit tests"},
+      {"id": "9.4", "text": "Mentions testdata/ directory for test fixtures"},
+      {"id": "9.5", "text": "Distinguishes between white-box (same package) and black-box (package_test) testing approaches"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "config-sensitive-values-env-only",
+    "description": "Tests secret handling independently of the chosen non-secret configuration source",
+    "prompt": "I'm setting up configuration for my Go service using Viper. I want to put the database password, API keys, and JWT secret in my config.yaml for convenience. Then I'll use mapstructure tags to load them. Good idea?",
+    "trap": "A gitignored file or environment variable is not an automatic secret boundary; protect access, logs, backups, and examples.",
+    "assertions": [
+      {"id": "10.1", "text": "Rejects committing real secrets; controlled injected secret files can be valid with access and redaction defined"},
+      {"id": "10.2", "text": "Recommends the project's controlled secret store or injected credentials with redaction"},
+      {"id": "10.3", "text": "May suggest a secret manager as an alternative"},
+      {"id": "10.4", "text": "Config files are acceptable for non-sensitive values (port, log level, etc.)"},
+      {"id": "10.5", "text": "Explains WHY: config files can be accidentally committed, leaked in backups, or visible to other processes"}
+    ]
+  },
+  {
+    "id": 11,
+    "name": "multiple-binaries-cmd-structure",
+    "description": "Tests whether the model creates separate subdirectories in cmd/ for each binary",
+    "prompt": "My Go project needs three binaries: an API server, a CLI tool, and a database migration utility. How should I organize the cmd/ directory?",
+    "trap": "Without the skill, the model may put all three in a single cmd/main.go with subcommands. The skill shows separate subdirectories in cmd/ for each binary.",
+    "assertions": [
+      {"id": "11.1", "text": "Creates separate subdirectories: cmd/server/, cmd/cli/, cmd/migrate/ (or similar names)"},
+      {"id": "11.2", "text": "Each subdirectory has its own main.go with package main"},
+      {"id": "11.3", "text": "Each binary can be built independently (go build ./cmd/server, etc.)"},
+      {"id": "11.4", "text": "Mentions go build ./cmd/... to build all binaries at once"},
+      {"id": "11.5", "text": "Business logic is in internal/, not duplicated across cmd/ directories"}
+    ]
+  }
+]

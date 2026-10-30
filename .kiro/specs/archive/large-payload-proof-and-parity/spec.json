@@ -1,0 +1,52 @@
+{
+  "feature_name": "large-payload-proof-and-parity",
+  "created_at": "2026-10-13T20:49:48Z",
+  "updated_at": "2026-10-15T17:28:28Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "spec_type": "brownfield_refinement",
+  "baseline": {
+    "commit": "c6598d5d770f8a9b1b981abdf03fe6ca5fbd2b77",
+    "audit_commit": "8a041a2ad9c9c2c0d0bf8ee57005fe66f7479d6c"
+  },
+  "approval_mode": "explicit_user_approval; implementation_and_review_authorized",
+  "completed": true,
+  "implementation_complete": true,
+  "validation": {
+    "brownfield_gap_analysis": "performed",
+    "requirements_review": "PASS",
+    "design_review": "GO_after_wording_clarification",
+    "task_graph": "PASS_after_one_repair_recheck",
+    "final_sanity_review": "PASS",
+    "artifact_checks": "PASS; inventory_budgets_traceability_graph_links_metadata_whitespace_scope",
+    "feature_go": "independent_review_approved_21_of_21; local_integration_pass; merged_in_1148",
+    "specification_workflow": "complete",
+    "repository_kiro_checker": "PASS",
+    "implementation_tests": "PASS; PR_1148_checks_green; merged_40dd1bdcbad55ea8e4a6a46cc54b4c6860468b72",
+    "production_release": "implementation_merged; fast path remains bounded alternative representation, no paid-wire activation"
+  },
+  "implementation_base": "fa4bd2d555d20e66360fe781089af2728143ecf0",
+  "delivery": {
+    "prs": [
+      {
+        "number": 1148,
+        "merge_commit": "40dd1bdcbad55ea8e4a6a46cc54b4c6860468b72"
+      }
+    ]
+  }
+}

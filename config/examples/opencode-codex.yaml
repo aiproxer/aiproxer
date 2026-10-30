@@ -1,0 +1,121 @@
+# OPENCODE + OPENAI-CODEX LIVE TEST
+# Routes OpenCode (Responses API) to the ChatGPT Codex backend using the Codex CLI auth file.
+# Credentials: auto-discovered from ~/.codex/auth.json (tokens.access_token / refresh_token / account_id).
+# Override with OPENAI_CODEX_ACCESS_TOKEN env var or config.access_token if needed.
+#
+# Start:  go run ./cmd/aipstd serve --config ./config/examples/opencode-codex.yaml
+# Point OpenCode at: http://127.0.0.1:8080/v1  (Responses API, @ai-sdk/openai), model gpt-5.5
+server:
+  address: "127.0.0.1:8080"
+
+routing:
+  max_attempts: 3
+  default_route: "openai-codex:gpt-5.5"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: true
+  health_path: "/healthz"
+  attempts_path: "/admin/attempts"
+  inventory_path: "/debug/inventory"
+  route_trace_path: "/debug/route_trace"
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - id: openai-codex
+      enabled: true
+      config:
+        # base_url defaults to https://chatgpt.com/backend-api/codex — leave unset for live ChatGPT.
+        # access_token left empty so the connector auto-discovers ~/.codex/auth.json.
+        # account_id is read from auth.json tokens.account_id; override here only if needed.
+        default_reasoning_effort: "medium"
+        # default_verbosity: "medium"  # low, medium, or high
+        # Native context is default-on when this block is omitted. This
+        # explicit block demonstrates the complete operator opt-out.
+        native_context:
+          enabled: false
+          request_encrypted_reasoning: false
+          reasoning_continuity: disabled
+          compaction:
+            enabled: false
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    - id: codex-client-compat
+      enabled: true
+      config: {}

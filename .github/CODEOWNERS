@@ -1,0 +1,17 @@
+# Repository ownership and security-sensitive automation.
+* @matdev83
+/.github/ @matdev83
+/.goreleaser.yaml @matdev83
+/.release-files @matdev83
+/VISION.md @matdev83
+/AGENTS.md @matdev83
+/CLAUDE.md @matdev83
+/.kiro/steering/ @matdev83
+/scripts/ @matdev83
+/connectors/ @matdev83
+/connector-support/ @matdev83
+/cmd/aipstd/ @matdev83
+/internal/core/ @matdev83
+/internal/stdhttp/ @matdev83
+/pkg/aipapi/ @matdev83
+/pkg/aipsdk/ @matdev83

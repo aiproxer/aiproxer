@@ -1,0 +1,115 @@
+# Used when `gitleaks` is installed (scripts/check-staged-secrets.*).
+# Built-in rules stay enabled; global allowlists reduce false positives in fixtures.
+
+title = "aiproxer gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixtures and golden files (any package testdata/ segment)"
+paths = [
+  '''(^|/)testdata/''',
+]
+
+# Redaction/observability tests deliberately feed hostile identity-shaped
+# strings (session IDs, A-leg IDs) through the classifier to prove they can
+# never become a metric label. They are inert literals with no credential
+# shape, not secrets. Scoped by path + exact literal so a real credential in
+# these or any other files is still caught.
+[[allowlists]]
+description = "Bounded-observability redaction fixtures (hostile identity-shaped literals)"
+paths = [
+  '''internal/plugins/features/sessionclassification/classifier_observer_test\.go''',
+]
+regexes = [
+  '''sess-(observer-)?secret-2f19c0de''',
+  '''a-leg-secret-[0-9a-f]+''',
+]
+
+# Proxy Memory project-key test oracles pin the documented derivation:
+# hex(sha256("proxy-memory/v1\x00" + label)) for synthetic fixture labels.
+# They are deterministic digests with no credential shape or ownership, not
+# secrets. Scoped by path + exact literal so a real credential in this or any
+# other file is still caught.
+[[allowlists]]
+description = "Proxy Memory project-key SHA-256 test oracles (deterministic digests of fixture labels)"
+paths = [
+  '''internal/plugins/features/proxymemory/project_test\.go''',
+]
+regexes = [
+  '''6d3e59cba4acc65e5b423e493dc9c426f1d63b05161c6a05c58cdfba47de2ce6''',
+  '''ac101981c8920acd604e593e61e514759f1e88cd7cb821201296daad1408e878''',
+]
+
+# The Proxy Memory vendored-Apache-2.0 import NOTICE records the SHA-256
+# digests of the upstream Codex template files it mirrors (byte-for-byte
+# verification evidence; mandated by the proxy-codex-memory task 3.2
+# "Done when" clause). They are digests of public template text, not
+# secrets. Scoped by path + exact literal so a real credential anywhere else
+# stays caught.
+[[allowlists]]
+description = "Proxy Memory vendored-Codex NOTICE.md upstream template digests (byte-for-byte import evidence)"
+paths = [
+  '''internal/plugins/features/proxymemory/templates/codex/NOTICE\.md''',
+]
+regexes = [
+  '''d36a36083d92f9d44efbd95e0e4b6e81d7d149e812f2bca2009b6dd4b8aa93e7''',
+  '''1450e24f84c03375aa5114c6c0857f515395129dcc00f65263221d03866852a0''',
+  '''2bc7736029884b714860a6f0d6b2fd26598bba58f2213b787f01fe2a491f4326''',
+  '''2e54c74909238022305c269c862910bb29509fda8b58ce671ef011f8d6453047''',
+  '''cf795e8a2f5f52d333af2613bf1ff79178112f5fd2161cc181a8ddf52e59da33''',
+]
+
+# Proxy Memory redaction-order regression fixtures feed SYNTHETIC secret
+# values (mandated by the review finding: asserting the lossy-slug
+# normalization no longer re-exposes them) through ParsePhase1. Inert
+# literals with no credential shape or ownership, not secrets. Scoped by
+# path + exact literal so a real credential in this or any other file is
+# still caught.
+[[allowlists]]
+description = "Proxy Memory redaction-order slug-regression synthetic secrets (ParsePhase1 fixtures)"
+paths = [
+  '''internal/plugins/features/proxymemory/prompts_phase1_test\.go''',
+]
+regexes = [
+  '''Bearer abcdefghijklmnop12345''',
+  '''abcdefghijklmnop12345''',
+  '''password=abcdefgh''',
+  '''api_key = \\\"abcdefgh\\\"''',
+  '''Authorization: Bearer abcdefghijklmnop12345''',
+]
+
+# Proxy Memory cut-redaction regression fixtures carry the SYNTHETIC
+# AWS-shaped key (mandated by redaction-order reviews: the test proves cut
+# truncation can no longer expose it at a word boundary, and partially
+# asserts absence of its fragments). Inert literal with no ownership, not
+# a real key. Scoped by path + exact literal so a real credential in this
+# or any other file is still caught.
+[[allowlists]]
+description = "Proxy Memory cut-redaction synthetic AWS-shaped keys (prompts_phase2_test.go fixtures)"
+paths = [
+  '''internal/plugins/features/proxymemory/prompts_phase2_test\.go''',
+]
+regexes = [
+  '''AKIAABCDEFGHIJKLMNOP''',
+]
+
+# The AIProxer rename touched these synthetic fixtures, so the staged scan
+# re-read them: self-defense/acceptance test keys with no ownership, and a
+# test line whose package selector the generic rule misreads as a key.
+# Scoped by path + exact literal.
+[[allowlists]]
+description = "Synthetic self-defense/acceptance API keys and a package-selector test line"
+condition = "AND"
+paths = [
+  '''internal/core/runtime/parallel_race_isolation_test\.go''',
+  '''internal/infra/runtimebundle/self_defense_acceptance_test\.go''',
+  '''internal/infra/runtimebundle/self_defense_reload_test\.go''',
+  '''internal/stdhttp/admin/configreload/self_defense_management_isolation_test\.go''',
+  '''internal/stdhttp/selfdefense_acceptance_auth_test\.go''',
+]
+regexes = [
+  '''sk-aip-(self-defense|acceptance)(-[a-z]+)*-[0-9]+''',
+  '''sh2\.CapabilityReject\.Kind''',
+]

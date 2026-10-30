@@ -1,0 +1,261 @@
+name: Node independence
+
+on:
+  schedule:
+    - cron: "27 3 * * *"
+  pull_request:
+    # labeled/unlabeled so applying or removing the exemption actually re-runs the
+    # gate it unblocks, instead of waiting for the next push to notice.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AIP_ALLOW_LARGE_CHANGE: ${{ contains(github.event.pull_request.labels.*.name, 'allow-large-change') && '1' || '' }}
+  BUF_VERSION: v1.66.0
+
+concurrency:
+  # Share the branch/PR group so a new push cancels the superseded no-Node run
+  # instead of consuming another hosted runner.
+  group: node-independence-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect host build-surface changes
+    runs-on: ubuntu-latest
+    outputs:
+      host: ${{ steps.filter.outputs.host }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The lane replays the whole host verification surface, so an unrelated
+      # documentation or skill-only PR must not burn a runner. Every bypass
+      # still reports success so the workflow stays mergeable.
+      - name: Classify changed files
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" != "pull_request" && "$EVENT_NAME" != "merge_group" && "$EVENT_NAME" != "push" ]] || [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0{40}$ ]]; then
+            echo "host=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git rev-parse --verify "${BASE_SHA}^{commit}" >/dev/null
+          host=false
+          # The lane guards one property: the root build must never need Node.
+          # The guard's own files always replay it; the content-judged host
+          # surface - Makefile, tools, scripts, composite actions and the
+          # packaging/lint inputs - replays it only when a changed line invokes
+          # a Node toolchain. A bare mention - a comment, prose, a target or a
+          # file name, an identifier such as yaml.Node - cannot run anything and
+          # no longer pays the 7-14 minute run. Module metadata is ignored: an
+          # added or updated Go requirement cannot introduce a Node invocation
+          # into the replayed commands, so dependabot bumps and module-only
+          # edits no longer pay it (the daily schedule still replays the lane).
+          #
+          # An invocation starts a command: the start of a recipe or script
+          # line, right after a command separator, a `$(shell ...)` call, a YAML
+          # `run:` value, a YAML sequence item (goreleaser hooks), or an
+          # interpreter shebang. It must carry an argument, so an assignment or
+          # an identifier (node := workflowNode) cannot fire; `NODE_ENV=x npm ci`
+          # still does. Go and Python files count only a quoted runtime name,
+          # because their identifiers named `node` are not invocations.
+          # The names mirror the guard's Node entry-point list
+          # (tools/backendplugin/node_independence/probe.go, nodeToolNames) -
+          # including the version managers, because any of them can materialise
+          # a runtime - plus the TypeScript toolchains, which are Node programs
+          # themselves. `bun` keeps its own rule below because it also names the
+          # Go ORM.
+          node_tool='(node|nodejs|npm|npx|yarn|pnpm|deno|corepack|fnm|nodenv|nvm|volta|tsc|tsx|ts-node)'
+          env_prefix="([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*"
+          node_cmd="(^|[;&|(])[[:space:]]*${env_prefix}(shell[[:space:]]+)?(@|\\+|-)?${node_tool}[[:space:]]+[^[:space:]=:]"
+          node_run="(^|[[:space:]])run:[[:space:]]*(@|\\+|-)?${node_tool}([^[:alnum:]_.:-]|\$)"
+          node_list="^[[:space:]]*-[[:space:]]+(@|\\+)?${node_tool}([^[:alnum:]_.:-]|\$)"
+          node_shebang="^#![^[:space:]]*[[:space:]/]+${node_tool}([^[:alnum:]_.:-]|\$)"
+          node_quoted="[\"']${node_tool}([^[:alnum:]_.:-]|\$)"
+          # `bun` is ambiguous here: it also names the Go ORM (uptrace/bun)
+          # used by the billing stores, so import paths, member access and prose
+          # about it would otherwise fire the lane. Only invocation context
+          # counts: `bunx`, a trailing bare `bun` (shebang), or
+          # `bun <subcommand|flag>`; a new Bun subcommand must be added below.
+          bun_ref='(^|[^/[:alnum:]_])bunx\b|(^|[^/[:alnum:]_])bun$|(^|[^/[:alnum:]_])bun[[:space:]]+((run|install|add|remove|update|upgrade|link|pm|build|test|init|create|publish|x)\b|--)'
+          while IFS= read -r file; do
+            case "$file" in
+              # The guard changed: prove the edited guard still holds.
+              tools/backendplugin/node_independence/*|scripts/check-node-independence.*|\
+              .github/workflows/node-independence.yml)
+                host=true
+                break
+                ;;
+              Makefile|tools/*|scripts/*|.github/actions/*|\
+              .golangci.yml|.goreleaser.yaml|.goreleaser.yml|.release-files)
+                # Docs and data cannot invoke anything; skipping them keeps
+                # generated schemas and manifests from paying the lane.
+                case "$file" in
+                  *.md|*.txt|*.json) continue ;;
+                esac
+                ref="$node_cmd|$node_run|$node_list|$node_shebang|$bun_ref"
+                case "$file" in
+                  *.go|*.py) ref="$node_quoted|$bun_ref" ;;
+                esac
+                # The Makefile .PHONY mega-line lists every target, so a target
+                # addition must not fire the lane through the existing
+                # node-independence entry (same exclusion as scripts/ci-scope.sh).
+                if git diff --unified=0 "$BASE_SHA" HEAD -- "$file" \
+                  | grep -E '^[+-]' | grep -vE '^(---|\+\+\+)' | sed -E 's/^[+-]//' \
+                  | grep -vE '^\.PHONY:' | grep -E "$ref" >/dev/null; then
+                  host=true
+                  break
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" HEAD)
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+
+  no-node:
+    name: no-node
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+      - name: Report unrelated bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.host != 'true'
+        run: |
+          echo "No-Node lane bypassed: no host build surface changed."
+          echo "The no-node job remains successful for branch-protection semantics."
+      - name: Check out exact head
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Go is the only documented build prerequisite this lane provisions. Node
+      # is deliberately never set up: the lane proves unavailability with
+      # tripwires instead of trusting the runner image.
+      - name: Setup Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          # The shared composite owns cache identity, size and main publication.
+          cache: false
+
+      - name: Read golangci-lint pin
+        id: lint-pin
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . .github/golangci-lint.version
+          set +a
+          echo "version=$GOLANGCI_LINT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$GOLANGCI_LINT_SHA256" >> "$GITHUB_OUTPUT"
+
+      # Restore before tool provisioning: `go install buf` reuses the restored
+      # module downloads and compiler entries instead of refetching them.
+      # The full lane produced 6,014 MiB on main; a 1,536 MiB snapshot evicted
+      # most entries; the next runs spent 7-9 minutes in the first unit pass.
+      # policy.json retains up to 7 GiB for this lane (including growth room).
+      - name: Restore bounded no-node Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: node-independence
+
+      # Version-pinned tools are cached so a warm lane skips ~a minute of
+      # reinstalling identical binaries. The key is version-scoped: bump a pin
+      # and the next trusted main run seeds a fresh cache.
+      - name: Restore host verification tools
+        id: tools
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/node-independence-tools
+          key: no-node-tools-${{ runner.os }}-${{ runner.arch }}-buf-${{ env.BUF_VERSION }}-golangci-lint-${{ steps.lint-pin.outputs.version }}
+
+      # Replay the same mandatory quality gates as CI with their prerequisites
+      # installed. Missing analyzers must fail, not narrow the no-Node proof.
+      - name: Install host verification tools
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        env:
+          GOLANGCI_LINT_VERSION: ${{ steps.lint-pin.outputs.version }}
+          GOLANGCI_LINT_SHA256: ${{ steps.lint-pin.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/node-independence-tools"
+          mkdir -p "$tools/bin"
+          # The hosted image already ships ripgrep; keep the apt fallback for
+          # images that do not so the mandatory tools never go missing.
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+          if [[ ! -x "$tools/bin/buf" ]]; then
+            for attempt in 1 2 3; do
+              if GOBIN="$tools/bin" go install "github.com/bufbuild/buf/cmd/buf@${BUF_VERSION}"; then break; fi
+              if [[ "$attempt" == 3 ]]; then exit 1; fi
+              sleep $((attempt * 15))
+            done
+          fi
+          linter="$tools/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64"
+          if [[ ! -x "$linter/golangci-lint" ]]; then
+            archive="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz"
+            curl --retry 3 -sSfLo "$RUNNER_TEMP/$archive" "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/$archive"
+            echo "$GOLANGCI_LINT_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+            tar -xzf "$RUNNER_TEMP/$archive" -C "$tools"
+          fi
+          {
+            echo "$tools/bin"
+            echo "$linter"
+          } >> "$GITHUB_PATH"
+
+      # PR and merge-group refs never publish: only trusted main work advances
+      # the baseline, so an untrusted context cannot seed the cache.
+      - name: Save host verification tools
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.host == 'true' && steps.tools.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/node-independence-tools
+          key: no-node-tools-${{ runner.os }}-${{ runner.arch }}-buf-${{ env.BUF_VERSION }}-golangci-lint-${{ steps.lint-pin.outputs.version }}
+
+      # The full documented verification surface runs on every pull request. A reduced
+      # subset was rejected: a PR that only exercises the fast set would leave the
+      # quality, packaging and comprehensive steps unproven until merge.
+      - name: Run host verification with Node unavailable
+        if: needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        run: bash scripts/check-node-independence.sh --set full --report "$RUNNER_TEMP/node-independence.json"
+
+      - name: Upload no-Node evidence
+        if: always() && needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: node-independence-${{ github.run_id }}
+          path: ${{ runner.temp }}/node-independence.json
+          retention-days: 14
+          if-no-files-found: error
+
+      # Only successful main work publishes the advancing baseline.
+      - name: Save bounded no-node Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.host == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: node-independence
+          phase: save

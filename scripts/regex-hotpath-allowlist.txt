@@ -1,0 +1,4 @@
+# Repo-relative paths (forward slashes). Non-test Go files listed here may use
+# regexp.MustCompile / regexp.Compile under internal/plugins/frontends/ or
+# internal/core/runtime/. Use sparingly (e.g. package-level regex); prefer
+# strings.Split / strconv / scanners in request paths.

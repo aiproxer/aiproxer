@@ -1,0 +1,22 @@
+{
+  "Messages": [
+    {
+      "Role": "user",
+      "Parts": [{ "Kind": "text", "Text": "think carefully" }]
+    },
+    {
+      "Role": "assistant",
+      "Parts": [
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "anthropic.thinking.v1",
+            "Text": "Internal scratchpad.",
+            "Signature": "sig_anthropic_thinking_v1_example"
+          }
+        },
+        { "Kind": "text", "Text": "Here is the answer." }
+      ]
+    }
+  ]
+}

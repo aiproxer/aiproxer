@@ -1,0 +1,75 @@
+name: Development cost watchdog
+
+on:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-cost-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-cost:
+    # Temporarily paused: historical comparisons bottleneck development.
+    if: ${{ false }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out measured main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        env:
+          GIT_CONFIG_COUNT: 2
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+          GIT_CONFIG_KEY_1: core.eol
+          GIT_CONFIG_VALUE_1: lf
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded cost Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: cost
+
+      - name: Measure existing Windows cost budgets
+        timeout-minutes: 75
+        shell: pwsh
+        env:
+          GOFLAGS: -p=2
+        run: |
+          & ./scripts/test-cost-ratchet.ps1 `
+            -BaseSHA HEAD `
+            -OutputRoot (Join-Path $env:RUNNER_TEMP 'development-cost') `
+            -Parallel 2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Save bounded cost Go cache
+        if: success()
+        uses: ./.github/actions/go-cache
+        with:
+          lane: cost
+          phase: save
+
+      - name: Retain measurements and failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: development-cost-${{ github.sha }}
+          # OutputRoot also owns the aip-testcost/aipstd binaries and per-run
+          # scratch trees; only the comparison evidence is worth retaining.
+          path: |
+            ${{ runner.temp }}/development-cost/measurements
+            ${{ runner.temp }}/development-cost/reports
+          if-no-files-found: warn
+          retention-days: 14

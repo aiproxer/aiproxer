@@ -1,0 +1,119 @@
+# Implementation Plan
+
+- [x] 1. Build shared credential-pool foundation
+- [x] 1.1 Define credential selection and usefulness-state behavior
+  - Add tests that prove ordered credential acquisition skips cooldown and auth-invalid credentials.
+  - Add tests that prove pool-local credential ids never need backend selector or candidate identities.
+  - Complete behavior is observable when a pool with mixed usable, cooled-down, and auth-invalid credentials returns only usable credentials and reports exhaustion when none remain.
+  - _Requirements: 2.2, 3.3, 4.1, 4.2, 4.4, 5.1, 5.3, 7.5, 11.2_
+  - _Boundary: Credential Pool_
+- [x] 1.2 Add retry-after cooldown interpretation
+  - Add tests for seconds-based and HTTP-date retry-after values, invalid values, and provider fallback behavior.
+  - Complete behavior is observable when a parsed retry hint produces a future usable-at time and invalid hints are rejected without mutating credential state.
+  - _Requirements: 4.3, 11.2_
+  - _Boundary: Retry Hint Parser_
+- [x] 1.3 Add credential exhaustion and secret-safe status reporting
+  - Add tests that exhaustion errors are distinguishable by provider adapters without exposing API key material.
+  - Add status snapshot behavior for tests and diagnostics that shows state without leaking secrets.
+  - Complete behavior is observable when exhausted pools produce a typed error and snapshots contain credential ids, states, and cooldown times but no secrets.
+  - _Requirements: 3.4, 4.1, 5.3, 11.2_
+  - _Boundary: Credential Pool_
+
+- [x] 2. Normalize backend credential configuration
+- [x] 2.1 Extend hosted backend config normalization for key lists
+  - Add tests for legacy single-key config, new ordered key-list config, trimming, empty entries, and duplicate removal.
+  - Preserve existing base URL behavior and explicit backend instance ids while adding multi-key input.
+  - Complete behavior is observable when one backend instance can be constructed with multiple credentials without creating extra runtime backend ids.
+  - _Depends: 1.1_
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.1, 6.2, 6.4, 11.3_
+  - _Boundary: Plugin Config Normalizer_
+- [x] 2.2 Add numbered environment key ingestion
+  - Add tests for singular and numbered provider environment variables for OpenAI, Anthropic, and Gemini.
+  - Ensure numbered env vars become ordered default credentials only when YAML provides no credential material.
+  - Complete behavior is observable when `OPENAI_API_KEY` plus `OPENAI_API_KEY_2` produce one default credential list and no generated backend instances.
+  - _Depends: 2.1_
+  - _Requirements: 2.2, 3.2, 3.3, 6.3, 11.3_
+  - _Boundary: Plugin Config Normalizer_
+- [x] 2.3 Preserve out-of-scope backend and instance behavior
+  - Add regression coverage that Bedrock and ACP config paths are unaffected after hosted-provider config normalization changes.
+  - Update the multi-instance config example so it shows multi-key credentials on one deployment and separate ids only for distinct deployments.
+  - Complete behavior is observable when existing Bedrock and ACP construction tests still pass and the example distinguishes key pools from true backend instances.
+  - _Depends: 2.1, 2.2_
+  - _Requirements: 1.1, 1.2, 1.3, 6.4_
+  - _Boundary: Plugin Config Normalizer_
+
+- [x] 3. Add deterministic credential failure fixtures
+- [x] 3.1 Add refbackend auth and rate-limit fixtures
+  - Extend the in-scope reference backends with deterministic 401 and 429 responses that can inspect which credential reached the handler.
+  - Preserve existing success fixtures and streaming defaults.
+  - Complete behavior is observable when provider tests can trigger auth failure, rate-limit failure with retry-after, and success without live provider credentials.
+  - _Depends: 1.2_
+  - _Requirements: 10.1, 10.2, 10.3, 11.2_
+  - _Boundary: Refbackend Error Fixtures_
+- [x] 3.2 Add deterministic SDK retry controls to credential-path tests
+  - Add or document test harness controls that prevent provider SDK automatic retries from hiding first-attempt 401 or 429 responses.
+  - Apply the controls to each in-scope backend credential test setup without changing production retry or routing policy.
+  - Complete behavior is observable when credential rotation tests see exactly the intended first rejected credential and next successful credential.
+  - _Depends: 3.1_
+  - _Requirements: 5.1, 10.2, 11.2_
+  - _Boundary: Refbackend Error Fixtures_
+
+- [x] 4. Integrate credential pools into official backend adapters
+- [x] 4.1 Add shared OpenAI-family credential integration seam
+  - Establish the OpenAI-family helper or local convention needed by both OpenAI Responses and legacy chat completions without introducing a broad provider profile framework.
+  - Add regression coverage proving the shared seam does not alter existing OpenAI Responses or legacy request mapping for single-key configurations.
+  - Complete behavior is observable when both OpenAI backend packages can consume the credential pool without duplicate key-state logic or shared-file contention in later tasks.
+  - _Depends: 1.3, 2.1_
+  - _Requirements: 7.1, 7.2, 7.5, 8.1, 8.2, 11.4_
+  - _Boundary: Provider Backend Integrations_
+- [x] 4.2 (P) Add OpenAI Responses credential rotation
+  - Use the shared pool during OpenAI Responses backend attempts while preserving existing single-key behavior.
+  - Add tests for pre-output 429 rotation, 401 invalidation, exhausted credentials, and successful stream mapping after rotation.
+  - Complete behavior is observable when the second usable key opens the canonical stream after the first key is rejected pre-output.
+  - _Depends: 3.2, 4.1_
+  - _Requirements: 1.1, 2.1, 2.2, 4.2, 4.3, 4.4, 5.1, 5.3, 7.1, 7.2, 8.1, 8.2, 9.1, 9.2, 10.1, 11.2, 11.4_
+  - _Boundary: Provider Backend Integrations, Provider Error Classifiers_
+- [x] 4.3 (P) Add OpenAI legacy credential rotation
+  - Use the shared pool during legacy chat-completions backend attempts while preserving existing single-key behavior.
+  - Add tests for pre-output 429 rotation, 401 invalidation, exhausted credentials, and successful chunk-to-event mapping after rotation.
+  - Complete behavior is observable when key rotation does not alter the canonical event order for a successful chat stream.
+  - _Depends: 3.2, 4.1_
+  - _Requirements: 1.1, 2.1, 2.2, 4.2, 4.3, 4.4, 5.1, 5.3, 7.1, 7.2, 8.1, 8.2, 9.1, 9.2, 10.1, 11.2, 11.4_
+  - _Boundary: Provider Backend Integrations, Provider Error Classifiers_
+- [x] 4.4 (P) Add Anthropic credential rotation
+  - Use the shared pool during Anthropic backend attempts while preserving existing single-key behavior and model-aware capability checks.
+  - Add tests for pre-output 429 rotation, 401 invalidation, exhausted credentials, and successful message event mapping after rotation.
+  - Complete behavior is observable when key rotation does not bypass Anthropic capability mismatch failures.
+  - _Depends: 1.3, 2.1, 3.2_
+  - _Requirements: 1.1, 2.1, 2.2, 4.2, 4.3, 4.4, 5.1, 5.3, 7.3, 7.4, 8.1, 8.2, 8.3, 9.1, 9.2, 10.1, 11.2, 11.4_
+  - _Boundary: Provider Backend Integrations, Provider Error Classifiers_
+- [x] 4.5 (P) Add Gemini credential rotation
+  - Use the shared pool during Gemini backend attempts while preserving existing single-key behavior and GenAI client configuration.
+  - Add tests for pre-output 429 rotation, 401 invalidation, exhausted credentials, and successful generateContent event mapping after rotation.
+  - Complete behavior is observable when a selected Gemini key is applied to the GenAI client that opens the successful stream.
+  - _Depends: 1.3, 2.1, 3.2_
+  - _Requirements: 1.1, 2.1, 2.2, 4.2, 4.3, 4.4, 5.1, 5.3, 7.3, 7.4, 8.1, 8.2, 8.3, 9.1, 9.2, 10.1, 11.2, 11.4_
+  - _Boundary: Provider Backend Integrations, Provider Error Classifiers_
+
+- [x] 5. Validate runtime invariants and conformance
+- [x] 5.1 Verify backend identity and post-output retry invariants
+  - Add runtime regression tests that one backend instance retains the same candidate identity whether it has one or multiple credentials.
+  - Add tests that recoverable-looking provider failures after canonical output are surfaced rather than retried with another credential or backend.
+  - Complete behavior is observable when B-leg and candidate diagnostics contain backend and model identities only, never credential identities.
+  - _Depends: 4.2, 4.3, 4.4, 4.5_
+  - _Requirements: 3.4, 5.2, 5.4, 11.2, 11.3_
+  - _Boundary: Conformance and Runtime Tests_
+- [x] 5.2 Validate protocol parity under credential-pool paths
+  - Extend conformance coverage so text, multimodal, tool, terminal, and usage propagation checks still pass for single-key and multi-key backend configurations.
+  - Document any behavior that cannot be proven deterministically in the test failure message or test fixture note.
+  - Complete behavior is observable when deterministic conformance tests prove provider event order and terminal behavior remain unchanged by credential pools.
+  - _Depends: 4.2, 4.3, 4.4, 4.5_
+  - _Requirements: 2.3, 8.1, 8.2, 8.3, 9.1, 9.2, 9.3, 9.4, 10.2, 10.3, 11.1, 11.4_
+  - _Boundary: Conformance and Runtime Tests_
+- [x] 5.3 Run focused quality gates for the completed connector phase
+  - Run targeted backend, pluginreg, runtime, and conformance tests affected by credential pooling.
+  - Fix any regressions in the touched boundaries without expanding scope into Bedrock, ACP, OAuth, or core routing changes.
+  - Complete behavior is observable when the targeted Go test commands pass locally for the changed packages.
+  - _Depends: 5.1, 5.2_
+  - _Requirements: 1.1, 1.2, 1.3, 11.1_
+  - _Boundary: Conformance and Runtime Tests_

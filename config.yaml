@@ -1,0 +1,326 @@
+server:
+  # Default bind is loopback-only so single-user mode never listens on all interfaces by accident.
+  address: "127.0.0.1:8080"
+  # Legacy server.auth_mode (no_auth | external) still merges into effective auth for audit; prefer access + auth below.
+  # max_request_body_bytes: 8388608  # optional override; omit/0 uses handler default (8 MiB)
+  # Optional [http.Server] timeouts (Go duration strings). Omitted fields use stdhttp defaults:
+  # read_header_timeout: 10s
+  # read_timeout: 30s
+  # write_timeout: 120s
+  # idle_timeout: 120s
+  # Decode admission (shared across all mounted frontends). Zero selects finite defaults during Validate
+  # (not unlimited). Body is fully resident after ReadAll; admission weights Decode only (not body read):
+  # max_concurrent_decodes: 32
+  # max_inflight_decode_bytes: 67108864  # 64 MiB; must be >= max_request_body_bytes (or 8 MiB default)
+  # max_pending_wire_events: 0   # cap backend adapter pending-event queues per stream; 0 = unlimited
+  # Raise max_request_body_bytes and max_inflight_decode_bytes together for large multimodal / long-context.
+  # 413 = decompressed request body over max_request_body_bytes; 429 + Retry-After: 1 = decode admission saturation.
+
+# --- Access and authentication (see internal/core/config/access_auth_model.go) ---
+# Omitted access.mode defaults to single_user. Omitted server.address defaults to explicit loopback (127.0.0.1:8080).
+# single_user allows only loopback binds; all-interfaces (0.0.0.0, ::, or bare :port) requires multi_user plus strong auth.
+#
+# (A) Default OSS single-user (effective when access/auth are omitted): loopback + local_noop + structured auth/session events.
+# access:
+#   mode: single_user
+# auth:
+#   handler: local_noop
+#   required_level: none
+#   event_failure_policy: best_effort
+#   # Auth/session audit events may include PII (principal display name, ids, client refs). Route logs to
+#   # retention-compliant storage; the proxy does not redact those fields beyond challenge-summary sanitization.
+#   # event_delivery: default   # structured log sink (default) | disabled | custom (custom needs BuildOptions.AuthEventSink)
+#   # fail_closed (see (B) below) denies the request if the auth-event sink errors; best_effort ignores sink errors.
+#
+# (B) Multi-user + local API keys (shared host); use loopback or non-loopback listen only with server.auth_mode: external.
+# access:
+#   mode: multi_user
+# server:
+#   address: "0.0.0.0:8080"
+#   auth_mode: external
+# auth:
+#   handler: local_api_key
+#   required_level: api_key
+#   event_failure_policy: fail_closed
+#   local_api_keys:
+#     - key_id: example-device
+#       principal_id: example-user
+#       # Each key must be >= 16 characters (Unicode code points). For multi_user on a reachable bind,
+#       # add perimeter rate limiting or WAF brute-force protection; the proxy does not throttle auth attempts.
+#       key: "replace-with-operator-secret-not-committed"
+#
+# (C) Remote auth (interface-only in OSS): select handler remote; standard binary does not create remote transport clients.
+# You must inject RemoteDecider at the composition root (see internal/infra/runtimebundle BuildOptions).
+# access:
+#   mode: multi_user
+# server:
+#   address: "127.0.0.1:8080"
+#   auth_mode: external
+# auth:
+#   handler: remote
+#   required_level: api_key_sso
+#   remote:
+#     endpoint: "https://auth.example.invalid/v1"
+#     handler: enterprise
+
+# Outbound LLM HTTP client: when trust_environment_proxy is false, HTTP_PROXY/HTTPS_PROXY are ignored.
+# Optional pool/timeouts (defaults match internal/infra/httpclient.DefaultTransportTune):
+# http_client:
+#   trust_environment_proxy: false
+#   max_idle_conns: 100
+#   max_idle_conns_per_host: 64
+#   idle_conn_timeout: 90s
+#   response_header_timeout: 60s
+#   client_timeout: 120s
+
+# Optional connection pool for managed PostgreSQL (any store: postgres path).
+# When any store is postgres, max_open_conns must be > 0 (example: 8). Other omitted/zero
+# fields leave driver defaults. Durations are Go duration strings (e.g. 30m, 90s).
+# connection_mode and schema_mode apply only to dual-plane authority, concurrency, and
+# metering PostgreSQL runtime stores; other PostgreSQL stores retain their own lifecycle.
+# database:
+#   connection_mode: direct        # direct or transaction_pool
+#   schema_mode: auto_migrate       # auto_migrate or verify_only
+#   max_open_conns: 8
+#   max_idle_conns: 2
+#   conn_max_lifetime: 30m
+#   conn_max_idle_time: 2m
+
+logging:
+  level: info
+  format: json
+  add_source: false
+  access_log: false
+  # access_log_skip_paths:
+  #   - "/healthz"
+
+diagnostics:
+  enabled: true
+  health_path: "/healthz"
+  attempts_path: "/admin/attempts"
+  inventory_path: "/debug/inventory"
+  route_trace_path: "/debug/route_trace"
+  # Optional: require header X-AIP-Diagnostics-Secret (min 12 chars) on attempts/inventory/route_trace/pprof.
+  # shared_secret: "change-me-please-12+"
+  # Optional: net/http/pprof (only when diagnostics.enabled). Use localhost binding or auth in front; paths must not overlap.
+  # pprof_path: "/debug/pprof"
+
+# Prometheus / OpenTelemetry (optional). Metrics path must not overlap diagnostic routes above.
+# observability:
+#   metrics:
+#     enabled: false
+#     path: "/metrics"
+#   tracing:
+#     enabled: false
+#     # service_name: "aipstd"
+
+routing:
+  max_attempts: 3
+  default_route: "openai-responses:gpt-4o-mini"
+
+# Optional regexp rewrites of the full route selector string (incoming X-AIP-Route or default_route).
+# First matching rule wins; the replacement template must parse as a valid selector (see routing.Parse). After a
+# match, regexp capture expansion runs; the rewritten string is parsed again at request/default-route time, so a
+# capture can still yield an invalid selector even when the template alone was valid. Not recursive.
+# model_aliases:
+#   - pattern: '^gpt-4$'
+#     replacement: 'openai-responses:gpt-4o-mini'
+
+# Hook bus tuning (see docs/capability-catalogs.md and internal/plugins/features/REFERENCE_PLUGINS.md).
+hooks:
+  tool_reactor_error_policy: fail_open
+
+# Optional models.dev snapshot catalog (disabled by default). Operator guide: docs/capability-catalogs.md
+# model_catalog:
+#   enabled: false
+#   external_updates_enabled: false
+#   # Local JSON snapshot path (required when enabled or when external_updates_enabled needs a cache).
+#   cache_path: ./data/model_catalog.json
+#   # Background refresh (only when external_updates_enabled: true):
+#   # update_interval: 1h
+#   # source_url: "https://example.com/models.json"   # HTTPS recommended; see doc "Trust and exposure"
+#   # fetch_timeout: 30s   # optional extra bound when fetch context has no deadline (defense in depth)
+#   # diagnostics_path: /debug/model_catalog   # must start with /; must not overlap diagnostics.* paths
+#   # model_overrides:
+#   #   - model: "gpt-4o"
+#   #     tools: true
+#   #     context_limit_tokens: 128000
+#   # backend_model_overrides:
+#   #   - backend: "openai-responses"
+#   #     model: "gpt-4o-mini"
+#   #     reasoning: false
+
+# Backend model inventory cache and refresh for routing-time vendor/model lookups.
+# This is separate from model_catalog: it records which configured backend instances expose which models.
+# model_inventory:
+#   cache_path: ./data/backend_model_inventory.json
+#   refresh_enabled: true
+#   refresh_interval: 1h  # minimum 1h; failed refresh keeps the last successful inventory
+#   fetch_timeout: 30s   # per-backend startup/refresh inventory fetch timeout
+#   # diagnostics_path: /debug/model-registry  # protected discovery status (not models.dev)
+
+continuity:
+  in_memory: true
+  store: memory
+  # in_memory: true is the legacy spelling of "store: memory". Remove it when you
+  # select a durable store: the two together are refused before startup.
+  # For local durable continuity (file SQLite, existing adapter):
+  # store: sqlite
+  # sqlite_path: ./data/continuity.db
+  # For managed PostgreSQL (Bun-backed store; set postgres_dsn, optional top-level database pool):
+  # store: postgres
+  # postgres_dsn: "postgres://user:pass@host:5432/continuity?sslmode=disable"
+
+# Secure sessions (proxy-owned session id + resume proofs) are always on; omit secure_session to use defaults
+# (memory store, loopback-friendly). Memory store session evidence is non-durable (lost on restart) unless you use
+# store: sqlite with sqlite_path below. token_fingerprint_key may be omitted for memory (ephemeral process-local key);
+# sqlite requires token_fingerprint_key (>=32 chars). Continuity keys and provider conversation ids are not proof of
+# session ownership; only proxy-issued resume material authorizes a turn.
+# Durable local mode (store: sqlite) needs sqlite_path and token_fingerprint_key (>=32 chars).
+# Managed durable (store: postgres) needs postgres_dsn and the same long token_fingerprint_key.
+# Durable audit (audit_durability: durable) requires a durable store (sqlite or postgres), not memory.
+# secure_session:
+#   store: memory
+#   # sqlite_path: ./data/secure_session.db
+#   # postgres_dsn: "postgres://user:pass@host:5432/secure_session?sslmode=disable"  # when store: postgres
+#   resume_window: 168h
+#   token_fingerprint_key: "replace-with-32+byte-secret----------------"
+#   audit_durability: best_effort   # or durable (requires store: sqlite or postgres, plus key; sqlite also needs sqlite_path)
+#   redaction_default: standard
+#   non_durable_warning: log      # silent | log | strict (memory store: operator log when "log" at startup)
+#   diagnostics_expose_summaries: false
+#   diagnostics_path_prefix: "/debug/sessions"
+#   # When diagnostics_expose_summaries is true, set diagnostics.shared_secret (>=12 chars) so operator routes are not world-readable.
+#   require_workspace_id: false   # when true, reject turns with no resolved workspace id (secure-session BeginTurn)
+#   workspace_resolve_on_error: fail_open   # fail_closed: workspace resolver errors deny the request (Req 11.6)
+#   resume_token_bind_principal_only: false # when true, resume fingerprints use only principal id (stable across client hint drift)
+#   # Optional: process-local TTL cache for durable SQL stores (sqlite/postgres) reducing repeated sessionExists /
+#   # transcript_enabled reads. Empty sql_query_cache_ttl disables caching (default). Short TTL trades fewer DB round
+#   # trips for brief staleness if transcript policy or session rows are mutated out-of-band; future admin mutation
+#   # APIs must invalidate this cache when added.
+#   # sql_query_cache_ttl: 30s
+#   # sql_query_cache_max_entries: 4096   # optional cap per logical cache; omit or zero uses 4096 when ttl is set
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+  features:
+    # Opt-in persistent backend-only steering; see docs/model-system-prompt.md.
+    # Match the accepted logical model, not the provider-native model ID.
+    - id: model-system-prompt
+      enabled: false
+      config:
+        rules:
+          - id: concise
+            model_pattern: '^gpt-4o(-mini)?$'
+            append: 'Keep explanations concise and state uncertainty explicitly.'
+          - id: mini-checks
+            model_pattern: '^gpt-4o-mini$'
+            append: 'Check assumptions before proposing a change.'
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    # Reasoning output preservation (issue #157): standard aipstd injects this
+    # enabled restore row when absent. Explicit row documents defaults; set
+    # enabled: false to opt out. Installed ≠ active — capture/restore need a
+    # compatible-auto.v2 catalog match or an explicit enabled rule.
+    # Guide: docs/reasoning-output-preservation.md
+    - id: reasoning-output-preservation
+      enabled: true
+      config:
+        action: restore
+        use_builtin_catalog: true
+        on_ambiguous: log_skip
+        on_unrepresentable: reject
+        on_state_error: reject
+        state:
+          ttl: 24h
+          max_turns_per_session: 16
+          max_reasoning_bytes_per_turn: 65536
+          max_session_bytes: 262144
+    # Compaction continuity preservation (issue #312 detector prerequisite) is
+    # disabled by default. It may submit additional user-attributed extractor
+    # inference after a successfully opened primary request. See
+    # docs/compaction-continuity.md and config/examples/dogfood-local-stub.yaml.
+    # - id: compaction-continuity
+    #   enabled: false
+    #   config:
+    #     preserve:
+    #       plan: true
+    #       user_decisions: true
+    #       constraints: true
+    #       rationale: true
+    #       rejected_alternatives: true
+    #     extractor:
+    #       route: "openai-responses:small-model"
+    #       timeout: 8s
+    #       max_input_tokens: 12000
+    #       max_output_tokens: 2000
+    #     worker: { max_concurrency: 2, queue_capacity: 16 }
+    #     barrier: { timeout: 2s }
+    #     capsule: { max_tokens: 2500, max_bytes: 1048576 }
+    #     source: { ttl: 2h, max_bytes: 4194304 }
+    #     result: { ttl: 2h, max_bytes: 4194304, max_count: 16 }
+    #     failure: { mode: fail_open }
+    #     branch_ttl: 2h
+    #     max_branch_entries: 1024
+    # Opt out:
+    # - id: reasoning-output-preservation
+    #   enabled: false
+    # Reference (non-noop) examples — enable as needed:
+    # - id: ref-submit-annotate
+    #   enabled: true
+    #   config: { marker: "staging" }
+    # - id: ref-request-suffix
+    #   enabled: true
+    #   config: { suffix: " [ref]" }
+    # - id: ref-tool-prefix
+    #   enabled: true
+    #   config: { prefix: ">>" }
+    #
+    # Proxy-side Codex memory (proxy-codex-memory): per-user session capture,
+    # background extraction/consolidation and first-turn summary injection.
+    # Disabled by default; enable only with a durable continuity DB and per-user
+    # API-key principals (never list a shared key).
+    - id: proxy-memory
+      enabled: false
+      config:
+        principals: ["alice", "bob"]   # per-user API-key principal IDs; never list a shared key
+        extract_route: "openai:gpt-5-mini"
+        consolidate_route: "openai:gpt-5"

@@ -1,0 +1,48 @@
+{
+  "model": "gpt-openresponses-1",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "What do you see in this image? Answer in one sentence."
+        },
+        {
+          "type": "input_image",
+          "image_url": {
+            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+            "media_type": "image/png"
+          }
+        },
+        {
+          "type": "input_file",
+          "file_url": {
+            "file_id": "file_test_123",
+            "filename": "minimal.pdf"
+          }
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_weather",
+      "description": "Get the current weather for a location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string"
+          }
+        },
+        "required": ["location"]
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "store": false,
+  "stream": false
+}

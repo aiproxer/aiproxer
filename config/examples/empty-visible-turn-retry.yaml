@@ -1,0 +1,118 @@
+# NO-KEY LOCAL STUB — exercises the opt-in empty-visible-turn corrective retry
+# (issue #1197): with the gate enabled, a clean completion that produced no
+# visible output is replaced once by a corrective attempt before anything
+# reaches the client. The local stub always streams its text before the finish,
+# so this config proves the opt-in wiring loads; it does not by itself produce
+# an empty turn. Not a live-provider configuration.
+#
+# Validate: aipstd check-config --config config/examples/empty-visible-turn-retry.yaml
+server:
+  address: "127.0.0.1:18097"
+
+routing:
+  max_attempts: 3
+  default_route: "dogfood-local:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+# Operator opt-in gate for the empty-visible-turn corrective retry.
+# The section is disabled by default; omit it, or keep the explicit disabled
+# form, to preserve today's behavior exactly:
+#
+#   empty_visible_turn_retry:
+#     enabled: false
+#
+# Opt in explicitly. Hold bounds reuse the existing retention constants, so
+# `enabled` is the only supported key.
+empty_visible_turn_retry:
+  enabled: true
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: dogfood-local
+      enabled: true
+      config:
+        text: "[dogfood] empty-visible-turn corrective retry"
+        input_tokens: 3
+        output_tokens: 7
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}

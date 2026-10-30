@@ -1,0 +1,54 @@
+# Focused Linux race detector for the connector-pool ratchets.
+name: Connector pool race
+
+on:
+  # Race evidence is nightly, not per-PR (see AGENTS.md Verification).
+  schedule:
+    - cron: "12 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connector-pool-race-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  connector-pool-race:
+    name: Linux race detector
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded race Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: race
+
+      - name: Run targeted Linux races
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -p 2 -parallel 4 \
+            ./internal/infra/runtimebundle \
+            ./pkg/aipsdk/backendplugin \
+            ./pkg/aipsdk/backendplugin/host \
+            ./internal/infra/backendplugins/processhost
+
+      - name: Save bounded race Go cache
+        if: success()
+        uses: ./.github/actions/go-cache
+        with:
+          lane: race
+          phase: save

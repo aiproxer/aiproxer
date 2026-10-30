@@ -1,0 +1,49 @@
+{
+  "id": "resp_compact_1",
+  "object": "response.compaction",
+  "created_at": 1719900400,
+  "status": "completed",
+  "model": "gpt-openresponses-1",
+  "output": [
+    {
+      "type": "compaction",
+      "id": "cmp_1",
+      "status": "completed",
+      "input": [
+        {
+          "type": "message",
+          "id": "msg_1",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Remember the compaction code word: slate."
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "id": "msg_2",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "OK."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 21,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 4,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 25
+  }
+}

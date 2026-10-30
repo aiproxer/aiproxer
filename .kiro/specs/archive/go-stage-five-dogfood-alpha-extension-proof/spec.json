@@ -1,0 +1,23 @@
+{
+  "feature_name": "go-stage-five-dogfood-alpha-extension-proof",
+  "created_at": "2026-04-29T18:00:47Z",
+  "updated_at": "2026-04-30T12:00:00Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

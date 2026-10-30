@@ -1,0 +1,14 @@
+# Rollback: point discovery at the previous published plugin root (no aipstd rebuild).
+plugins:
+  backend_discovery:
+    enabled: true
+    development_mode: true
+    strict: true
+    paths:
+      - .aip-plugins/previous/localstub
+  backends:
+    - kind: local-stub
+      id: rolled-back-stub
+      enabled: true
+      config:
+        text: "[operator] rollback previous"

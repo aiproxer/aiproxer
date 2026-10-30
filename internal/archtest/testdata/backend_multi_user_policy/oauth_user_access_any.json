@@ -1,0 +1,9 @@
+{
+  "connector": "connectors/fixturesiwc",
+  "plugin_id": "com.aiproxer.backend.fixturesiwc",
+  "kind": "fixturesiwc",
+  "credential_mode": "oauth_user",
+  "access_scope": "any",
+  "execution_class": "inference",
+  "process_sharing": "per_instance"
+}

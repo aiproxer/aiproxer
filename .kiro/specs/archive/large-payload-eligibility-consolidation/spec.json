@@ -1,0 +1,38 @@
+{
+  "feature_name": "large-payload-eligibility-consolidation",
+  "created_at": "2026-10-13T22:23:39Z",
+  "updated_at": "2026-10-15T22:42:00Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "spec_type": "brownfield_refinement",
+  "baseline": {
+    "commit": "55e5d4412834a1948c418ac1923cca3c25576019",
+    "audit_commit": "8a041a2ad9c9c2c0d0bf8ee57005fe66f7479d6c"
+  },
+  "approval_mode": "automatic_generation_requested; implementation_not_authorized",
+  "completed": true,
+  "implementation_complete": true,
+  "validation": {
+    "brownfield_gap_analysis": "performed",
+    "requirements_review": "PASS_after_three_wording_repairs_and_independent_recheck",
+    "design_review": "GO; two_nonblocking_details_clarified_before_compilation",
+    "task_graph": "PASS",
+    "final_sanity_review": "PASS",
+    "artifact_checks": "PASS; inventory_budgets_traceability_dependencies_metadata_links_whitespace_and_spec_only_scope"
+  }
+}

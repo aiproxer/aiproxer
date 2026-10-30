@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"ID\":\"c1\",\"Messages\":[{\"Role\":\"user\",\"Parts\":[{\"Kind\":\"text\",\"Text\":\"y\"}]}]}")

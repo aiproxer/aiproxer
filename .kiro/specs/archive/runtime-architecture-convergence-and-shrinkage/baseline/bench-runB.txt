@@ -1,0 +1,52 @@
+goos: linux
+goarch: amd64
+pkg: github.com/matdev83/go-llm-interactive-proxy/internal/infra/runtimehost
+cpu: AMD EPYC 9J14 96-Core Processor
+BenchmarkManager_AcquireRelease-2              	40817536	        26.34 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	44175794	        26.05 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	45303343	        26.39 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	45121818	        26.23 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	43416873	        26.26 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	44880192	        26.27 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	43268319	        26.22 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	40864716	        26.14 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	45307987	        26.05 ns/op	      16 B/op	       1 allocs/op
+BenchmarkManager_AcquireRelease-2              	43599842	        26.18 ns/op	      16 B/op	       1 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3168699	       371.7 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3266599	       357.9 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3456846	       372.1 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3390693	       358.6 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3060463	       409.9 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3441188	       355.1 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3369267	       352.0 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3396820	       358.6 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3312046	       376.3 ns/op	     784 B/op	       9 allocs/op
+BenchmarkGenerationDispatcher_AcquireLease-2   	 3369428	       366.0 ns/op	     784 B/op	       9 allocs/op
+BenchmarkManager_Publish-2                     	 2027322	       530.5 ns/op	     479 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3349507	       529.6 ns/op	     478 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3250988	       432.2 ns/op	     480 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3360735	       478.6 ns/op	     478 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3134138	       420.7 ns/op	     481 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3000908	       434.6 ns/op	     483 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3255259	       450.5 ns/op	     480 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3384706	       436.8 ns/op	     478 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 3313393	       471.4 ns/op	     479 B/op	       4 allocs/op
+BenchmarkManager_Publish-2                     	 2848100	       413.3 ns/op	     485 B/op	       4 allocs/op
+PASS
+ok  	github.com/matdev83/go-llm-interactive-proxy/internal/infra/runtimehost	43.028s
+goos: linux
+goarch: amd64
+pkg: github.com/matdev83/go-llm-interactive-proxy/internal/infra/runtimebundle
+cpu: AMD EPYC 9J14 96-Core Processor
+BenchmarkCandidateCompilation-2   	     241	   4815467 ns/op	 4636118 B/op	   19617 allocs/op
+BenchmarkCandidateCompilation-2   	     238	   4951839 ns/op	 4637366 B/op	   19616 allocs/op
+BenchmarkCandidateCompilation-2   	     238	   5122157 ns/op	 4637049 B/op	   19616 allocs/op
+BenchmarkCandidateCompilation-2   	     228	   5015482 ns/op	 4638088 B/op	   19617 allocs/op
+BenchmarkCandidateCompilation-2   	     253	   4837358 ns/op	 4633254 B/op	   19615 allocs/op
+BenchmarkCandidateCompilation-2   	     252	   4807242 ns/op	 4634444 B/op	   19616 allocs/op
+BenchmarkCandidateCompilation-2   	     259	   5922465 ns/op	 4617142 B/op	   19609 allocs/op
+BenchmarkCandidateCompilation-2   	     152	   7215846 ns/op	 4594838 B/op	   19601 allocs/op
+BenchmarkCandidateCompilation-2   	     214	   5229500 ns/op	 4629787 B/op	   19614 allocs/op
+BenchmarkCandidateCompilation-2   	     232	   5064564 ns/op	 4636571 B/op	   19616 allocs/op
+PASS
+ok  	github.com/matdev83/go-llm-interactive-proxy/internal/infra/runtimebundle	12.173s

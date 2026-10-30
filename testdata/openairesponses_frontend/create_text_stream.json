@@ -1,0 +1,10 @@
+{
+  "model": "gpt-4o-mini",
+  "stream": true,
+  "input": [
+    {
+      "role": "user",
+      "content": "hi"
+    }
+  ]
+}

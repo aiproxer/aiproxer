@@ -1,0 +1,492 @@
+{
+  "profile": {
+    "source_commit": "92c12d96d7b61d6d15e2214daa5e9c6000ab6e1c",
+    "family": "openresponses",
+    "source_repository": "openresponses/openresponses",
+    "version": "2026-04-24",
+    "license": "Apache-2.0"
+  },
+  "artifacts": [
+    {
+      "sha256": "sha256:63b5e6595ac831ee74b8e887af76c28d69aee8e2ec7d9e99dc688eec4bccb7fb",
+      "path": "src/lib/compliance-tests.ts"
+    },
+    {
+      "sha256": "sha256:9a709fb5e4272a61914bd5e309fc5c88b098de98276420598b9b648cce63e76d",
+      "path": "src/lib/sse-parser.ts"
+    },
+    {
+      "sha256": "sha256:6c250eae6c9a282cfdd676d314bd52a7462d58b9061dbd7f88a1c96fd67d26a9",
+      "path": "bin/compliance-test.ts"
+    },
+    {
+      "sha256": "sha256:43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "path": "LICENSE"
+    },
+    {
+      "sha256": "sha256:befc97f9dd5b42a66c927270903facb85ab6af1f789f480fe7dc01f6d5462246",
+      "path": "src/generated/kubb/zod/allowedToolChoiceSchema.ts"
+    },
+    {
+      "sha256": "sha256:2d360bf44df81b772ec238d0ac16a8c48da224776478677ed9bab3dbe35da597",
+      "path": "src/generated/kubb/zod/allowedToolsParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:47abf1b5fbcb00e94eb0ba63a18525d81d1e15e3d949d0259369f7e1c1bca658",
+      "path": "src/generated/kubb/zod/annotationSchema.ts"
+    },
+    {
+      "sha256": "sha256:3e0f31c887388ebd03fea32e339313cc018731e46edec648e697fd710bbb2be3",
+      "path": "src/generated/kubb/zod/assistantMessageItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:105a5be1312d74d2d17922780b2fce24ecdd004a1ea6721c6dd3f9b0fdb24fcb",
+      "path": "src/generated/kubb/zod/compactionBodySchema.ts"
+    },
+    {
+      "sha256": "sha256:d7fb78295f889a85f4b341a04543954ba411b5ad496b7566c10488f8ffc916fc",
+      "path": "src/generated/kubb/zod/compactionSummaryItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:5fc03d28470477bd823f658f94fde40b55239bc6d2628e7581c2a6511bca2a58",
+      "path": "src/generated/kubb/zod/compactResourceSchema.ts"
+    },
+    {
+      "sha256": "sha256:c7cf85f0e7d4d41b4128ab41f8989711a5ca0487c6b8360b80814119eea38999",
+      "path": "src/generated/kubb/zod/compactResponseMethodPublicBodySchema.ts"
+    },
+    {
+      "sha256": "sha256:d5211902122bd538a7d7e22d4b7f01994f6c5d012c3ec917a248b99530f43947",
+      "path": "src/generated/kubb/zod/compactResponseSchema.ts"
+    },
+    {
+      "sha256": "sha256:5da5cdef7ba7c25e35ce253118585086301c8d9a6279ff477ecff2e2d86ff9bb",
+      "path": "src/generated/kubb/zod/createResponseBodySchema.ts"
+    },
+    {
+      "sha256": "sha256:1a6c6964dd5a679f1c71fb872efea4e5e6b8d60550558f4e7ca7e27696a32e78",
+      "path": "src/generated/kubb/zod/createResponseSchema.ts"
+    },
+    {
+      "sha256": "sha256:7bed2dae0582d8b6ab2f6d6aa88198e2c489f68db104c23826437ba69d8aa66b",
+      "path": "src/generated/kubb/zod/detailEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:2fdd7d1dc25054f2bee8f7749aa017d8213b6980e588425df5ba2da440dbf2ab",
+      "path": "src/generated/kubb/zod/developerMessageItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:db0f50965b5dccdfd30b910c2bd7659753212a55a2a35ceaf2a530e28c9853b9",
+      "path": "src/generated/kubb/zod/emptyModelParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:93b904e90b2339e188ef410700904e1724ffb380f8a6b0bceec57f001ee7dbf8",
+      "path": "src/generated/kubb/zod/errorPayloadSchema.ts"
+    },
+    {
+      "sha256": "sha256:23d26088b980e0053310d2d98b6b10d0ef67b14e7ad2e9a14c0782e22f9ccfd9",
+      "path": "src/generated/kubb/zod/errorSchema.ts"
+    },
+    {
+      "sha256": "sha256:6c07fc3488c3ce89e2155351faeef5c0f42c153f3c6ba631ce66a5df8825ea74",
+      "path": "src/generated/kubb/zod/errorStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:51d87fb82744fc01940656f0335dc3a49e43d86a7df234964a8551a72376476c",
+      "path": "src/generated/kubb/zod/functionCallItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:b196a7514595ee2c34ba6d964c6425b83bb1649228490407d082462ec7e36d07",
+      "path": "src/generated/kubb/zod/functionCallItemStatusSchema.ts"
+    },
+    {
+      "sha256": "sha256:61cd1467ff89835bd0d497cbd9a4450209b2f309e17145e155397543e188db86",
+      "path": "src/generated/kubb/zod/functionCallOutputItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:85f1f99d688213f2f4aab176f2639fb8ce6a33925fcb2816144aa16a9c0c394d",
+      "path": "src/generated/kubb/zod/functionCallOutputSchema.ts"
+    },
+    {
+      "sha256": "sha256:997b78ee9907b0fc1290cc9b3e2ed9f84c1fd3858b541d18813990f41643871e",
+      "path": "src/generated/kubb/zod/functionCallOutputStatusEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:cebea20456f9d23aaf7a305c9f3d26798ce651f11c5656e89727ae2f8be59333",
+      "path": "src/generated/kubb/zod/functionCallSchema.ts"
+    },
+    {
+      "sha256": "sha256:2b363b544821bfe1802a7e875ed84b4dd320e39ab676df191421c51d3856317e",
+      "path": "src/generated/kubb/zod/functionCallStatusSchema.ts"
+    },
+    {
+      "sha256": "sha256:1d18ac69556f8f5bd9b4d69059d7690a9faed9b336d424de4c23717c4fe552bc",
+      "path": "src/generated/kubb/zod/functionToolChoiceSchema.ts"
+    },
+    {
+      "sha256": "sha256:125dd4c3f82a416f08e9551c597601271e3fb98938001fbdd6f1eb6a1536ddd0",
+      "path": "src/generated/kubb/zod/functionToolParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:5f3c306d618f2884c6423280505f1a4bc151bbd608411c99af00bb660a1ff3d9",
+      "path": "src/generated/kubb/zod/functionToolSchema.ts"
+    },
+    {
+      "sha256": "sha256:cd9d261334d6121374ac76f70f1ae05eb2d5fb0f341c99cec627453890ae96d9",
+      "path": "src/generated/kubb/zod/imageDetailSchema.ts"
+    },
+    {
+      "sha256": "sha256:a0975d9f029a7d2c2cafe2cb10a1064f13438efec71e3f66aa344df50081a405",
+      "path": "src/generated/kubb/zod/includeEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:532ed8718b3752ddd911d2bea1d32a792c3b2ea41636168ba2ee623a489c0608",
+      "path": "src/generated/kubb/zod/incompleteDetailsSchema.ts"
+    },
+    {
+      "sha256": "sha256:aceb2fe00089ca9b3202958c6cedcabd4970070c92110801738993fc3bd8d2c6",
+      "path": "src/generated/kubb/zod/index.ts"
+    },
+    {
+      "sha256": "sha256:6d82172b3e66e8eaa1f9f758da1ace3e720b4625fd6b898e56cf51a945636d47",
+      "path": "src/generated/kubb/zod/inputFileContentParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:a4ba50de3b98358955348c8c0aae8e4c1a2ef180376522a861c31330b4f7bcd4",
+      "path": "src/generated/kubb/zod/inputFileContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:b50ed3e595da4e815d318054570aebe5859d630cd5280d9852eba22b04a4f965",
+      "path": "src/generated/kubb/zod/inputImageContentParamAutoParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:d5e1d81dd774036f1b8932ab3a90a7f5057ae52930ced9c44450a339b3eb476a",
+      "path": "src/generated/kubb/zod/inputImageContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:87c32656dd97d190c72187a9a288acb2e0642ee52cd90c174db8cabdd096a366",
+      "path": "src/generated/kubb/zod/inputTextContentParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:fe02c83ad5dccad080687471bc2493364059875d04a1725536e36cd382d63f49",
+      "path": "src/generated/kubb/zod/inputTextContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:53bef2bb5d3d5d2c156a936ba369f7d96aa2c9df62ef573cfae2dca59f0282f0",
+      "path": "src/generated/kubb/zod/inputTokensDetailsSchema.ts"
+    },
+    {
+      "sha256": "sha256:91c42a4010bb219493cf4614416cd319aabd94426f03631d8a5c18be82197d6f",
+      "path": "src/generated/kubb/zod/inputVideoContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:56f28a35f031f1c3468259dee4d9d0fb9b6b9b2c6b52a082d949ad4d557158ff",
+      "path": "src/generated/kubb/zod/itemFieldSchema.ts"
+    },
+    {
+      "sha256": "sha256:c955a9bb86b8888501a2c3e1dea7fb0f0dd0109d865e02360274b3e59e2b8e29",
+      "path": "src/generated/kubb/zod/itemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:6f1bf5e38b789e6aa79987e1ebce74185d5589f66a6d094b713c53c028e87971",
+      "path": "src/generated/kubb/zod/itemReferenceParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:5e008f7f6265473b90628809cb8438c9dee2b5ee2ee730561c3f3d74b391b829",
+      "path": "src/generated/kubb/zod/jsonObjectResponseFormatSchema.ts"
+    },
+    {
+      "sha256": "sha256:1f6764ae4ce4a8fba079b6291a458c90ed7d61686457a260417fa91575986926",
+      "path": "src/generated/kubb/zod/jsonSchemaResponseFormatParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:2c5c4455028ed33b1f63edcd5c16c3052d85fa8dc60a8904a0c29c4fb0ad6b6c",
+      "path": "src/generated/kubb/zod/jsonSchemaResponseFormatSchema.ts"
+    },
+    {
+      "sha256": "sha256:3c3bb35ca94ee11af6ff6c69df397a7975e30f9292838fcb9227dafa2f259749",
+      "path": "src/generated/kubb/zod/logProbSchema.ts"
+    },
+    {
+      "sha256": "sha256:f99eeee717e1664c98b5a9f31345c9e07b0b58941a6c9287203b8849e88af914",
+      "path": "src/generated/kubb/zod/messageRoleSchema.ts"
+    },
+    {
+      "sha256": "sha256:a02889c3e38903bac75104ece29a486aaac107d48d31d4362e38d031d366f396",
+      "path": "src/generated/kubb/zod/messageSchema.ts"
+    },
+    {
+      "sha256": "sha256:7ba2d861ee134fcef27fccd034ec6e7bb9ba2c4e178391d275cb2abe62a18443",
+      "path": "src/generated/kubb/zod/messageStatusSchema.ts"
+    },
+    {
+      "sha256": "sha256:466a08e3314448b2f329ace0d837ad5057ec6224f625da021a594c1f96cc3ec1",
+      "path": "src/generated/kubb/zod/metadataParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:ff900b7161f380ff75cac6df03859b13b18c9eaad499bfb303ec7ad3c7c0d4d9",
+      "path": "src/generated/kubb/zod/outputTextContentParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:f692f750597e6d0420f1fa29a75fb54a5c0fc175e11e3af112238bd98981dedb",
+      "path": "src/generated/kubb/zod/outputTextContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:93fdd41db47a384cb3da2480851a4dc8543eb2175d459a20ad8cc4bbf0b39d0f",
+      "path": "src/generated/kubb/zod/outputTokensDetailsSchema.ts"
+    },
+    {
+      "sha256": "sha256:3931a05e3b37d24bd05d5427ee82947231e3d26e3a6d632e43cda3f8b26f4d02",
+      "path": "src/generated/kubb/zod/reasoningBodySchema.ts"
+    },
+    {
+      "sha256": "sha256:a1d9e3f5c899564d40ecde6a5d11ce161a7a63e2b9d8e1310f4121447b6bb454",
+      "path": "src/generated/kubb/zod/reasoningEffortEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:f35b994eff08150fbd5d806c9df2322c8f2e9109a429146a6bb3dd73026857be",
+      "path": "src/generated/kubb/zod/reasoningItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:cb150f9bcd9a7386cb5e027b004c168d38afadcb7239d986fe87d9388d23ec90",
+      "path": "src/generated/kubb/zod/reasoningParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:70591af8576a25792d84d78e2c5dfe8360ea481c74f39cfcb415079be98ca83c",
+      "path": "src/generated/kubb/zod/reasoningSchema.ts"
+    },
+    {
+      "sha256": "sha256:22c3d1dde84263180fda38b52672ef2cee0f4efce2fb7f4efc114513aafc18a9",
+      "path": "src/generated/kubb/zod/reasoningSummaryContentParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:e7c412fce3d25cfd12a298814e6908e237322504cad23a778f278457a49b2c09",
+      "path": "src/generated/kubb/zod/reasoningSummaryEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:e5ade461406126fea635db274be7cd8969addbc02990df745b7f851363d1ebb0",
+      "path": "src/generated/kubb/zod/reasoningTextContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:79a14accef5085e1ee71338fe9ff68008f192fbd3c57c1935657d80b613ec739",
+      "path": "src/generated/kubb/zod/refusalContentParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:d2b3fd4bf4f50e2ff7e01077d789d9d44a15d274bec43889d4b7a68d22307122",
+      "path": "src/generated/kubb/zod/refusalContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:73ecf9ebb16f3e91ff36f7799b9455bc4ca43e788423295fe57805c31ba2f0b2",
+      "path": "src/generated/kubb/zod/responseCompletedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:e900cad9f8d5555fd5e5d58c83a106eb23eb15ec4872d68030a966ffb3c2b604",
+      "path": "src/generated/kubb/zod/responseContentPartAddedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:ddf0fc6c3c8c963881cb2c127c5b6579c63f8332cb6a9d6f8dac2fcdebfc2f1c",
+      "path": "src/generated/kubb/zod/responseContentPartDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:844c5ad0b1a67ef22220156da8b077f818de379d29fc68ac74245851e1e6085d",
+      "path": "src/generated/kubb/zod/responseCreatedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:a7291775f2018b399278fd1c1c771ba7b003cfc9124ac58d9fffd1e009249a42",
+      "path": "src/generated/kubb/zod/responseFailedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:af6b48c4e9c3ca569987d9f9e6c82f06a920301307a439fd8391160c9daba42f",
+      "path": "src/generated/kubb/zod/responseFunctionCallArgumentsDeltaStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:260475d3912d4b4ba6749d7a2e471327413833fb744a65a7983a5b5367c267a2",
+      "path": "src/generated/kubb/zod/responseFunctionCallArgumentsDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:2d39b66a42954aa518c72c7e48ea4b28eef297bb4c434af9541903a42aa8cefe",
+      "path": "src/generated/kubb/zod/responseIncompleteStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:7a15072c54ac5e5290f176234514bb5d0e7067b3479e53152e2386f9a856cdd7",
+      "path": "src/generated/kubb/zod/responseInProgressStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:c8082a3b1999a5c56717c83f7f67af4218f52c088670d1584d4c5401f1e3ce3b",
+      "path": "src/generated/kubb/zod/responseOutputItemAddedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:4c4bf82a0291b41cd3a18f572b4107309631d687ae7f1d81332133138b55dab9",
+      "path": "src/generated/kubb/zod/responseOutputItemDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:1577d6b5fe60b0679fd502d578e066cb80466c83a39563372b205d78d1089fdd",
+      "path": "src/generated/kubb/zod/responseOutputTextAnnotationAddedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:ff87225c0d4ea299702c6d29a1818d90a7363dd4050c6e844f508d4d6376fe4d",
+      "path": "src/generated/kubb/zod/responseOutputTextDeltaStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:a3d37c2e5b57cd3d47c2ed10e5f4a4405c74dc0ec557962983a744bb86a3adc5",
+      "path": "src/generated/kubb/zod/responseOutputTextDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:d66e8ded64ff572233cefbcf8009ef0dd5af099e0aacca3fd63660d8e16dada2",
+      "path": "src/generated/kubb/zod/responseQueuedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:7886e7cab9afb36c49e625de6658b18c7208bec5494b2c88f125f92f61771b89",
+      "path": "src/generated/kubb/zod/responseReasoningDeltaStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:2c13e02d3d23084e2778a8fb887659895dc691076f6c5f2867954ee711d9bf2e",
+      "path": "src/generated/kubb/zod/responseReasoningDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:31743f1ee933adfc9719dfecb2b9d59230752eed5bb739758806093b28530dd8",
+      "path": "src/generated/kubb/zod/responseReasoningSummaryDeltaStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:cac53ad11f594d2a9cb436b53a51213fca7290c789ff4a6fff2e74b7a06c2f92",
+      "path": "src/generated/kubb/zod/responseReasoningSummaryDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:4f6b5fb27fd31f6c5910e9fe4caef817fa04b6bc936344ab7cfe70fc0fdb327d",
+      "path": "src/generated/kubb/zod/responseReasoningSummaryPartAddedStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:912e2a6ba1e89b14b6934269d7a7c1331ba50bb04c9e7a4766018439f74d43cf",
+      "path": "src/generated/kubb/zod/responseReasoningSummaryPartDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:47dcce693a05bd1540df045d2370f2f031bdd41f7117a641bcbc2cd81508a4cc",
+      "path": "src/generated/kubb/zod/responseRefusalDeltaStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:8eb513aabc3c19ac70d849c834f0436df4cdff6e173d01bda4cd422a90c98d91",
+      "path": "src/generated/kubb/zod/responseRefusalDoneStreamingEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:8acdbc9cb17e74812065a34a9ed2255b5df2a0f0b70c30c9e9b7840c4d4f8ff8",
+      "path": "src/generated/kubb/zod/responseResourceSchema.ts"
+    },
+    {
+      "sha256": "sha256:3ec5b72a34602c0c3372be914dddf80694d28134fd78aa34db9d745f296f9f1c",
+      "path": "src/generated/kubb/zod/responsesToolParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:819a9ece7ec5225bafb8544842a3025ff313220e4ef22af070a183fdfae28be9",
+      "path": "src/generated/kubb/zod/serviceTierEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:42d8a01673c82a903fc0558eb0bf53c1b3cd42e1b57240c63077b8e668218f10",
+      "path": "src/generated/kubb/zod/specificFunctionParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:98607751a2cd08288f0e5d5cda0431a7bb00664c2abe82817fcd8df6087dbf84",
+      "path": "src/generated/kubb/zod/specificToolChoiceParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:2a439dc4908433c65d74406a669869e6c3cc85737ef07e1857eba997d73800ba",
+      "path": "src/generated/kubb/zod/streamOptionsParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:7be135cbe617fd74788848e2b8b637458feaa80ec82fd2c164a46f84555de2a0",
+      "path": "src/generated/kubb/zod/summaryTextContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:8a98c0627c1b605f97f3825bb6fb0509e843c369d504d80cb19866d414ab02a7",
+      "path": "src/generated/kubb/zod/systemMessageItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:3f73ae788722ee12da47c132e7e85dce6e2b31599d54c9e8bb259b0ce14bdf39",
+      "path": "src/generated/kubb/zod/textContentSchema.ts"
+    },
+    {
+      "sha256": "sha256:a4c7651832ae248bcaf405274dbf4c416491f750380b405a36d15230ac77dcfd",
+      "path": "src/generated/kubb/zod/textFieldSchema.ts"
+    },
+    {
+      "sha256": "sha256:d07e3dd6ce4d04d579161f8b92f97ed6ad55a9c5cbf968ce7018a9e7f61585a2",
+      "path": "src/generated/kubb/zod/textFormatParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:a7c693d7d1f6d391317dfce4178e82c29c336229295b282c55e2f04c3775e873",
+      "path": "src/generated/kubb/zod/textParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:5187472c098c8b9b91346991cef25c798383ca978be2584a0f03de738059236e",
+      "path": "src/generated/kubb/zod/textResponseFormatSchema.ts"
+    },
+    {
+      "sha256": "sha256:087c34da98ec92d3000e09b2252ee97ced2413f2e1db6570804e1923faa32f71",
+      "path": "src/generated/kubb/zod/toolChoiceParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:84d9e1f3534d63aba5f378c5606220bb8853cc8c6f55f4b1f25536e389050f7b",
+      "path": "src/generated/kubb/zod/toolChoiceValueEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:a5102373340798b2350683136378dfe6087d11283f9bc6314a51ee1b3cbc8d2e",
+      "path": "src/generated/kubb/zod/toolSchema.ts"
+    },
+    {
+      "sha256": "sha256:cfba7545af000cdf336db494a550fba97892413d0b68523b495ae73c1e92af09",
+      "path": "src/generated/kubb/zod/topLogProbSchema.ts"
+    },
+    {
+      "sha256": "sha256:d0b133fd8597e351581c3a494175e6717ebdaee35a341a44026993b02b91b950",
+      "path": "src/generated/kubb/zod/truncationEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:53288342960889cb02bb0664000a94652ee49f0273b26cd4585b694a8ee88a7b",
+      "path": "src/generated/kubb/zod/urlCitationBodySchema.ts"
+    },
+    {
+      "sha256": "sha256:3e4f5068f303e94cff475b30555546c329d3d749c62f18cdbb5be5999b4824c0",
+      "path": "src/generated/kubb/zod/urlCitationParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:6d92561fda21508f224a0fc4a5cdadee6d31458f4c6758bca17da42d737ae28c",
+      "path": "src/generated/kubb/zod/usageSchema.ts"
+    },
+    {
+      "sha256": "sha256:b24233e4c545455a007d819f6df7969dc542f7fb7873c3de1313303ed9e3b878",
+      "path": "src/generated/kubb/zod/userMessageItemParamSchema.ts"
+    },
+    {
+      "sha256": "sha256:dc8a05a0ed4b9da1f8aead3e978fa51d5502c32d87be865f4302fcf520df8f86",
+      "path": "src/generated/kubb/zod/verbosityEnumSchema.ts"
+    },
+    {
+      "sha256": "sha256:1fc6d94e7c9bbd1162b154f2ce6e51467879339530a9ca063bc763c25e7d023d",
+      "path": "src/generated/kubb/zod/webSocketErrorEventSchema.ts"
+    },
+    {
+      "sha256": "sha256:b8e97027a0afd4f7136eee5b0f8d7f6d85b2ac07d09c694ffa58eca4218e5d41",
+      "path": "src/generated/kubb/zod/webSocketResponseCreateEventSchema.ts"
+    }
+  ],
+  "runtime": {
+    "language": "TypeScript",
+    "host": "Node.js >=20 (isolated test-only tool)",
+    "deps": [
+      {
+        "name": "zod",
+        "version": "4.6.7",
+        "license": "MIT"
+      },
+      {
+        "name": "esbuild",
+        "version": "0.28.2",
+        "license": "MIT"
+      },
+      {
+        "name": "ws",
+        "version": "8.22.0",
+        "license": "MIT"
+      }
+    ]
+  }
+}

@@ -1,0 +1,122 @@
+version: 2
+updates:
+  # Keep root and every independent module in one multi-directory update
+  # stream, so a bump lands in all modules at once. Dependabot skips modules
+  # that only carry the bumped dependency in go.sum; dependabot-sync.yml
+  # tidies those on the pull request. Every directory holding a go.mod
+  # belongs here.
+  - package-ecosystem: gomod
+    directories:
+      - /
+      - /testdata/enterprise_module
+      - /testdata/external_connector
+      - /testdata/external_feature_sdk
+      - /testdata/external_billing_binding
+      - /connector-support/*
+      - /connectors/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    # Delay fresh version updates to reduce early-release risk.
+    cooldown:
+      default-days: 3
+    # BetterLeaks is held at v2.0.0-rc.2: rc.4 changes detection semantics
+    # (the AWS access-key component becomes optional). Re-evaluate at v2
+    # stable: https://github.com/aiproxer/aiproxer-enterprise/issues/1452
+    # gocognit v1.2.2 has an approved scoring-baseline migration (#1456).
+    # Keep >=1.3.0 held pending a separate version-specific review:
+    # https://github.com/aiproxer/aiproxer-enterprise/issues/1453
+    ignore:
+      - dependency-name: "github.com/betterleaks/betterleaks/v2"
+        versions: [">= 2.0.0-rc.3"]
+      - dependency-name: "github.com/uudashr/gocognit"
+        versions: [">= 1.3.0"]
+    # One group per dependency family (first match wins). A breaking release in
+    # one family blocks only its own PR instead of a 30-directory bundle.
+    groups:
+      go-patch:
+        update-types:
+          - patch
+        patterns:
+          - "*"
+      go-provider-sdks:
+        update-types:
+          - minor
+        patterns:
+          - "github.com/anthropics/*"
+          - "github.com/openai/*"
+          - "github.com/aws/*"
+          - "google.golang.org/genai"
+          - "cloud.google.com/*"
+      go-grpc-proto:
+        update-types:
+          - minor
+        patterns:
+          - "google.golang.org/grpc*"
+          - "google.golang.org/protobuf"
+          - "google.golang.org/genproto*"
+      go-telemetry:
+        update-types:
+          - minor
+        patterns:
+          - "go.opentelemetry.io/*"
+          - "github.com/prometheus/*"
+      go-storage:
+        update-types:
+          - minor
+        patterns:
+          - "modernc.org/*"
+          - "github.com/jackc/*"
+          - "github.com/oschwald/*"
+      go-minor:
+        update-types:
+          - minor
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # The OpenResponses official compliance runner is an isolated, test-only npm
+  # tool. Its dependencies are exact pins guarded by internal/archtest, so an
+  # update arrives as an exact bump in package.json and the lockfile together.
+  - package-ecosystem: npm
+    directory: /tools/openresponses-compliance
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:45"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    cooldown:
+      default-days: 3
+    groups:
+      npm-test-tooling:
+        patterns:
+          - "*"
+
+  # connectors/claudeagentacp/install is deliberately not listed. Its
+  # package-lock.json is a reviewed certification identity, not a routine
+  # dependency set: any closure change needs a newly admitted bundle digest
+  # (docs/claude-agent-acp-backend.md) and local runtime evidence. A bot bump
+  # would look green in CI and refuse every operator installation, so those
+  # updates stay a reviewed certification change.

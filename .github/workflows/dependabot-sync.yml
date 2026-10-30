@@ -1,0 +1,166 @@
+name: Dependabot sync
+# Quoted: an unquoted ' #' starts a YAML comment. auto-update-prs.yml finds
+# runs for a PR by this title.
+run-name: "Dependabot sync #${{ github.event.pull_request.number || inputs.pr }}"
+
+# Dependabot bumps only direct requirements, one module directory at a time, so
+# connector and fixture modules that carry the dependency as indirect (or only
+# in go.sum) drift from the root graph and the module checks fail. This
+# workflow runs scripts/dependabot-sync.sh on the Dependabot branch: merge
+# main (re-applying the bump when go.mod/go.sum conflict), tidy every module,
+# push. Once the branch needs nothing, it enables auto-merge for the grouped
+# minor/patch updates; required checks still gate the merge.
+#
+# auto-update-prs.yml dispatches this workflow for a Dependabot PR that is
+# behind main or has conflicts: Dependabot stops rebasing a branch once
+# anyone else has pushed to it.
+#
+# Pushes use AUTOMATION_DEPLOY_KEY (a write deploy key for this repository):
+# a push made with GITHUB_TOKEN starts no workflows, so the required checks
+# would never run on the synchronized head.
+#
+# pull_request_target is required for the secret. The scripts run are main's:
+# the sync script is read from main, and the job refuses a pull request that
+# changes anything besides go.mod/go.sum, so the branch's tidy helper is main's
+# too. go mod tidy does not execute dependency code.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Dependabot pull request number
+        required: true
+
+permissions:
+  contents: read
+
+# Queue rather than cancel: the push from a sync starts a synchronize run,
+# which must not cancel the run that pushed it.
+concurrency:
+  group: dependabot-sync-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Synchronize module graph
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.user.login == 'dependabot[bot]' &&
+       startsWith(github.event.pull_request.head.ref, 'dependabot/go_modules/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      pushed: ${{ steps.push.outputs.pushed }}
+      ref: ${{ steps.pr.outputs.ref }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number || inputs.pr }}
+    steps:
+      - name: Resolve Dependabot pull request
+        id: pr
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::invalid pull request number '$PR'"; exit 1; }
+          info=$(gh pr view "$PR" --json author,state,headRefName,headRefOid,headRepositoryOwner,files,commits)
+          jq -e '.author.login == "app/dependabot" and .state == "OPEN"' <<<"$info" >/dev/null ||
+            { echo "::error::#$PR is not an open Dependabot pull request"; exit 1; }
+          ref=$(jq -r .headRefName <<<"$info")
+          [[ "$ref" == dependabot/go_modules/* && "$(jq -r .headRepositoryOwner.login <<<"$info")" == "${GH_REPO%%/*}" ]] ||
+            { echo "::error::#$PR is not a same-repository Dependabot Go branch"; exit 1; }
+          others=$(jq -r '[.files[].path | select(test("(^|/)go\\.(mod|sum)$") | not)] | join(" ")' <<<"$info")
+          [[ -z "$others" ]] || { echo "::error::#$PR changes files other than go.mod/go.sum ($others); refusing to run its scripts."; exit 1; }
+          bump=$(jq -r '[.commits[] | select(.authors[0].login == "dependabot[bot]")][0].oid // empty' <<<"$info")
+          [[ -n "$bump" ]] || { echo "::error::#$PR has no Dependabot commit"; exit 1; }
+          {
+            echo "ref=$ref"
+            echo "head=$(jq -r .headRefOid <<<"$info")"
+            echo "bump=$bump"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require deploy key
+        shell: bash
+        env:
+          KEY: ${{ secrets.AUTOMATION_DEPLOY_KEY }}
+        run: |
+          if [[ -z "$KEY" ]]; then
+            echo "::error::AUTOMATION_DEPLOY_KEY is not set; Dependabot PRs cannot be synchronized."
+            exit 1
+          fi
+
+      - name: Check out Dependabot branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+          ssh-key: ${{ secrets.AUTOMATION_DEPLOY_KEY }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Merge main and synchronize every module
+        shell: bash
+        env:
+          BUMP: ${{ steps.pr.outputs.bump }}
+          AIP_MODULE_CHECK_JOBS: "2"
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git show origin/main:scripts/dependabot-sync.sh > "$RUNNER_TEMP/dependabot-sync.sh"
+          bash "$RUNNER_TEMP/dependabot-sync.sh" "$BUMP" origin/main
+
+      - name: Push
+        id: push
+        shell: bash
+        env:
+          REF: ${{ steps.pr.outputs.ref }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git rev-parse HEAD)" == "$HEAD_SHA" ]]; then
+            echo "Branch is up to date with main and synchronized."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git log --oneline "$HEAD_SHA..HEAD"
+          # Lease on the head we synchronized, so a concurrent Dependabot push wins.
+          git push --force-with-lease="refs/heads/$REF:$HEAD_SHA" origin "HEAD:refs/heads/$REF"
+          # The push re-runs this workflow on the new head, which enables auto-merge.
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+  auto-merge:
+    name: Enable auto-merge
+    needs: sync
+    if: needs.sync.outputs.pushed == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number || inputs.pr }}
+      REF: ${{ needs.sync.outputs.ref }}
+    steps:
+      - name: Enable auto-merge for grouped minor/patch updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          # These groups admit only minor and patch updates (.github/dependabot.yml).
+          # Ungrouped PRs, including major versions, stay with a maintainer.
+          if [[ ! "$REF" =~ ^dependabot/go_modules/(go-patch|go-provider-sdks|go-grpc-proto|go-telemetry|go-storage|go-minor)-[0-9a-f]+$ ]]; then
+            echo "$REF is not a grouped minor/patch update; leaving merge to a maintainer."
+            exit 0
+          fi
+          gh pr merge "$PR" --auto --squash
+          # Enabling auto-merge with GITHUB_TOKEN raises no auto_merge_enabled
+          # event, so start the queue directly.
+          gh workflow run auto-update-prs.yml --ref main

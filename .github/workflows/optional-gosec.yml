@@ -1,0 +1,62 @@
+# Non-blocking security-oriented scan. Does not gate merges.
+name: Optional gosec
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 7 * *"
+
+permissions:
+  contents: read
+
+jobs:
+  gosec:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Install and run gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          "$(go env GOPATH)/bin/gosec" -tests -severity medium ./...
+
+  # Integer overflow / unsafe conversions (G115); optional until noise is triaged.
+  gosec-g115:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Install and run gosec (G115 only)
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          "$(go env GOPATH)/bin/gosec" -include=G115 -tests ./...

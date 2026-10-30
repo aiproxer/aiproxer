@@ -1,0 +1,13 @@
+{
+  "name": "runtime",
+  "private": true,
+  "description": "Checked-in certification recipe for the operator-installed Claude Agent ACP runtime. Copy this file together with package-lock.json. The lock closes the upstream adapter closure; the overrides select patched releases of three transitive libraries whose exact upstream pins are vulnerable. Never resolve fresh ranges against an admitted installation.",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.89.1"
+  },
+  "overrides": {
+    "zod": "4.6.6",
+    "body-parser": "2.4.0",
+    "fast-uri": "3.1.9"
+  }
+}

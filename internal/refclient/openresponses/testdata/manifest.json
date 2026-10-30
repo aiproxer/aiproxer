@@ -1,0 +1,66 @@
+{
+  "profile": {
+    "family": "openresponses",
+    "version": "2026-04-24",
+    "source_commit": "92c12d96d7b61d6d15e2214daa5e9c6000ab6e1c",
+    "source_repository": "openresponses/openresponses",
+    "license": "Apache-2.0"
+  },
+  "artifacts": [
+    {
+      "role": "official_example_param",
+      "rel_path": "official_examples/ResponseParam.json",
+      "sha256": "sha256:34bdc5059a09c5ead8d1dbe4b8981d7f782c8e205f256e672ae91d67756d3331"
+    },
+    {
+      "role": "official_example_resource",
+      "rel_path": "official_examples/ResponseResource.json",
+      "sha256": "sha256:f3787e0361ffdfd1ffd78a3535e91bad6e45468a50e0ac697ad9d2b500153791"
+    },
+    {
+      "role": "scenario_response_text",
+      "rel_path": "scenarios/response_text.json",
+      "sha256": "sha256:33003f773b6f1dad798107891ce2c5b346c7699fb89e09ba815813956e46e427"
+    },
+    {
+      "role": "scenario_response_tools",
+      "rel_path": "scenarios/response_tools.json",
+      "sha256": "sha256:b8a85ec4b9fba8614039e9d615c9bf984ac1d42808ca67b701c31a2a2c6fd960"
+    },
+    {
+      "role": "scenario_response_reasoning",
+      "rel_path": "scenarios/response_reasoning.json",
+      "sha256": "sha256:662440a255923a59570bc6162713e14abb2434a06ccb00667fcedb1da608e09c"
+    },
+    {
+      "role": "scenario_response_phase",
+      "rel_path": "scenarios/response_phase.json",
+      "sha256": "sha256:2a94645caff7d1ef5967e6dc0cc72236418afb4de2d902ca82f081964be1fd9f"
+    },
+    {
+      "role": "scenario_response_extensions",
+      "rel_path": "scenarios/response_extensions.json",
+      "sha256": "sha256:6386894169bda16c4f7b5d67f5fa3a2b95161a6065375280f01ffbc7cbf053dd"
+    },
+    {
+      "role": "scenario_response_error",
+      "rel_path": "scenarios/response_error.json",
+      "sha256": "sha256:561396851be0ef1675c8613df87e73695b930f4905cbc781a2ffaae3a872a36c"
+    },
+    {
+      "role": "scenario_compact_resource",
+      "rel_path": "scenarios/compact_resource.json",
+      "sha256": "sha256:dd1c2c05e6ba51b7d68bc623b7051c5117d43dca0752ae147c2aa3e93b8c7740"
+    },
+    {
+      "role": "scenario_request_multimodal",
+      "rel_path": "scenarios/request_multimodal.json",
+      "sha256": "sha256:3b2199cc9bd6357082f9d9cc6384384e1f8b3c5d36ef492f2a97e3bf0d4a67b8"
+    },
+    {
+      "role": "scenario_stream_text",
+      "rel_path": "scenarios/stream_text.sse",
+      "sha256": "sha256:d7a794cdba1dcfa387aecc96d1b8c0392f51ac8c4bc8e8a3276822a216785916"
+    }
+  ]
+}

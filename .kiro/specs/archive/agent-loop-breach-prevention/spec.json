@@ -1,0 +1,40 @@
+{
+  "feature_name": "agent-loop-breach-prevention",
+  "created_at": "2026-08-21T15:35:00+02:00",
+  "updated_at": "2026-08-25T21:39:21+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Implement Agent Loop Guard as the first concrete provider of terminal-decision-feature-extension. ALG owns canonical terminal-cause and evidence classification, bounded independent semantic verification, conservative verdict policy, progress detection, and provider-neutral continuation intent/content. It must preserve pre-output transport recovery, never replay committed output or tool side effects, never invent user authority, and remain removable without concrete ALG policy in core. The platform specification owns the exclusive FeatureBundle provider seam, single core terminal chokepoint, transactional continuation, conversation-view steering lifecycle, immutable generations, process-owned secure-session policy, and generic client/operator endpoints.",
+  "dependencies": [
+    {
+      "feature_name": "terminal-decision-feature-extension",
+      "spec_path": ".kiro/specs/archive/terminal-decision-feature-extension",
+      "required_tasks": [
+        "2.2",
+        "3.2",
+        "4.2",
+        "5.2",
+        "6.2",
+        "7.2",
+        "8.2",
+        "9.1"
+      ]
+    }
+  ]
+}

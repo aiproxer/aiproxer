@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "description": "Runtime-architecture-convergence migration allowlist. Task 5.5 deleted the dual bootstrap/host-attachment path and the config_load wrapper owner, retiring the last scheduled Phase 5 exceptions. Every gate (including host_path and config_load) is now permanently zero-tolerance; see permanentlyZeroToleranceAllowlistGates. This file must stay empty unless an approved later-phase exception unrelated to Phase 5 is explicitly documented.",
+  "entries": []
+}

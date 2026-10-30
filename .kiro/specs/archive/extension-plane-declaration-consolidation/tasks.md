@@ -1,0 +1,294 @@
+# Implementation Plan
+
+> Execute each migration wave as a standalone PR-sized checkpoint. Keep the default suite green and the Go-source change count within the repository gate. Physical core relocation and #394 performance optimization remain out of boundary.
+
+- [x] 1. Characterize the current extension surface before introducing the manifest
+- [x] 1.1 Capture ordered-merge and lifecycle-side-channel parity
+  - Characterize registration ordering, disabled-feature behavior, nil versus empty slices, backing-array isolation, and lifecycle side-channel behavior for ordered feature contributions.
+  - Observable completion: table-driven tests fail on any ordered-merge or lifecycle transport change and pass on the unmodified legacy path.
+  - _Requirements: 1.1, 1.3, 5.1_
+  - _Boundary: internal/featurebundle, internal/infra/runtimebundle, internal/testkit_
+  - **Validation:** `go test ./internal/featurebundle ./internal/infra/runtimebundle ./internal/testkit/...`
+- [x] 1.2 Capture scalar, exclusive, and test-overlay parity
+  - Characterize finalizer-cap min reduction, exclusive-provider identity/conflict text, and every field's current test-overlay rule, including omitted fields and finalizer-cap overwrite.
+  - Record an explicit preserve-or-remove decision for the test-only overlay seam for W4 execution.
+  - Observable completion: focused fixtures pin scalar/exclusive behavior and produce a decision record for every overlay discrepancy.
+  - _Requirements: 1.2, 4.2, 4.4, 5.1_
+  - _Boundary: internal/featurebundle, internal/infra/runtimebundle, internal/testkit_
+  - **Validation:** `go test ./internal/featurebundle ./internal/infra/runtimebundle ./internal/testkit/... -run 'Finalizer|TerminalDecision|Overlay|PlaneParity'`
+- [x] 1.3 Capture generation-binder replacement parity
+  - Characterize reasoning-compression replace-by-identity behavior/idempotence and compaction-continuity preserver replacement order/panic safety.
+  - Observable completion: deterministic tests pin both binder rules and prove failures leave the candidate surface unmodified.
+  - _Requirements: 1.4, 4.5, 5.1_
+  - _Boundary: composition root, internal/infra/compactioncompose, internal/testkit_
+  - **Validation:** `go test ./internal/infra/runtimebundle ./internal/infra/compactioncompose ./internal/testkit/...`
+- [x] 1.4 Capture secret-guard and interface typed-nil parity
+  - Characterize secret-guard uniqueness/host-capability rules, terminal-provider typed-nil behavior, and nil policy for ordered interface-valued planes.
+  - Preserve operator-visible error classifications/text and generation rollback behavior in fixtures.
+  - Observable completion: deterministic tests fail before candidate mutation on invalid interface values and pin each nil/source policy.
+  - _Requirements: 1.2, 1.4, 4.2, 4.5, 5.1_
+  - _Boundary: composition root, secret-guard runtime, internal/testkit_
+  - **Validation:** `go test ./internal/infra/runtimebundle ./internal/core/runtime ./internal/testkit/... -run 'SecretGuard|TypedNil|TerminalDecision|PlaneParity'`
+- [x] 1.5 Capture diagnostics and privilege inventory goldens
+  - Record stage coalescing, family-specific ordering, occupant labels, nil filtering, and privilege flags for a populated multi-feature configuration.
+  - Observable completion: a stable golden captures byte-equivalent operator inventory output before any plane migration.
+  - _Requirements: 6.1_
+  - _Boundary: core/runtime diagnostics, internal/testkit_
+  - **Validation:** `go test ./internal/core/diag ./internal/testkit/...`
+- [x] 1.6 Capture request-path seam-view benchmark baselines
+  - Benchmark completion-gate, traffic, secret-guard, compaction, and terminal-provider seam reads with absolute ns/op, B/op, allocs/op; document which accessors defensively clone.
+  - Observable completion: benchmark evidence can be compared after every wave and identifies OBSERVE, DELTA-allocation, and HOLD scenarios that #394 must refresh if baseline capture starts early.
+  - _Requirements: 7.1_
+  - _Boundary: core/runtime, architecture gates/tests_
+  - **Validation:** `go test -bench 'Benchmark.*(Completion|Traffic|Secret|Compaction|Terminal)' -benchmem ./internal/core/extensions/...`
+- [x] 1.7 Capture deterministic publish-versus-pinned-request concurrency behavior
+  - Exercise immutable generation publication/request pinning under deterministic scheduling, leak checks, and the race detector on Linux CI.
+  - Treat Linux CI evidence as required completion evidence rather than silently skipping the Windows-unavailable race gate.
+  - Observable completion: old requests keep the old frozen set while the candidate publishes, and race/leak evidence is attached to the characterization checkpoint.
+  - _Requirements: 1.5_
+  - _Boundary: core/runtime, architecture gates/tests_
+  - **Validation:** `go test ./internal/core/extensions ./internal/infra/runtimebundle -run 'Publish.*Pinned|Frozen.*Generation'; Linux CI go test -race ./internal/core/extensions ./internal/infra/runtimebundle`
+
+- [x] 2. Build the single hand-authored manifest and deterministic typed adapters
+- [x] 2.1 Define multiplicity, source-rule, fallible-combine, and attribution contracts
+  - Define ordered/exclusive multiplicity, an explicit unsupported source-rule sentinel, per-source combination rules, validation, attributed errors, and fail-before-mutate behavior.
+  - Observable completion: RED/GREEN contract tests reject incomplete source rules and preserve both validated identities on exclusive conflict.
+  - _Requirements: 2.4, 3.2, 4.1, 4.2, 4.4, 4.5_
+  - _Boundary: SDK/public contract_
+  - _Depends: 1.1, 1.2, 1.3, 1.4_
+  - **Validation:** `go test ./pkg/lipsdk/feature/...`
+- [x] 2.2 Define identity/nil, diagnostics, and generic access contracts
+  - Require identity metadata for exclusive and replace-by-identity rules; expose validated frozen identity through a generated metadata accessor.
+  - Define explicit `reject`/`skip` typed-nil policies plus stage/coalescing/materialization/privilege descriptors, with nil policy applied before validation/combination and diagnostics observing the retained frozen value.
+  - Use package-level generic `Contribute`/`Get` functions; no generic methods, runtime reflection, unsafe casts, mutable registration, maps, or key-search loops on request paths.
+  - Exercise the API contract with test-local typed closure bindings; production generated field bindings arrive in task 2.3.
+  - Observable completion: RED/GREEN tests reject incomplete diagnostics metadata and prove typed generic access without requiring generated production storage.
+  - _Requirements: 2.4, 3.3, 6.2, 7.1_
+  - _Boundary: SDK/public contract_
+  - _Depends: 1.5, 2.1_
+  - **Validation:** `go test ./pkg/lipsdk/feature/...`
+- [x] 2.3 Generate typed contribution, frozen-storage, and dispatch adapters
+  - Generate typed storage plus manifest-ordinal read/write closure bindings with no runtime type discovery.
+  - Observable completion: two generation runs are byte-identical and generated dispatch contains no `any`, type assertions, reflection, unsafe, map, or key-search code.
+  - _Requirements: 2.1, 2.2, 3.3, 6.2_
+  - _Boundary: SDK/public contract, build tooling_
+  - _Depends: 2.2_
+  - **Validation:** `go run ./scripts/generate-feature-planes.go && go test ./pkg/lipsdk/feature/...`
+- [x] 2.4 Add stale-output check mode and quality-gate wiring
+  - Reject stale generated output and illegal manifests before the normal quality-check test body.
+  - Observable completion: intentionally corrupting generated output makes `make quality-checks` fail at the generator step; a clean tree passes.
+  - _Requirements: 2.4, 8.1_
+  - _Boundary: build tooling, architecture gates/tests_
+  - _Depends: 2.3_
+  - **Validation:** `go run ./scripts/generate-feature-planes.go -check && make quality-checks`
+- [x] 2.5 Implement candidate contribution and freeze semantics in the SDK
+  - Validate and combine contributions into a candidate before freezing; preserve non-nil empty semantics and backing-array isolation.
+  - Observable completion: SDK table tests prove fail-before-mutate behavior, normalization, immutable frozen values, and independent backing arrays.
+  - _Requirements: 1.3, 1.4, 1.5, 3.2, 4.4_
+  - _Boundary: SDK/public contract_
+  - _Depends: 2.1, 2.3_
+  - **Validation:** `go test ./pkg/lipsdk/feature/...`
+- [x] 2.6 Implement the generated merge path and dual-path parity switch
+  - Merge feature contributions in registration order through the generated adapters.
+  - Keep lifecycle ownership on the existing separate side channel; it is not a feature plane.
+  - Observable completion: the W0 parity suite runs through both legacy and generated paths with byte-equivalent results and fail-before-mutate errors.
+  - _Requirements: 1.1, 1.3, 1.4, 4.4_
+  - _Boundary: internal/featurebundle, internal/testkit_
+  - _Depends: 2.5_
+  - **Validation:** `go test ./pkg/lipsdk/feature ./internal/featurebundle ./internal/testkit/...`
+
+- [x] 3. Establish progressive architecture and ROI gates before migration
+- [x] 3.1 Define the exact forbidden-mirror predicate and progressive whitelist
+  - Reject hand-authored plane fields/branches in `FeatureBundle`, `MergedFeatureSurface`, merge/copy/overlay/hook projections, `ExtensionsOptions`, generation operations, and diagnostics; allow generated fields, explicit stage consumers, and thin compatibility delegates only.
+  - Scope each migrated family so its old mirrors must reach zero before that wave completes.
+  - Observable completion: self-tests inject every forbidden shape and each is rejected without false-positiveing allowed stage integrations.
+  - _Requirements: 2.3, 5.4, 5.5, 8.1_
+  - _Boundary: architecture gates/tests_
+  - _Depends: 2.4_
+  - **Validation:** `go test ./internal/archtest/...`
+- [x] 3.2 Extend deterministic mirror/baseline reporting
+  - Integrate manifest/generated-output status and mirror measurements into the existing one-command architecture report; generated-path change-surface classification remains owned by task 10.1's ROI probe.
+  - Observable completion: two report runs produce byte-identical output and generated paths are reported separately from hand-authored integration paths.
+  - _Requirements: 8.2_
+  - _Boundary: architecture gates/tests, build tooling_
+  - _Depends: 3.1_
+  - **Validation:** `make arch-report`
+
+- [x] 4. Migrate the hook-bus family as W1
+- [x] 4.1 Migrate submit, request-part, and response-part hook contributions without deleting mirrors
+  - Use ordered plane declarations while preserving sorting, panic behavior, and dual-path parity; keep legacy mirrors until the hook view is fully derived.
+  - Observable completion: all three hook families run through generated contributions and parity stays green with no production behavior switch yet.
+  - _Requirements: 1.1, 5.1, 5.3_
+  - _Boundary: SDK/public contract, internal/featurebundle, internal/testkit_
+  - _Depends: 2.6, 3.1_
+  - **Validation:** `go test ./internal/core/hooks ./internal/featurebundle ./internal/testkit/...`
+- [x] 4.2 Migrate tool-reactor contributions and derive the hook-bus view
+  - Migrate tool reactors while preserving sorting, panic/error behavior, and evidence semantics.
+  - Project config-owned `ToolReactorErrorPolicy` directly from frozen config rather than treating it as a feature contribution.
+  - Observable completion: `hooks.Config` is derived through generated adapters and focused parity remains green before mirror deletion.
+  - _Requirements: 1.1, 5.1, 5.3_
+  - _Boundary: SDK/public contract, internal/infra/runtimebundle/build_feature_hooks.go, core/hooks_
+  - _Depends: 4.1_
+  - **Validation:** `go test ./internal/core/hooks ./internal/featurebundle ./internal/infra/runtimebundle ./internal/testkit/... -run 'FeatureHooks|ToolReactor|PlaneParity'`
+- [x] 4.3 Close W1 by deleting hook mirrors and activating the progressive ratchet
+  - Delete hand-written hook projections only after all W1 consumers use the generated view.
+  - Observable completion: the ratchet reports zero W1 remnants and the default unit/QA suites pass.
+  - _Requirements: 2.2, 5.3, 5.5, 8.1_
+  - _Boundary: composition root, architecture gates/tests_
+  - _Depends: 4.2_
+  - **Validation:** `go test ./internal/core/hooks ./internal/featurebundle ./internal/infra/runtimebundle ./internal/testkit/... && go test ./internal/qa`
+
+- [x] 5. Migrate observer and response-analysis families as W2
+- [x] 5.1 Migrate traffic/usage observers, raw sinks, and redactors
+  - Preserve feature-before-host ordering, nil policy, defensive-copy behavior, and observability output.
+  - Observable completion: named copy/overlay branches for these slice-shaped families are deleted and parity/allocation baselines remain green.
+  - _Requirements: 1.1, 4.5, 5.1, 5.3, 5.5, 7.1_
+  - _Boundary: SDK/public contract, composition root, core/runtime_
+  - _Depends: 4.3_
+  - **Validation:** `go test ./internal/infra/runtimebundle ./internal/core/extensions ./internal/core/runtime ./internal/testkit/... ./internal/qa`
+- [x] 5.2 Migrate stream-observer factories
+  - Preserve factory lifecycle/identity behavior separately from slice-shaped observer values and compare allocation behavior to task 1.6.
+  - Observable completion: the factory copy/overlay branch is deleted, factory parity is green, and allocs/op does not regress.
+  - _Requirements: 1.1, 5.1, 5.3, 5.5, 7.1_
+  - _Boundary: SDK/public contract, composition root, core/runtime_
+  - _Depends: 5.1_
+  - **Validation:** `go test ./internal/infra/runtimebundle ./internal/core/extensions ./internal/core/runtime ./internal/testkit/...; go test -bench 'Benchmark.*StreamObserver' -benchmem ./internal/core/extensions/...`
+- [x] 5.3 Replace reasoning-compression field surgery with declared generation-binder operations
+  - Keep process/generation ownership, typed-nil fail-closed capability checks, replace-by-ID ordering, and idempotence unchanged.
+  - Observable completion: the binder calls generated typed replacement operations and no longer edits merged-surface fields directly.
+  - _Requirements: 1.4, 4.5, 5.1, 5.5_
+  - _Boundary: composition root, reasoning-preservation generation binder_
+  - _Depends: 5.2_
+  - **Validation:** `go test ./internal/infra/runtimebundle ./internal/testkit/... -run 'Reasoning.*Compression|PlaneParity'`
+
+- [x] 6. Migrate request-shaping planes as W3
+- [x] 6.1 Migrate request, pre-request, and attempt transforms
+  - Preserve registration order, validation, decision evidence, and request/attempt binding semantics.
+  - Observable completion: transform mirrors are deleted and focused parity tests pass.
+  - _Requirements: 1.1, 2.2, 5.1, 5.3, 5.5_
+  - _Boundary: composition root, core/runtime_
+  - _Depends: 5.3_
+  - **Validation:** `go test ./internal/core/extensions ./internal/core/runtime ./internal/infra/runtimebundle ./internal/testkit/...`
+- [x] 6.2 Migrate completion gates and route hints
+  - Preserve non-nil empty completion-gate semantics and route-hint ordering/error evidence.
+  - Observable completion: seam views remain source-compatible and mirror branches reach zero.
+  - _Requirements: 1.1, 2.2, 5.1, 5.3, 5.5, 7.1_
+  - _Boundary: composition root, core/runtime_
+  - _Depends: 6.1_
+  - **Validation:** `go test ./internal/core/extensions ./internal/core/runtime ./internal/infra/runtimebundle ./internal/testkit/...`
+- [x] 6.3 Migrate session openers and workspace resolvers
+  - Preserve materialized ordering and diagnostics labels for the coalesced session-open stage.
+  - Observable completion: session/workspace mirrors are deleted and inventory parity stays byte-equivalent.
+  - _Requirements: 1.1, 2.2, 5.1, 5.3, 5.5, 6.1_
+  - _Boundary: composition root, core/runtime, core/runtime diagnostics_
+  - _Depends: 6.2_
+  - **Validation:** `go test ./internal/core/extensions ./internal/core/runtime ./internal/core/diag ./internal/infra/runtimebundle ./internal/testkit/... ./internal/qa`
+
+- [x] 7. Migrate tool planes as W4
+- [x] 7.1 Migrate tool-catalog filters and admission/execution policy planes
+  - Preserve sorting, nil policy, decision evidence, and diagnostics coalescing with tool reactors/finalizers.
+  - Observable completion: focused runtime and inventory parity tests pass with the named mirrors removed.
+  - _Requirements: 1.1, 2.2, 5.1, 5.3, 5.5, 6.1_
+  - _Boundary: composition root, core/runtime, core/runtime diagnostics_
+  - _Depends: 6.3_
+  - **Validation:** `go test ./internal/core/extensions ./internal/core/runtime ./internal/core/diag ./internal/infra/runtimebundle ./internal/testkit/...`
+- [x] 7.2 Migrate tool finalizers and finalizer-buffer reduction
+  - Preserve bundle min-reduction, executor clamp behavior, and apply the explicit overlay decision recorded by task 1.2 rather than re-litigating it during W4.
+  - Observable completion: scalar special-case field branches are deleted and reduce/clamp tests remain green.
+  - _Requirements: 4.4, 5.1, 5.3, 5.5_
+  - _Boundary: composition root, core/runtime_
+  - _Depends: 7.1_
+  - **Validation:** `go test ./pkg/lipsdk/feature ./internal/featurebundle ./internal/infra/runtimebundle ./internal/core/runtime ./internal/testkit/... ./internal/qa`
+
+- [x] 8. Migrate guarded, compaction, local-turn, and terminal planes as W5
+- [x] 8.1 Migrate secret-guard contributions and host capabilities
+  - Preserve root uniqueness, access-mode/env consultation rules, input/observer fallback, typed-nil behavior, redaction, and operator inventory.
+  - Observable completion: secret-guard plane mirrors are deleted and every fail-closed fixture from 1.4 remains green.
+  - _Requirements: 1.4, 4.5, 5.1, 5.3, 5.5, 6.1_
+  - _Boundary: composition root, secret-guard runtime_
+  - _Depends: 7.2_
+  - **Validation:** `go test ./internal/infra/runtimebundle ./internal/core/runtime ./internal/testkit/... -run 'SecretGuard|PlaneParity'`
+- [x] 8.2 Migrate compaction observer/preserver planes and continuity replacement binder
+  - Preserve official-preserver replacement order, panic-safe identity extraction, and observer/preserver diagnostics.
+  - Observable completion: compaction binder uses generated typed operations, direct field surgery is gone, and parity tests pass.
+  - _Requirements: 1.1, 4.5, 5.1, 5.3, 5.5, 6.1_
+  - _Boundary: composition root, internal/infra/compactioncompose_
+  - _Depends: 8.1_
+  - **Validation:** `go test ./internal/infra/compactioncompose ./internal/infra/runtimebundle ./internal/testkit/... -run 'Compaction|PlaneParity'`
+- [x] 8.3 Migrate admission/execution local-turn planes
+  - Keep the two binding times distinct and preserve materialized ordering plus inventory labels.
+  - Observable completion: both plane mirrors are deleted and focused wiring tests pass.
+  - _Requirements: 1.1, 2.2, 5.1, 5.3, 5.5, 6.1_
+  - _Boundary: composition root, core/runtime_
+  - _Depends: 8.2_
+  - **Validation:** `go test ./internal/core/extensions ./internal/core/runtime ./internal/infra/runtimebundle ./internal/testkit/... -run 'LocalTurn|PlaneParity'`
+- [x] 8.4 Migrate terminal-decision exclusive slot and validated identity metadata
+  - Preserve fail-before-mutate identity validation, exact conflict classification/text shape, generation freeze, policy/control projection, and no-provider fallback.
+  - Observable completion: terminal-decision field/sidecar mirrors are deleted and toggle/reload tests are green.
+  - _Requirements: 1.2, 1.4, 4.2, 4.3, 5.1, 5.3, 5.5_
+  - _Boundary: composition root, core/runtime, terminal-decision policy surface_
+  - _Depends: 8.3_
+  - **Validation:** `make quality-checks && go test ./internal/infra/runtimebundle ./internal/core/runtime ./internal/stdhttp/... ./internal/testkit/... ./internal/qa`
+
+- [x] 9. Complete derived projections and remove compatibility transport fields
+- [x] 9.1 Complete generation and request-snapshot freeze delegation
+  - Make generation operations and request snapshots delegate to generated frozen storage while preserving the lifecycle side channel and host/config capabilities that are not feature contributions.
+  - Observable completion: all stage consumers use generated frozen reads and deterministic publish-versus-pinned-request evidence remains green under Linux CI race execution.
+  - _Requirements: 1.4, 1.5, 7.1_
+  - _Boundary: composition root, core/runtime_
+  - _Depends: 8.4_
+  - **Validation:** `go test ./internal/core/extensions ./internal/core/runtime ./internal/infra/runtimebundle ./internal/testkit/...; Linux CI go test -race ./internal/core/extensions ./internal/infra/runtimebundle`
+- [x] 9.2 Complete diagnostics occupancy and privilege derivation
+  - Derive occupancy, coalescing, labels, ordering, nil filtering, and privilege flags solely from declaration diagnostics descriptors.
+  - Observable completion: inventory goldens are byte-equivalent and a disposable manifest plane automatically appears without a projector branch.
+  - _Requirements: 6.1, 6.2_
+  - _Boundary: core/runtime diagnostics_
+  - _Depends: 9.1_
+  - **Validation:** `go test ./internal/core/diag ./internal/testkit/...`
+- [x] 9.3 Remove residual named FeatureBundle and ExtensionsOptions plane fields
+  - Delete deprecated adapters only after every consumer/binder has migrated; keep YAML/config and lifecycle compatibility intact.
+  - Observable completion: the whole-tree mirror ratchet reports zero forbidden remnants and all generated output is current.
+  - _Requirements: 2.2, 5.2, 5.4, 5.5, 8.1_
+  - _Boundary: SDK/public contract, composition root, core/runtime_
+  - _Depends: 9.1, 9.2_
+  - **Validation:** `go test ./pkg/lipsdk/feature ./internal/featurebundle ./internal/infra/runtimebundle ./internal/core/extensions ./internal/testkit/... ./internal/archtest/...`
+- [x] 9.4 Publish the deterministic SDK migration contract
+  - Add godoc/examples for package-level `Contribute`/`Get`, declaration requirements, generated-file policy, and the one allowed standard-distribution registration edit.
+  - Observable completion: in-repo plugins/examples compile exclusively through the final public contract.
+  - _Requirements: 3.1, 3.3, 5.2_
+  - _Boundary: SDK/public contract, docs_
+  - _Depends: 9.3_
+  - **Validation:** `go test ./pkg/lipsdk/feature ./internal/plugins/features/... ./internal/standardplugins`
+
+- [x] 10. Prove the simplification ROI and #394-compatible neutrality
+- [x] 10.1 Run disposable new-plane and existing-plane feature change-surface probes
+  - Add a throwaway plane with one stage consumer and a throwaway feature using only existing planes as separate commits/diffs; record hand-authored/generated path classifications; then remove both probes.
+  - Observable completion: the new-plane probe changes only its contract, consumer packages, one manifest entry, and generated files; the new-feature probe changes only its package plus one standard-distribution registration entry.
+  - _Requirements: 2.1, 3.1, 8.3_
+  - _Boundary: SDK/public contract, architecture gates/tests, test feature plugin_
+  - _Depends: 9.4_
+  - **Validation:** `go test ./internal/archtest/tools/changesurface ./internal/testkit/...`
+- [x] 10.2 Re-run request-path benchmarks and concurrency evidence
+  - Compare absolute ns/op, B/op, allocs/op and defensive-copy semantics to 1.6; require equal-or-better allocs/op and no new locks/key-search loops.
+  - Record whether #394 OBSERVE, DELTA-allocation, and HOLD fixed-cost scenarios require refresh; do not claim #394 certification.
+  - Observable completion: a durable parity report is attached to the final delivery evidence and race checks pass on supported CI.
+  - _Requirements: 1.5, 7.1_
+  - _Boundary: core/runtime, architecture gates/tests_
+  - _Depends: 9.3_
+  - **Validation:** `go test -bench 'Benchmark.*(Completion|Traffic|Secret|Compaction|Terminal)' -benchmem ./internal/core/extensions/...; Linux CI go test -race ./internal/core/extensions ./internal/infra/runtimebundle`
+- [x] 10.3 Run final repository gates and archive follow-up decisions
+  - Run generated-output check, arch-report determinism, mirror ratchets, change-size gate, full QA, and Linux race evidence where Windows skips it.
+  - Confirm core kernel-vs-stages decomposition remains explicit follow-up work and #394 Phase 2 baseline sequencing is communicated without absorbing either scope.
+  - Observable completion: all approvals are supported by fresh evidence and no disposable probes remain.
+  - _Requirements: 5.3, 5.4, 8.1, 8.2_
+  - _Boundary: architecture gates/tests, docs_
+  - _Depends: 10.1, 10.2_
+  - **Validation:** `go run ./scripts/generate-feature-planes.go -check && make quality-checks && make qa && make arch-report`
+
+## Completion Status
+
+- **Implementation Tasks**: All 10 major task groups and 37 subtasks (1.1 through 10.3) are fully completed (`[x]`).
+- **Feature Validation**: Verdict is `GO` / Status `VERIFIED`.
+- **Implementation Baseline**: Extension-plane implementation merge chain (#526, #527, #530, #533, #535, #536, #537, #538, #540, #541, #542) completed at merge commit `3cf952ca4be58be90733df84ea22eb6a0bd8c352`; later certified validation baseline `6a579810c61cd186e7794c3183e7d77bad369503` includes lint remediation PR #544.
+- **Closeout Evidence**: Recorded in full detail in [`closeout-evidence.md`](closeout-evidence.md).
+- **Deferred Scope**: Kernel-vs-stages package decomposition and Issue #394 Phase 2 latency/memory statistical optimizations remain separate future work.

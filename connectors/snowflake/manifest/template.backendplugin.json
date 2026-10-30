@@ -1,0 +1,35 @@
+{
+  "schema": "aiproxer.backendplugin.manifest/v1",
+  "plugin_id": "com.aiproxer.backend.snowflake",
+  "version": "0.1.0",
+  "build_id": "REPLACE_BUILD_ID",
+  "executable": "bin/aip-backend-snowflake",
+  "sha256": "REPLACE_SHA256",
+  "protocol_major": 1,
+  "protocol_min_minor": 0,
+  "protocol_max_minor": 0,
+  "platforms": [
+    {"os": "windows", "arch": "amd64"},
+    {"os": "windows", "arch": "arm64"},
+    {"os": "linux", "arch": "amd64"},
+    {"os": "linux", "arch": "arm64"}
+  ],
+  "exports": [
+    {
+      "kind": "snowflake-cortex",
+      "credential_mode": "static",
+      "access_scope": "any",
+      "process_sharing": "per_instance",
+      "execution_class": "inference",
+      "credential_contract": {
+        "version": 2,
+        "class": "api_token",
+        "source": "host_env",
+        "env_root": "SNOWFLAKE_CORTEX_PAT",
+        "slot": "api_token",
+        "selection": "quota_pre_output",
+        "quota_domain": "snowflake-cortex"
+      }
+    }
+  ]
+}

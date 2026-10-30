@@ -1,0 +1,619 @@
+{
+  "baseline_sha": "95089eb4b74d5cf8d062f238a1121124ce0da878",
+  "bundled_frontend_ids": [
+    "openai-responses",
+    "openai-legacy",
+    "anthropic",
+    "gemini",
+    "openresponses"
+  ],
+  "bundled_backend_ids": [
+    "openai-responses",
+    "openai-legacy",
+    "anthropic",
+    "gemini",
+    "bedrock",
+    "acp",
+    "openresponses",
+    "openrouter",
+    "nvidia"
+  ],
+  "matrix_cell_count": 45,
+  "required_feature_count": 17,
+  "required_feature_ids": [
+    "json_text", "sse_text", "instructions_roles", "history", "tools",
+    "multimodal", "assistant_media", "usage_errors", "reasoning_replay",
+    "assistant_phase", "item_references", "continuation", "compaction",
+    "extensions", "cancellation", "failover", "no_retry_visible_output"
+  ],
+  "essential_backend_kinds": [
+    "openai-responses",
+    "openai-legacy",
+    "anthropic",
+    "alibaba-token-plan-intl",
+    "gemini",
+    "bedrock",
+    "custom-openai-responses-compatible",
+    "custom-openai-legacy-compatible",
+    "custom-anthropic-compatible",
+    "custom-openresponses-compatible"
+  ],
+  "compatible_backend_kinds": [
+    "custom-openai-legacy-compatible",
+    "custom-openai-responses-compatible",
+    "custom-anthropic-compatible",
+    "custom-openresponses-compatible"
+  ],
+  "backend_plugin_versions": [
+    "v1.0",
+    "v1.1",
+    "v1.2",
+    "v1.3"
+  ],
+  "total_cartesian_go_lines": 7851,
+  "cartesian_files": [
+    {
+      "file_path": "internal/testkit/conformance/backend_credentials_test.go",
+      "functions": [
+        "TestConformance_CredentialPool_TextOnly_roundTrip",
+        "TestConformance_CredentialPool_TextOnly_streamAndNonStreamParity",
+        "TestConformance_CredentialPool_TextOnly_upstreamErrorShape",
+        "TestConformance_CredentialPool_Tools_roundTripAndUsage",
+        "TestConformance_CredentialPool_Multimodal_imageInUpstream",
+        "TestConformance_CredentialPool_Multimodal_pdfInUpstream"
+      ],
+      "non_generated_go_lines": 218
+    },
+    {
+      "file_path": "internal/testkit/conformance/baseline_lock_test.go",
+      "functions": [
+        "TestBaselineAdapterMatrixLock",
+        "TestExistingAdapterFixturesCharacterization",
+        "TestOpenRouterNVIDIAIdentityStaysOptional"
+      ],
+      "non_generated_go_lines": 95
+    },
+    {
+      "file_path": "internal/testkit/conformance/conformance_multimodal_test.go",
+      "functions": [
+        "TestConformance_Multimodal_imageInUpstream",
+        "TestConformance_Multimodal_pdfInUpstream",
+        "multimodalPDFCellPositive",
+        "assertMultimodalPDFRejectedBeforeNetwork",
+        "multimodalImageOnly",
+        "openResponsesMultimodalPost",
+        "multimodalPDFOnly",
+        "multimodalPDFExpectReject",
+        "multimodalPDFRoundTrip",
+        "assertUpstreamImageMarker",
+        "assertUpstreamPDFMarker"
+      ],
+      "non_generated_go_lines": 436
+    },
+    {
+      "file_path": "internal/testkit/conformance/conformance_text_test.go",
+      "functions": [
+        "TestConformance_TextOnly_roundTrip",
+        "TestConformance_TextOnly_streamAndNonStreamParity",
+        "TestConformance_TextOnly_upstreamErrorShape",
+        "clientVisibleErrorIndicatesFailure",
+        "nonStreamExpectError"
+      ],
+      "non_generated_go_lines": 219
+    },
+    {
+      "file_path": "internal/testkit/conformance/conformance_tools_test.go",
+      "functions": [
+        "TestConformance_Tools_roundTripAndUsage",
+        "TestConformance_ToolCallRepairCanonicalMatrix",
+        "stringsContainsAny",
+        "trim",
+        "toolStreamRawJoined",
+        "toolStreamRawAndArgs",
+        "openResponsesToolStreamRawAndArgs",
+        "geminiFunctionCallArgsJSON",
+        "mustAnthropicToolSchema",
+        "toolParamsMap"
+      ],
+      "non_generated_go_lines": 413
+    },
+    {
+      "file_path": "internal/testkit/conformance/connector_columns_matrix_test.go",
+      "functions": [
+        "TestConnectorColumns_HeadersAndCredentials",
+        "TestConnectorColumns_Inventory",
+        "TestConnectorColumns_ErrorBehavior",
+        "newHeaderRecorder",
+        "*headerRecorder.handler",
+        "*headerRecorder.requests",
+        "connectorHostConfigureWithoutCredential"
+      ],
+      "non_generated_go_lines": 168
+    },
+    {
+      "file_path": "internal/testkit/conformance/deployment.go",
+      "functions": [
+        "HarnessFrontendIDs",
+        "HarnessBackendIDs",
+        "DeploymentSpec.Validate",
+        "containsString",
+        "Deploy",
+        "*Deployment.Close",
+        "*Deployment.BaseURL",
+        "*Deployment.FrontendAddr",
+        "*Deployment.OriginFor",
+        "*Deployment.Backend",
+        "*Deployment.CandidateOrigin",
+        "*Deployment.RequestCount",
+        "*Deployment.RoundTripModel",
+        "*Deployment.SendRawCreate",
+        "*Deployment.SendRawCompact",
+        "*Deployment.SendRawWSTurn",
+        "*Deployment.RawFrontendPost",
+        "withHarnessSession",
+        "harnessDefaultModel",
+        "candidateBackendKey",
+        "harnessBackendFor",
+        "harnessExecutor",
+        "mountHarnessFrontend",
+        "harnessClientFor"
+      ],
+      "non_generated_go_lines": 375
+    },
+    {
+      "file_path": "internal/testkit/conformance/deployment_test.go",
+      "functions": [
+        "TestCellSelect_SmokeScaffold_HarnessAuthoritativeIDsAreDeterministic",
+        "TestCellSelect_SmokeScaffold_DeployRejectsUnknownOrEmptyCells",
+        "TestCellSelect_SmokeScaffold_ProviderConnectorColumnsFailClosed",
+        "TestCellSelect_SmokeScaffold_GenericSelectorMountsEveryConstructibleFrontend",
+        "TestHarness_DeployIsDeterministicAndClean",
+        "TestHarness_RequestCountersBoundedRedactedArtifacts",
+        "TestFailureInjection_UnauthorizedOriginClassifiedNoRetry",
+        "TestFailureInjection_MultipleCandidatesFailOver",
+        "TestFailureInjection_UnroutableModelZeroUpstreamRequests",
+        "TestHarness_VirtualClockDeterministicOriginTimestamps",
+        "mustHarnessRoundTrip"
+      ],
+      "non_generated_go_lines": 262
+    },
+    {
+      "file_path": "internal/testkit/conformance/dual_plane_economic_conformance_test.go",
+      "functions": [
+        "TestDualPlaneEconomic_MatrixCells",
+        "TestDualPlaneEconomic_StreamAndNonStreamParity",
+        "TestDualPlaneEconomic_ProtocolErrorShape",
+        "TestDualPlaneEconomic_CancelAndEncodingModesPresent"
+      ],
+      "non_generated_go_lines": 120
+    },
+    {
+      "file_path": "internal/testkit/conformance/dual_plane_economic_matrix.go",
+      "functions": [
+        "DualPlaneEconomicModes",
+        "DualPlaneEconomicMode.IsKnown",
+        "DualPlaneEconomicCells"
+      ],
+      "non_generated_go_lines": 42
+    },
+    {
+      "file_path": "internal/testkit/conformance/dual_plane_economic_matrix_test.go",
+      "functions": [
+        "TestDualPlaneEconomicModes_StableVocabulary"
+      ],
+      "non_generated_go_lines": 18
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix.go",
+      "functions": [
+        "BundledFrontendIDs",
+        "BundledBackendIDs",
+        "AllCells",
+        "newCell",
+        "GeneralMatrixCells",
+        "driverForBackend"
+      ],
+      "non_generated_go_lines": 101
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_45_evidence_test.go",
+      "functions": [
+        "TestMatrix45_EvidenceReleaseReady",
+        "TestMatrix45_AllCellsClassified",
+        "TestMatrix45_NoPlannedOrUnclassified",
+        "TestMatrix45_ScenarioRegistration",
+        "TestMatrix45_MatchesAuthoritativeLists",
+        "TestMatrix45_GeneralCellsExactly32",
+        "TestMatrix45_EvidenceScenarioIDsComeFromExecutableTable"
+      ],
+      "non_generated_go_lines": 139
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_contract.go",
+      "functions": [
+        "FeatureEvidence.ValidateReleaseReady"
+      ],
+      "non_generated_go_lines": 77
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_contract_test.go",
+      "functions": [
+        "TestMatrixContract_EvidenceValidation",
+        "TestMatrixContract_NoUnclassifiedOrPlanned",
+        "TestMatrixContract_OutOfScopeRequiresRationale"
+      ],
+      "non_generated_go_lines": 67
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_evidence.go",
+      "functions": null,
+      "non_generated_go_lines": 16
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_evidence_45.go",
+      "functions": [
+        "matrix45ScenarioID",
+        "matrix45ArtifactRef",
+        "Matrix45Evidence",
+        "matrix45CellFeaturesFor",
+        "ValidateMatrix45Evidence",
+        "matrix45ArtifactExists",
+        "Matrix45Scenarios"
+      ],
+      "non_generated_go_lines": 138
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_evidence_test.go",
+      "functions": [
+        "TestMatrixEvidence_docsPresent",
+        "TestMatrixEvidence_sourceFilesIterateAllCells",
+        "TestMatrixEvidence_acpSubsetMatchesMatrixMeta"
+      ],
+      "non_generated_go_lines": 89
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_general_conformance_test.go",
+      "functions": [
+        "generalCellDeploy",
+        "generalExpectedText",
+        "generalFrontendPath",
+        "generalStreamFrontendPath",
+        "generalPlainCreateBody",
+        "generalStreamBody",
+        "generalToolBody",
+        "generalMultimodalBody",
+        "generalNegativeBodies",
+        "rawFrontendStreamPost",
+        "TestGeneralMatrix_ExecutableScenarios",
+        "runGeneralCell",
+        "assistantMediaRejectBackend",
+        "generalMediaOriginHandler",
+        "generalCellDeployAssistantMedia",
+        "generalRawFrontendPostBody",
+        "generalResponsesMediaSSE",
+        "generalOriginCarries",
+        "failoverCandidateBackend",
+        "generalCellDeployError",
+        "generalCellDeployFailover",
+        "generalCellDeployNoRetry",
+        "generalCellDeployCancel",
+        "deployConnectorChain",
+        "blockingOriginHandler",
+        "newMidStreamDeathHandler",
+        "isACPPromptRequest",
+        "writeChatFirstContentThenHijack",
+        "writeFirstContentThenHijack",
+        "writeBedrockContentBlockDelta",
+        "acpPromptSessionID",
+        "jsonEncodeString",
+        "hijackClose",
+        "TestGeneralMatrix_ScenarioTableIsExecutable"
+      ],
+      "non_generated_go_lines": 816
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_general_scenarios.go",
+      "functions": [
+        "GeneralMatrixFeatureSuffixes",
+        "GeneralMatrixScenarios",
+        "GeneralMatrixScenarioIDs",
+        "generalMatrixScenarioByID",
+        "matrix45GeneralScenarioIDsByFeature",
+        "matrix45GeneralFeatures",
+        "assistantMediaOutcome",
+        "assistantMediaFeature",
+        "generalContinuationOutOfScopeRationale",
+        "matrix45ScenarioIDValid",
+        "RegisterMatrix45Scenarios"
+      ],
+      "non_generated_go_lines": 233
+    },
+    {
+      "file_path": "internal/testkit/conformance/matrix_test.go",
+      "functions": [
+        "TestMatrixIsCompleteCartesianProduct",
+        "TestBundledProtocolsMustMatchMatrixAuthoritativeLists",
+        "TestGeneralMatrix_Exactly32CellsNoOpenResponses"
+      ],
+      "non_generated_go_lines": 105
+    },
+    {
+      "file_path": "internal/testkit/conformance/openaicompat_tool_stream_parity_test.go",
+      "functions": [
+        "TestParity_OpenAICompat_toolCallStreamFinishContract",
+        "repoRootFromConformance"
+      ],
+      "non_generated_go_lines": 42
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_backend_column.go",
+      "functions": [
+        "OpenResponsesBackendColumnFrontendIDs",
+        "OpenResponsesBackendColumnScenarioIDs",
+        "OpenResponsesBackendColumnRequiredFeatures",
+        "columnScenarioID",
+        "columnArtifactRef",
+        "columnLossless",
+        "columnProjection",
+        "columnReject",
+        "columnOutOfScope",
+        "OpenResponsesBackendColumn",
+        "openResponsesBackendColumnCellFor",
+        "columnContinuationOutOfScopeRationale",
+        "ValidateOpenResponsesBackendColumn",
+        "columnArtifactExists",
+        "RegisterOpenResponsesBackendColumnScenarios"
+      ],
+      "non_generated_go_lines": 234
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_backend_column_conformance_test.go",
+      "functions": [
+        "backendColumnDeploy",
+        "backendColumnCapturedInput",
+        "backendColumnZeroRequestDeploy",
+        "TestConformance_OpenResponsesBackendColumn_ToOpenResponsesJSONText",
+        "TestConformance_OpenResponsesBackendColumn_ToOpenResponsesStreaming",
+        "TestConformance_OpenResponsesBackendColumn_ToOpenResponsesTools",
+        "TestConformance_OpenResponsesBackendColumn_ToOpenResponsesMultimodal",
+        "TestConformance_OpenResponsesBackendColumn_ToOpenResponsesInstructions",
+        "TestConformance_OpenResponsesBackendColumn_ToOpenResponsesUsageCommitment",
+        "TestConformance_OpenResponsesBackendColumn_ReplayDialectNoNetwork",
+        "TestConformance_OpenResponsesBackendColumn_ConflictNoNetwork",
+        "TestConformance_OpenResponsesBackendColumn_ExtensionNoNetwork",
+        "TestConformance_OpenResponsesBackendColumn_UnsupportedContentNoNetwork"
+      ],
+      "non_generated_go_lines": 450
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_backend_column_evidence_test.go",
+      "functions": [
+        "TestOpenResponsesBackendColumn_EvidenceReleaseReady",
+        "TestOpenResponsesBackendColumn_FiveCellsNoMoreNoLess",
+        "TestOpenResponsesBackendColumn_ScenarioRegistration"
+      ],
+      "non_generated_go_lines": 49
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_backend_column_scenarios.go",
+      "functions": [
+        "OpenResponsesBackendColumnFeatureSuffixes",
+        "columnFeatureSuffix",
+        "columnContinuationViable",
+        "OpenResponsesBackendColumnScenarios",
+        "columnScenarioIDsByFeature"
+      ],
+      "non_generated_go_lines": 65
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_backend_column_scenarios_test.go",
+      "functions": [
+        "TestOpenResponsesBackendColumn_ExecutableScenarios",
+        "columnFrontendPath",
+        "columnPlainCreateBody",
+        "columnToolBody",
+        "columnMultimodalBody",
+        "columnNegativeBodies",
+        "columnStreamBody",
+        "columnStreamPath",
+        "columnFailoverCandidate",
+        "columnFailoverCandidateText",
+        "runOpenResponsesBackendColumnCell",
+        "columnStoreCreate",
+        "columnStoreCreateWithParent",
+        "*columnStatusError.Error",
+        "rawColumnStreamPost",
+        "columnCellDeployError",
+        "columnCellDeployFailover",
+        "columnCellDeployNoRetry",
+        "columnCellDeployCancel"
+      ],
+      "non_generated_go_lines": 410
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_backend_legacy_column_test.go",
+      "functions": [
+        "openResponsesLegacyFamilyFixtures",
+        "*openResponsesBackendObserver.count",
+        "*openResponsesBackendObserver.handler",
+        "newOpenResponsesBackendObserver",
+        "intPtr",
+        "openResponsesCreateInvocation",
+        "TestConformance_OpenResponsesBackendColumnLegacyToItems",
+        "TestConformance_OpenResponsesBackendColumnLegacyNoNetwork"
+      ],
+      "non_generated_go_lines": 301
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_frontend_row.go",
+      "functions": [
+        "OpenResponsesFrontendRowBackendIDs",
+        "OpenResponsesFrontendRowScenarioIDs",
+        "OpenResponsesFrontendRowRequiredFeatures",
+        "rowScenarioID",
+        "rowArtifactRef",
+        "rowLossless",
+        "rowProjection",
+        "rowReject",
+        "rowOutOfScope",
+        "OpenResponsesFrontendRow",
+        "openResponsesFrontendRowCellFor",
+        "ValidateOpenResponsesFrontendRow",
+        "artifactExists",
+        "AssertOpenRouterNVIDIAStayOptional",
+        "RegisterOpenResponsesFrontendRowScenarios"
+      ],
+      "non_generated_go_lines": 253
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_frontend_row_conformance_test.go",
+      "functions": [
+        "rowDeploy",
+        "rowExpectedText",
+        "rowRawCreate",
+        "rowOriginHasSubstring",
+        "TestFrontendRow_OpenResponsesToJSONText",
+        "TestFrontendRow_OpenResponsesToStreaming",
+        "TestFrontendRow_OpenResponsesToTools",
+        "TestFrontendRow_OpenResponsesToMultimodal",
+        "TestFrontendRow_OpenResponsesToACPSubset",
+        "TestFrontendRow_OpenResponsesToNoNetwork",
+        "TestFrontendRow_OpenResponsesToUsageErrorsCommitment",
+        "TestFrontendRow_OpenResponsesToOpenRouterAndNVIDIA_ConnectorColumnsProves"
+      ],
+      "non_generated_go_lines": 418
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_frontend_row_evidence_test.go",
+      "functions": [
+        "TestOpenResponsesFrontendRow_EvidenceReleaseReady",
+        "TestOpenResponsesFrontendRow_NineCellsNoMoreNoLess",
+        "TestOpenResponsesFrontendRow_ScenarioRegistration",
+        "TestOpenResponsesFrontendRow_OptionalConnectorsStayOptional"
+      ],
+      "non_generated_go_lines": 60
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_frontend_row_scenarios.go",
+      "functions": [
+        "OpenResponsesFrontendRowFeatureSuffixes",
+        "rowFeatureSuffix",
+        "OpenResponsesFrontendRowScenarios",
+        "rowScenarioIDsByFeature"
+      ],
+      "non_generated_go_lines": 56
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_frontend_row_scenarios_test.go",
+      "functions": [
+        "TestOpenResponsesFrontendRow_ExecutableScenarios",
+        "rowStreamingCreateBody",
+        "rowStoreCreate",
+        "*rowStatusError.Error",
+        "itoa",
+        "runOpenResponsesFrontendRowCell",
+        "rawRowStreamPost",
+        "rowCellDeployError",
+        "rowCellDeployFailover",
+        "rowCellDeployNoRetry",
+        "rowCellDeployCancel"
+      ],
+      "non_generated_go_lines": 395
+    },
+    {
+      "file_path": "internal/testkit/conformance/openresponses_row_column_scenario_table_test.go",
+      "functions": [
+        "TestOpenResponsesFrontendRow_ScenarioTableIsExecutable",
+        "TestOpenResponsesBackendColumn_ScenarioTableIsExecutable",
+        "TestOpenResponsesFrontendRow_ContinuationHonestClassification",
+        "TestOpenResponsesBackendColumn_ContinuationHonestClassification",
+        "TestOpenResponsesRowColumn_CompactionNamingOutcomeAgreement",
+        "TestOpenResponsesRowColumn_TransportEvidenceLinksExecutableScenarios",
+        "hasSuffix"
+      ],
+      "non_generated_go_lines": 260
+    },
+    {
+      "file_path": "internal/testkit/conformance/parity_acp_test.go",
+      "functions": [
+        "TestParity_ACP_subsetDocumentedInMatrix"
+      ],
+      "non_generated_go_lines": 22
+    },
+    {
+      "file_path": "internal/testkit/conformance/parity_anthropic_test.go",
+      "functions": [
+        "TestParity_Anthropic_bundledFrontend",
+        "TestParity_Anthropic_canonicalAssistantMediaCollects"
+      ],
+      "non_generated_go_lines": 30
+    },
+    {
+      "file_path": "internal/testkit/conformance/parity_bedrock_test.go",
+      "functions": [
+        "TestParity_Bedrock_bundledBackend",
+        "TestParity_Bedrock_canonicalAssistantMediaCollects"
+      ],
+      "non_generated_go_lines": 29
+    },
+    {
+      "file_path": "internal/testkit/conformance/parity_evidence.go",
+      "functions": [
+        "AllBundledProtocolIDs"
+      ],
+      "non_generated_go_lines": 43
+    },
+    {
+      "file_path": "internal/testkit/conformance/parity_gemini_test.go",
+      "functions": [
+        "TestParity_Gemini_bundledFrontend",
+        "TestParity_Gemini_canonicalAssistantMediaCollects"
+      ],
+      "non_generated_go_lines": 29
+    },
+    {
+      "file_path": "internal/testkit/conformance/parity_openai_test.go",
+      "functions": [
+        "TestParity_OpenAI_canonicalAssistantMediaCollects",
+        "TestParity_OpenAI_matrixIncludesBothFrontends"
+      ],
+      "non_generated_go_lines": 38
+    },
+    {
+      "file_path": "internal/testkit/conformance/refparity.go",
+      "functions": [
+        "NewSuccessRefBackend",
+        "captureRequestBodyHandler",
+        "parityRefHandler",
+        "newOpenResponsesParityOrigin",
+        "*openResponsesParityOrigin.ServeHTTP",
+        "openResponsesRichResource",
+        "openResponsesRichSSE",
+        "*providerModeOrigin.ServeHTTP",
+        "anthropicParityStreamSSE",
+        "bedrockParityStreamEvents"
+      ],
+      "non_generated_go_lines": 366
+    },
+    {
+      "file_path": "internal/testkit/conformance/sanity_emulator_wiring_test.go",
+      "functions": [
+        "TestSanityTask13_BundledFrontendsWiredForConformance",
+        "TestSanityTask13_BundledBackendsWiredForRefParity",
+        "keysStringSet"
+      ],
+      "non_generated_go_lines": 66
+    },
+    {
+      "file_path": "internal/testkit/conformance/stage_checklist_14_evidence_test.go",
+      "functions": [
+        "TestStageChecklist14_frontendIntegrationTestsPresent",
+        "TestStageChecklist14_backendIntegrationTestsPresent",
+        "TestStageChecklist14_referenceClientPackagesPresent",
+        "frontendDir",
+        "backendDir"
+      ],
+      "non_generated_go_lines": 88
+    }
+  ]
+}

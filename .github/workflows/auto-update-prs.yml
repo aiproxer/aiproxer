@@ -1,0 +1,169 @@
+name: Auto-update auto-merge PRs
+
+# Repositories owned by a personal account have no merge queue. With "require
+# branches to be up to date" on, this workflow does the queue's job for pull
+# requests whose auto-merge is enabled: it brings the oldest one that is behind
+# main up to date, lets its required checks run, and auto-merge lands it. The
+# resulting push to main starts the next one. One PR is in flight at a time, so
+# CI is not spent on branches that the next merge would make stale again.
+#
+# A Dependabot Go PR that is behind or has conflicts is handed to
+# dependabot-sync.yml, which merges main, re-applies the bump and re-tidies
+# every module. Other PRs get main merged in here; a conflict needs the author.
+#
+# Branch updates made with GITHUB_TOKEN do not start workflows, so the required
+# checks would never run on the updated commit; the merge is pushed with
+# AUTOMATION_DEPLOY_KEY (a write deploy key for this repository). No pull
+# request code is executed here: git merge runs no repository hooks in CI.
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [auto_merge_enabled]
+  # A required check finished: the in-flight PR may now be ready. This is what
+  # lands Dependabot PRs promptly; see the CLEAN case below.
+  workflow_run:
+    workflows: [CI, CodeQL, Security, Node independence]
+    types: [completed]
+  # Fallback when an event is missed. GitHub drops scheduled runs under load,
+  # so nothing may depend on it for latency.
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-update-prs
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update next auto-merge PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Pick the oldest behind PR unless one is in flight
+        id: pick
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner=${GH_REPO%%/*}
+          # Same-repository, non-draft PRs into main with auto-merge on, oldest first.
+          mapfile -t prs < <(gh pr list --base main --state open --limit 100 \
+            --json number,isDraft,autoMergeRequest,headRepositoryOwner,createdAt \
+            --jq "sort_by(.createdAt) | .[] | select(.autoMergeRequest != null and (.isDraft | not) and .headRepositoryOwner.login == \"$owner\") | .number")
+          for pr in "${prs[@]}"; do
+            state=UNKNOWN
+            # GitHub computes mergeability lazily; UNKNOWN settles within seconds.
+            for _ in 1 2 3 4 5; do
+              state=$(gh pr view "$pr" --json mergeStateStatus --jq .mergeStateStatus)
+              [[ "$state" != UNKNOWN ]] && break
+              sleep 3
+            done
+            buckets=$(gh pr checks "$pr" --required --json bucket --jq '[.[].bucket] | unique | join(" ")' 2>/dev/null || true)
+            info=$(gh pr view "$pr" --json headRefName,headRefOid,commits)
+            ref=$(jq -r .headRefName <<<"$info")
+            echo "#$pr ($ref): state=$state required-checks=[${buckets}]"
+
+            if [[ "$ref" == dependabot/go_modules/* && ( "$state" == BEHIND || "$state" == DIRTY ) ]]; then
+              last=$(gh run list --workflow dependabot-sync.yml --limit 100 \
+                --json displayTitle,status,conclusion,createdAt \
+                --jq "[.[] | select(.displayTitle == \"Dependabot sync #$pr\")][0] // {}")
+              if [[ -n "$(jq -r '.status // empty' <<<"$last")" && "$(jq -r .status <<<"$last")" != completed ]]; then
+                echo "#$pr is being synchronized; waiting for it."
+                exit 0
+              fi
+              since=$(jq -r '.commits[-1].committedDate' <<<"$info")
+              if [[ "$(jq -r '.conclusion // empty' <<<"$last")" == failure && "$(jq -r .createdAt <<<"$last")" > "$since" ]]; then
+                echo "#$pr: synchronization failed on this head; it needs a maintainer."
+                continue
+              fi
+              echo "action=sync" >> "$GITHUB_OUTPUT"
+              echo "pr=$pr" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Dependabot auto-merge is enabled with GITHUB_TOKEN, so its merge
+            # would start no workflow and the queue would stall until the cron
+            # (observed: over an hour). Merge it here and run the queue again.
+            if [[ "$ref" == dependabot/go_modules/* && "$state" == CLEAN ]]; then
+              echo "#$pr is ready; merging it."
+              # Auto-merge may have landed it in the meantime.
+              gh pr merge "$pr" --squash || [[ "$(gh pr view "$pr" --json state --jq .state)" == MERGED ]]
+              gh workflow run auto-update-prs.yml --ref main
+              exit 0
+            fi
+
+            case "$state" in
+              BEHIND)
+                {
+                  echo "action=merge"
+                  echo "pr=$pr"
+                  echo "ref=$ref"
+                  echo "head=$(jq -r .headRefOid <<<"$info")"
+                } >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+              DIRTY)
+                echo "#$pr has merge conflicts; it needs its author."
+                ;;
+              *)
+                # Up to date and either green (auto-merge is landing it) or
+                # still running: that PR is in flight, so update nothing else.
+                if [[ "$state" == CLEAN || " $buckets " == *" pending "* ]]; then
+                  echo "#$pr is in flight; waiting for it."
+                  exit 0
+                fi
+                ;;
+            esac
+          done
+          echo "No auto-merge PR is behind main."
+
+      - name: Synchronize Dependabot PR
+        if: steps.pick.outputs.action == 'sync'
+        env:
+          PR: ${{ steps.pick.outputs.pr }}
+        run: gh workflow run dependabot-sync.yml --ref main -f pr="$PR"
+
+      - name: Require deploy key
+        if: steps.pick.outputs.action == 'merge'
+        env:
+          KEY: ${{ secrets.AUTOMATION_DEPLOY_KEY }}
+        run: |
+          if [[ -z "$KEY" ]]; then
+            echo "::error::AUTOMATION_DEPLOY_KEY is not set; auto-merge PRs are not kept up to date."
+            exit 1
+          fi
+
+      - name: Check out repository
+        if: steps.pick.outputs.action == 'merge'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ssh-key: ${{ secrets.AUTOMATION_DEPLOY_KEY }}
+          fetch-depth: 0
+
+      - name: Merge main into the PR
+        if: steps.pick.outputs.action == 'merge'
+        shell: bash
+        env:
+          PR: ${{ steps.pick.outputs.pr }}
+          REF: ${{ steps.pick.outputs.ref }}
+          HEAD_SHA: ${{ steps.pick.outputs.head }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --detach "$HEAD_SHA"
+          echo "Updating #$PR ($HEAD_SHA) with main."
+          git merge --no-edit -m "Merge branch 'main' into $REF" origin/main
+          # Lease on the head we read: a concurrent author push wins.
+          git push --force-with-lease="refs/heads/$REF:$HEAD_SHA" origin "HEAD:refs/heads/$REF"

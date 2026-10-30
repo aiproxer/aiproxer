@@ -1,0 +1,217 @@
+{
+  "schema_version": 3,
+  "description": "Machine-checked migration register: direct internal/core imports per package (go list -test=false). Edit intentionally when wiring boundaries move; see .kiro/specs/archive/introduce-hexagonal-architecture/design.md. schema_version 3: exception entries require retirement_trigger; extract and exception entries require a backlog{owner,next_extraction,retirement_target,blocking_dependencies,status}; see retired_exceptions for completed allowance removals.",
+  "retired_exceptions": [
+    "internal/pluginreg used to import internal/core/runtime for backend construction types; retired after the executor-outbound adapter surface moved to internal/core/execbackend (introduce-hexagonal-architecture task 3).",
+    "internal/stdhttp no longer imports internal/core/b2bua or internal/core/hooks after the stdhttp/server.go concern split and removal of the stdhttp.BuildExecutor wrapper (arch review Phase 0/1); both were used only by the deleted wire.go.",
+    "internal/pluginreg no longer imports internal/core/config after standard bundle tables, installers, per-backend factories, env-key resolution, and default wire model moved to internal/standardplugins (arch review Phase 3). The feature bridge (FeatureFactoryFromHooks) moved to internal/featurebundle.",
+    "internal/pluginreg reclassified from exception to aligned after the feature merge surface (GeneratedMergeSurface + Registry methods) moved to internal/featurebundle as free functions and the FeatureFactoryFromHooks bridge was deleted (arch review remaining tasks). The internal/core/hooks import is gone.",
+    "internal/standardplugins reclassified from exception to aligned after frontend mount functions moved to frontend packages and all 7 hook-only features converted to native FeatureBundle, removing the internal/core/hooks import.",
+    "internal/featurebundle reclassified from exception to aligned after GeneratedMergeSurface dropped hooks.Config in favor of SDK hook slices; hooks.New and BuildFeatureHooks moved to internal/infra/runtimebundle (arch review final closure)."
+  ],
+  "packages": [
+    {
+      "go_list_pattern": "./pkg/aipapi",
+      "classification": "aligned",
+      "allowed_internal_core_imports": []
+    },
+    {
+      "go_list_pattern": "./cmd/aipstd",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/accessmode",
+        "github.com/aiproxer/aiproxer/internal/core/config"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/stdhttp",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/config",
+        "github.com/aiproxer/aiproxer/internal/core/diag",
+        "github.com/aiproxer/aiproxer/internal/core/http",
+        "github.com/aiproxer/aiproxer/internal/core/identity",
+        "github.com/aiproxer/aiproxer/internal/core/modelcatalog",
+        "github.com/aiproxer/aiproxer/internal/core/modelregistry",
+        "github.com/aiproxer/aiproxer/internal/core/modelview",
+        "github.com/aiproxer/aiproxer/internal/core/safety",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/adapters/diag",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/domain"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/pluginreg",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/execbackend",
+        "github.com/aiproxer/aiproxer/internal/core/identity"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/standardplugins",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/concurrencyauthority/compatible",
+        "github.com/aiproxer/aiproxer/internal/core/config",
+        "github.com/aiproxer/aiproxer/internal/core/diag",
+        "github.com/aiproxer/aiproxer/internal/core/execbackend",
+        "github.com/aiproxer/aiproxer/internal/core/identity",
+        "github.com/aiproxer/aiproxer/internal/core/modelregistry"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/featurebundle",
+      "classification": "aligned",
+      "allowed_internal_core_imports": []
+    },
+    {
+      "go_list_pattern": "./internal/infra/runtimebundle",
+      "classification": "aligned",
+      "role": "composition_root",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/accessmode",
+        "github.com/aiproxer/aiproxer/internal/core/affinity",
+        "github.com/aiproxer/aiproxer/internal/core/affinity/memorystore",
+        "github.com/aiproxer/aiproxer/internal/core/auth",
+        "github.com/aiproxer/aiproxer/internal/core/authoritycoord",
+        "github.com/aiproxer/aiproxer/internal/core/auxreq",
+        "github.com/aiproxer/aiproxer/internal/core/b2bua",
+        "github.com/aiproxer/aiproxer/internal/core/billingport",
+        "github.com/aiproxer/aiproxer/internal/core/capabilities",
+        "github.com/aiproxer/aiproxer/internal/core/concurrencyauthority/app",
+        "github.com/aiproxer/aiproxer/internal/core/concurrencyauthority/compatible",
+        "github.com/aiproxer/aiproxer/internal/core/config",
+        "github.com/aiproxer/aiproxer/internal/core/configreload",
+        "github.com/aiproxer/aiproxer/internal/core/continuity",
+        "github.com/aiproxer/aiproxer/internal/core/continuity/bunstore",
+        "github.com/aiproxer/aiproxer/internal/core/controlplane",
+        "github.com/aiproxer/aiproxer/internal/core/conversationprojection",
+        "github.com/aiproxer/aiproxer/internal/core/diag",
+        "github.com/aiproxer/aiproxer/internal/core/execbackend",
+        "github.com/aiproxer/aiproxer/internal/core/extensions",
+        "github.com/aiproxer/aiproxer/internal/core/hooks",
+        "github.com/aiproxer/aiproxer/internal/core/ingressdefense",
+        "github.com/aiproxer/aiproxer/internal/core/largebody",
+        "github.com/aiproxer/aiproxer/internal/core/leglifecycle",
+        "github.com/aiproxer/aiproxer/internal/core/metering",
+        "github.com/aiproxer/aiproxer/internal/core/modelcatalog",
+        "github.com/aiproxer/aiproxer/internal/core/modelregistry",
+        "github.com/aiproxer/aiproxer/internal/core/modelview",
+        "github.com/aiproxer/aiproxer/internal/core/policy",
+        "github.com/aiproxer/aiproxer/internal/core/routeoverride",
+        "github.com/aiproxer/aiproxer/internal/core/routing",
+        "github.com/aiproxer/aiproxer/internal/core/runtime",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/adapters/b2bualineage",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/adapters/bunstore",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/adapters/aipapidenial",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/adapters/memory",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/app",
+        "github.com/aiproxer/aiproxer/internal/core/snapshotgen",
+        "github.com/aiproxer/aiproxer/internal/core/state",
+        "github.com/aiproxer/aiproxer/internal/core/streamrecovery",
+        "github.com/aiproxer/aiproxer/internal/core/terminalwork",
+        "github.com/aiproxer/aiproxer/internal/core/terminalwork/app",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/app",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/observability",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/preflight",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/streamusage",
+        "github.com/aiproxer/aiproxer/internal/core/usagelimit",
+        "github.com/aiproxer/aiproxer/internal/core/workspace"
+      ],
+      "backlog": {
+        "owner": "runtime/composition",
+        "next_extraction": "Import narrowing is out of scope for v1; composition root legitimately imports wide core surface after Phase 2 decomposition",
+        "retirement_target": "aligned (composition-root allowance)",
+        "blocking_dependencies": [],
+        "status": "done"
+      }
+    },
+    {
+      "go_list_pattern": "./internal/core/runtime",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/affinity",
+        "github.com/aiproxer/aiproxer/internal/core/auth",
+        "github.com/aiproxer/aiproxer/internal/core/authorityattribution",
+        "github.com/aiproxer/aiproxer/internal/core/authoritycoord",
+        "github.com/aiproxer/aiproxer/internal/core/b2bua",
+        "github.com/aiproxer/aiproxer/internal/core/billingport",
+        "github.com/aiproxer/aiproxer/internal/core/capabilities",
+        "github.com/aiproxer/aiproxer/internal/core/concurrencyauthority/compatible",
+        "github.com/aiproxer/aiproxer/internal/core/config",
+        "github.com/aiproxer/aiproxer/internal/core/conversationprojection",
+        "github.com/aiproxer/aiproxer/internal/core/diag",
+        "github.com/aiproxer/aiproxer/internal/core/execbackend",
+        "github.com/aiproxer/aiproxer/internal/core/execctx",
+        "github.com/aiproxer/aiproxer/internal/core/extensions",
+        "github.com/aiproxer/aiproxer/internal/core/hooks",
+        "github.com/aiproxer/aiproxer/internal/core/identity",
+        "github.com/aiproxer/aiproxer/internal/core/interleavedstate",
+        "github.com/aiproxer/aiproxer/internal/core/jsonshape",
+        "github.com/aiproxer/aiproxer/internal/core/largebody",
+        "github.com/aiproxer/aiproxer/internal/core/leglifecycle",
+        "github.com/aiproxer/aiproxer/internal/core/localstream",
+        "github.com/aiproxer/aiproxer/internal/core/metering",
+        "github.com/aiproxer/aiproxer/internal/core/metering/aggregate",
+        "github.com/aiproxer/aiproxer/internal/core/metering/checkpoint",
+        "github.com/aiproxer/aiproxer/internal/core/metering/plane",
+        "github.com/aiproxer/aiproxer/internal/core/modelcatalog",
+        "github.com/aiproxer/aiproxer/internal/core/modelregistry",
+        "github.com/aiproxer/aiproxer/internal/core/modelview",
+        "github.com/aiproxer/aiproxer/internal/core/policy",
+        "github.com/aiproxer/aiproxer/internal/core/routeoverride",
+        "github.com/aiproxer/aiproxer/internal/core/routing",
+        "github.com/aiproxer/aiproxer/internal/core/safety",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/app",
+        "github.com/aiproxer/aiproxer/internal/core/securesession/domain",
+        "github.com/aiproxer/aiproxer/internal/core/snapshotgen",
+        "github.com/aiproxer/aiproxer/internal/core/stream",
+        "github.com/aiproxer/aiproxer/internal/core/streamrecovery",
+        "github.com/aiproxer/aiproxer/internal/core/terminal",
+        "github.com/aiproxer/aiproxer/internal/core/terminalwork",
+        "github.com/aiproxer/aiproxer/internal/core/terminalwork/app",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/app",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/observability",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/preflight",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/streamusage",
+        "github.com/aiproxer/aiproxer/internal/core/traffic",
+        "github.com/aiproxer/aiproxer/internal/core/usageevidence",
+        "github.com/aiproxer/aiproxer/internal/core/usagelimit"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/core/routing",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/config",
+        "github.com/aiproxer/aiproxer/internal/core/interleavedstate"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/core/execbackend",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/largebody",
+        "github.com/aiproxer/aiproxer/internal/core/routing",
+        "github.com/aiproxer/aiproxer/internal/core/tokenaccounting/app"
+      ]
+    },
+    {
+      "go_list_pattern": "./internal/core/extensions",
+      "classification": "aligned",
+      "allowed_internal_core_imports": [
+        "github.com/aiproxer/aiproxer/internal/core/execctx",
+        "github.com/aiproxer/aiproxer/internal/core/hooks",
+        "github.com/aiproxer/aiproxer/internal/core/lineage",
+        "github.com/aiproxer/aiproxer/internal/core/safety"
+      ],
+      "backlog": {
+        "owner": "core/extensions",
+        "next_extraction": "Feature merge moved to featurebundle; extensions package is core extension execution only",
+        "retirement_target": "aligned",
+        "blocking_dependencies": [],
+        "status": "done"
+      }
+    }
+  ]
+}

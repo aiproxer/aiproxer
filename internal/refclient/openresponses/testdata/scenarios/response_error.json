@@ -1,0 +1,42 @@
+{
+  "id": "resp_error_1",
+  "object": "response",
+  "created_at": 1719900500,
+  "status": "failed",
+  "model": "gpt-openresponses-1",
+  "output": [],
+  "parallel_tool_calls": false,
+  "reasoning": null,
+  "store": true,
+  "background": false,
+  "temperature": 1,
+  "text": {},
+  "tool_choice": "auto",
+  "tools": [],
+  "top_p": 1,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 0,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 0,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 0
+  },
+  "metadata": {},
+  "service_tier": "default",
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "instructions": null,
+  "previous_response_id": null,
+  "error": {
+    "message": "The requested model 'fake-model' does not exist.",
+    "type": "invalid_request",
+    "param": "model",
+    "code": "model_not_found"
+  },
+  "incomplete_details": null
+}

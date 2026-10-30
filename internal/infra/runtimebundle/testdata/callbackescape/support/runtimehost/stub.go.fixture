@@ -1,0 +1,3 @@
+package runtimehost
+
+type Coordinator struct{}

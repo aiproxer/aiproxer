@@ -1,0 +1,24 @@
+{
+  "feature_name": "compaction-continuity-preservation",
+  "created_at": "2026-08-17T14:48:00+02:00",
+  "updated_at": "2026-08-19T12:15:17+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Preserve the latest accepted plan, explicit user decisions, constraints, rationale, meaningful rejections, and remaining work across lossy coding-agent compaction. Reuse the compaction-recognition authority specified by compaction-event-detection without weakening its metadata-only observer contract. Maintain a bounded revisioned continuity capsule, harvest structured plan state deterministically, and use an optional independently routed background auxiliary model only for unstructured semantic extraction. Auxiliary extraction is off the primary agent session, has process-owned bounded worker lifetime and narrow synchronization barriers, and is normal billable model usage attributed by default to the originating authenticated user/account. Preserve existing routing, B2BUA, secure-session, billing, usage, streaming, and provider-opaque compaction semantics; add no second transcript database, provider client path, hidden system billing account, generic task runtime, or mutation of encrypted/opaque compaction payloads."
+}

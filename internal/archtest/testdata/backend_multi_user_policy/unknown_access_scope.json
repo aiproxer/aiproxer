@@ -1,0 +1,9 @@
+{
+  "connector": "connectors/fixtureunknown",
+  "plugin_id": "com.aiproxer.backend.fixtureunknown",
+  "kind": "fixtureunknown",
+  "credential_mode": "static",
+  "access_scope": "shared_safe",
+  "execution_class": "inference",
+  "process_sharing": "per_instance"
+}

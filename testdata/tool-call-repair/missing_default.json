@@ -1,0 +1,27 @@
+{
+  "name": "missing_default",
+  "catalog": [
+    {
+      "name": "search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "limit": { "type": "integer", "default": 10 }
+        },
+        "required": ["query", "limit"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "search",
+    "args_json": "{\"query\":\"x\"}"
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"query\":\"x\",\"limit\":10}",
+    "require_schema_valid": true,
+    "reason_code": "default_inserted"
+  }
+}

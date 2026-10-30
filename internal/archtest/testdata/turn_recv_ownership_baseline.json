@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "feature": "turn-recv-terminal-ownership-simplification",
+  "phase": "1.1-current-baseline",
+  "source": "AST scan of internal/core/runtime production Go files",
+  "current": {
+    "field_count": 5,
+    "fields": [
+      {
+        "name": "facts",
+        "type": "recvTurnFacts",
+        "category": "immutable_request_fact"
+      },
+      {
+        "name": "responsePipeline",
+        "type": "*responsePipeline",
+        "category": "response_pipeline_state"
+      },
+      {
+        "name": "attempt",
+        "type": "attemptSlot",
+        "category": "current_attempt_state"
+      },
+      {
+        "name": "terminal",
+        "type": "*turnTerminal",
+        "category": "request_terminal_state"
+      },
+      {
+        "name": "recovery",
+        "type": "*recoveryController",
+        "category": "recovery_routing_state"
+      }
+    ],
+    "category_counts": {
+      "current_attempt_state": 1,
+      "immutable_request_fact": 1,
+      "infrastructure_compatibility_state": 0,
+      "recovery_routing_state": 1,
+      "request_terminal_state": 1,
+      "response_pipeline_state": 1
+    },
+    "sync_primitive_count": 0,
+    "sync_primitives": null,
+    "method_count": 2,
+    "methods": [
+      {
+        "name": "Recv",
+        "file": "internal/core/runtime/executor_recv_loop.go",
+        "line": 40,
+        "responsibility": "eventstream_control",
+        "reaches_executor": false
+      },
+      {
+        "name": "Close",
+        "file": "internal/core/runtime/executor_retry_stream.go",
+        "line": 65,
+        "responsibility": "eventstream_control",
+        "reaches_executor": false
+      }
+    ],
+    "responsibility_counts": {
+      "eventstream_control": 2
+    },
+    "cross_domain_method_count": 0,
+    "domain_package_fanout_count": 1,
+    "domain_package_fanout": [
+      {
+        "package": "github.com/aiproxer/aiproxer/pkg/aipapi",
+        "methods": [
+          "Recv"
+        ]
+      }
+    ],
+    "executor_reachability": {
+      "field_present": false,
+      "method_count": 0,
+      "methods": null,
+      "broad_field_forbidden": true
+    },
+    "state_copy_assignment_count": 5,
+    "state_copy_assignments": [
+      {
+        "file": "internal/core/runtime/executor_assemble_stream.go",
+        "function": "assemble",
+        "line": 27,
+        "kind": "assembly_literal",
+        "left": "facts",
+        "right": "rsFacts"
+      },
+      {
+        "file": "internal/core/runtime/executor_assemble_stream.go",
+        "function": "assemble",
+        "line": 28,
+        "kind": "assembly_literal",
+        "left": "attempt",
+        "right": "attemptSlot{}"
+      },
+      {
+        "file": "internal/core/runtime/executor_assemble_stream.go",
+        "function": "assemble",
+        "line": 29,
+        "kind": "assembly_literal",
+        "left": "responsePipeline",
+        "right": "responsePipeline"
+      },
+      {
+        "file": "internal/core/runtime/executor_assemble_stream.go",
+        "function": "assemble",
+        "line": 30,
+        "kind": "assembly_literal",
+        "left": "terminal",
+        "right": "terminal"
+      },
+      {
+        "file": "internal/core/runtime/executor_assemble_stream.go",
+        "function": "assemble",
+        "line": 31,
+        "kind": "assembly_literal",
+        "left": "recovery",
+        "right": "plan.progress"
+      }
+    ],
+    "mirrored_facts": [
+      {
+        "fact": "output_commitment",
+        "authorities": [
+          "retryRecvStream.committed",
+          "authorityLifecycle.outputCommitted",
+          "ttftBudget.committed"
+        ],
+        "evidence": [
+          "markCommitted stores committed atomic.Bool",
+          "markCommitted calls authority.markOutputCommitted",
+          "markOutputCommitted calls ttft.markCommitted"
+        ]
+      },
+      {
+        "fact": "finished",
+        "authorities": [
+          "retryRecvStream.finished",
+          "streamTerminal request owner state"
+        ],
+        "evidence": [
+          "markFinished stores finished atomic.Bool",
+          "runStreamTerminal owns request terminal claim"
+        ]
+      },
+      {
+        "fact": "attempt_terminal",
+        "authorities": [
+          "retryRecvStream.attemptTerm",
+          "authorityLifecycle.terminal",
+          "streamTerminal attempt owner state"
+        ],
+        "evidence": [
+          "resetAttemptTerminal replaces attemptTerm during retry",
+          "authority lifecycle has independent settled/released terminal state"
+        ]
+      },
+      {
+        "fact": "request_context",
+        "authorities": [
+          "retryRecvStream.recvViews/secureTurn/routePrefs/model views",
+          "retryRecvStream.cachedCtx/lastParent",
+          "retryRecvStream.metering/requestAuth"
+        ],
+        "evidence": [
+          "recvExecContext projects pinned values into cached context",
+          "bare Recv callers rely on stream snapshots",
+          "request-scoped authorities are reattached from stream fields"
+        ]
+      }
+    ]
+  },
+  "target": {
+    "owner_names": [
+      "recvTurnFacts",
+      "attemptSession",
+      "recoveryController",
+      "responsePipeline",
+      "turnTerminal"
+    ],
+    "facade_max_direct_fields": 7,
+    "facade_max_sync_primitives": 2,
+    "facade_max_receiver_methods": 8,
+    "facade_max_cross_domain_methods": 0,
+    "facade_max_domain_package_fanout": 4,
+    "facade_max_executor_reachable_methods": 0,
+    "facade_max_state_copy_assignments": 8,
+    "forbidden_direct_fields": [
+      "executor",
+      "committed",
+      "finished",
+      "requestTerm",
+      "attemptTerm",
+      "billingCallState",
+      "authority",
+      "sel",
+      "excluded",
+      "gateBuf",
+      "toolFinal"
+    ],
+    "exactly_one_authority_facts": [
+      "output_commitment",
+      "finished",
+      "attempt_terminal",
+      "request_context"
+    ]
+  }
+}

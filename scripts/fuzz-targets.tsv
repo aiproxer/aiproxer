@@ -1,0 +1,64 @@
+name	package	module
+FuzzJSONRoundTrip	./internal/testkit	
+FuzzParseSnapshot	./internal/infra/modelcatalog/modelsdev	
+FuzzParseSelector	./internal/core/routing	
+FuzzParseSelectorFromBytes	./internal/core/routing	
+FuzzDecodeCreateRequest	./internal/plugins/frontends/openairesponses	
+FuzzDecodeMessageRequest	./internal/plugins/frontends/anthropic	
+FuzzDecodeGenerateContentRequest	./internal/plugins/frontends/gemini	
+FuzzDecodeChatRequest	./internal/plugins/frontends/openailegacy	
+FuzzWriteNonStreamJSON_toolArguments	./internal/plugins/frontends/anthropic	
+FuzzBuildGenerateContentResponse_toolJSON	./internal/plugins/frontends/gemini	
+FuzzCallValidateJSON	./pkg/aipapi	
+FuzzSemanticExtensionValidation	./pkg/aipapi	
+FuzzMergeRouteQueryGenerationOptions	./pkg/aipapi	
+FuzzCollectWithLimitsProgram	./pkg/aipapi	
+FuzzStableCallIdentity	./internal/core/diag	
+FuzzParamsForCall	./internal/plugins/backends/openairesponses	
+FuzzHandleResponseStreamUnion	./internal/plugins/backends/openairesponses	
+FuzzBuildToolsParametersJSON	./internal/plugins/backends/openairesponses	
+FuzzHandleMessageStreamEventUnion	./internal/plugins/backends/protocols/anthropicmessages	
+FuzzToolInputSchemaParametersJSON	./internal/plugins/backends/protocols/anthropicmessages	
+FuzzHandleChatCompletionChunk	./internal/plugins/backends/openailegacy	
+FuzzBuildChatToolsParametersJSON	./internal/plugins/backends/openailegacy	
+FuzzHandleGenerateContentResponse	./internal/plugins/backends/protocols/geminigenerate	
+FuzzBuildToolsParametersJSON	./internal/plugins/backends/protocols/geminigenerate	
+FuzzMessageToContentToolResultJSON	./internal/plugins/backends/protocols/geminigenerate	
+FuzzAssistantPartsToContentBlocksJSON	./internal/plugins/backends/bedrock	
+FuzzHookMutationValidators	./internal/core/hooks	
+FuzzManifest	./internal/infra/backendplugins/manifest	
+FuzzServerFrame	./pkg/aipsdk/backendplugin	
+FuzzAcceptClientUserAgent	./internal/core/identity	
+FuzzAcceptClientAppURL	./internal/core/identity	
+FuzzAcceptClientAppTitle	./internal/core/identity	
+FuzzValidateIdentityYAML	./internal/core/identity	
+FuzzCaptureClientUserAgent	./internal/plugins/frontends/identitywire	
+FuzzDecodeRequest	./internal/plugins/protocols/openresponses	
+FuzzDecodeItem	./internal/plugins/protocols/openresponses	
+FuzzSSEParser	./internal/plugins/protocols/openresponses	
+FuzzStateMachine	./internal/plugins/protocols/openresponses	
+FuzzResourceBuilder	./internal/plugins/protocols/openresponses	
+FuzzParseResponseResource	./internal/refclient/openresponses	
+FuzzParseCompactResource	./internal/refclient/openresponses	
+FuzzParseEvent	./internal/refclient/openresponses	
+FuzzParseSSE	./internal/refclient/openresponses	
+FuzzParseCreateRequest	./internal/refbackend/openresponses	
+FuzzParseCompactRequest	./internal/refbackend/openresponses	
+FuzzBuildStream	./internal/refbackend/openresponses	
+FuzzParseWSTurn	./internal/refbackend/openresponses	
+FuzzWebSocketDecodeTurn	./internal/plugins/frontends/openresponses	
+FuzzCompleteJSONSuffix	./internal/plugins/features/toolcallrepair/repair	.
+FuzzSchemaPreScanCompile	./internal/plugins/features/toolcallrepair/repair	.
+FuzzEngineRepair	./internal/plugins/features/toolcallrepair/repair	.
+FuzzComputeAnchor	./internal/plugins/features/reasoningpreservation	
+FuzzDecodeConfig	./internal/plugins/features/reasoningpreservation	
+FuzzLeaseSet_OccupiesCapacity	./internal/core/concurrencyauthority/domain	
+FuzzIsAmbiguousRenewError	./internal/core/concurrencyauthority/app	
+FuzzWorkItem_TransitionSequence	./internal/core/terminalwork	
+FuzzOwner_CommandSequences	./internal/core/terminal	
+FuzzParseDecimalToNano	./pkg/aipsdk/economics	
+FuzzPhase32_SourceEventKey_DelimiterSafety	./pkg/aipsdk/metering	
+FuzzPhase32_MoneyPresentCurrency	./pkg/aipsdk/metering	
+FuzzParseNDJSONLine	.	connector-support/acp
+FuzzMapSessionUpdateToEvents	.	connector-support/acp
+FuzzMergeHandshakeProfileExtensions	.	connector-support/acp

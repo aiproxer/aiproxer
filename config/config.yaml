@@ -1,0 +1,803 @@
+server:
+  # Default bind is loopback-only so single-user mode never listens on all interfaces by accident.
+  address: "127.0.0.1:8080"
+  # Legacy server.auth_mode (no_auth | external) still merges into effective auth for audit; prefer access + auth below.
+  # max_request_body_bytes: 8388608  # optional override; omit/0 uses handler default (8 MiB)
+  # Optional [http.Server] timeouts (Go duration strings). Omitted fields use stdhttp defaults:
+  # read_header_timeout: 10s
+  # read_timeout: 30s
+  # write_timeout: 120s
+  # idle_timeout: 120s
+  # shutdown_timeout: 15s  # HTTP drain + host close on process shutdown
+  # Decode admission (shared across all mounted frontends). Zero selects finite defaults during Validate
+  # (not unlimited). Body is fully resident after ReadAll; admission weights Decode only (not body read):
+  # max_concurrent_decodes: 32
+  # max_inflight_decode_bytes: 67108864  # 64 MiB; must be >= max_request_body_bytes (or 8 MiB default)
+  # max_pending_wire_events: 0   # cap backend adapter pending-event queues per stream; 0 = unlimited
+  # Raise max_request_body_bytes and max_inflight_decode_bytes together for large multimodal / long-context.
+  # 413 = decompressed request body over max_request_body_bytes; 429 + Retry-After: 1 = decode admission saturation.
+  # Optional standards-compliant hold-alive for streaming clients while pre-request admission runs.
+  # Emits HTTP 102 Processing informational responses only; final response status/body stay protocol-native.
+  # pre_request_keepalive:
+  #   enabled: false
+  #   interval: 15s
+
+# --- Upstream static-credential discovery policy (nonsecret) ---
+# Provider API keys come only from the host environment (bare ROOT is slot 1,
+# ROOT_2..ROOT_N fill later slots, sparse numbering allowed). The host captures
+# them once per candidate; serving paths never read the environment.
+# upstream_credentials:
+#   max_env_index: 20              # inclusive scan bound N; 1..256 (default 20)
+#   quota_switch_retry_after: 1h   # Retry-After strictly greater marks a key quota-cooling (default 1h)
+
+# --- Inbound HTTP header aliases (A-leg only) ---
+# Extra accept names are checked after the defaults. First non-empty value wins, so
+# X-AIP-Route still wins when both a default and an alias are present.
+# Authorization remains Bearer-only; x-api-key / x-goog-api-key / api-key use the raw value.
+# http_headers:
+#   api_key: []              # defaults: Authorization, x-api-key, x-goog-api-key, api-key
+#   route: []                # default: X-AIP-Route
+#   session_id: []           # default: X-AIP-Session-Id
+#   resume_token: []         # default: X-AIP-Resume-Token
+#   a_leg_id: []             # default: X-AIP-A-Leg-Id
+#   session_hint: []         # default: X-AIP-Session-Hint
+#   workspace: []            # default: X-AIP-Workspace (explicit local workspace hint, consumed on canonical decode; inert on wire execution)
+#   trace: []                # default: X-Trace-ID
+#   diagnostics_secret: []   # default: X-AIP-Diagnostics-Secret
+
+# --- Access and authentication (see internal/core/config/access_auth_model.go) ---
+# Omitted access.mode defaults to single_user. Omitted server.address defaults to explicit loopback (127.0.0.1:8080).
+# single_user allows only explicit loopback binds (127/8, ::1, or localhost). All-interfaces
+# (0.0.0.0, ::, or bare :port) requires access.mode: multi_user, strong auth, and `aipstd serve --multi-user`.
+# single_user is about the LISTENER, not about auth: single_user + loopback + an external auth handler is valid.
+#
+# multi_user is a shared-service deployment (unrelated downstream principals multiplex through one
+# proxy). It therefore disables local-only connectors: ACP/process-spawning agent runtimes (including
+# experimental cursorsdk), OpenAI Codex, Codex App Server, and local inference servers. A backend is
+# multi-user eligible only when BOTH hold:
+#   - its packaged manifest declares access_scope: any, a non-user credential_mode
+#     (static/workload/none, never oauth_user or unknown), and execution_class: inference; and
+#   - it has an explicit entry in the host-owned multi-user approval registry
+#     (internal/standardplugins/multi_user_backend_policy.go, outside connectors/*).
+# Absence from that registry is DENIAL, so a brand-new connector fails closed in multi_user even if it
+# declares itself permissive. Rejection is a typed error with instance + factory, raised at startup /
+# check-config / reload before any connector Dial/Configure/child process. There is deliberately NO
+# allow_local_only_in_multi_user (or similar) escape hatch: run a single-user loopback deployment, or
+# use a credential intended for shared service operation (provider API key, workload identity, service
+# account) on an approved backend. See docs/backend-plugins/operator.md.
+#
+# (A) Default OSS single-user (effective when access/auth are omitted): loopback + local_noop + structured auth/session events.
+# access:
+#   mode: single_user
+# auth:
+#   handler: local_noop
+#   required_level: none
+#   event_failure_policy: best_effort
+#   # Auth/session audit events may include PII (principal display name, ids, client refs). Route logs to
+#   # retention-compliant storage; the proxy does not redact those fields beyond challenge-summary sanitization.
+#   # event_delivery: default   # structured log sink (default) | disabled | custom (custom needs BuildOptions.AuthEventSink)
+#   # fail_closed (see (B) below) denies the request if the auth-event sink errors; best_effort ignores sink errors.
+#
+# (B) Multi-user + local API keys (shared host); start with `aipstd serve --multi-user`.
+# Use loopback or non-loopback listen only with server.auth_mode: external.
+# access:
+#   mode: multi_user
+# server:
+#   address: "0.0.0.0:8080"
+#   auth_mode: external
+# auth:
+#   handler: local_api_key
+#   required_level: api_key
+#   event_failure_policy: fail_closed
+#   local_api_keys:
+#     - key_id: example-device
+#       principal_id: example-user
+#       # Each key must be >= 16 characters (Unicode code points). For multi_user on a reachable bind,
+#       # add perimeter rate limiting or WAF brute-force protection; the proxy does not throttle auth attempts.
+#       key: "replace-with-operator-secret-not-committed"
+#
+# (C) Remote auth (interface-only in OSS): select handler remote; standard binary does not create remote transport clients.
+# You must inject RemoteDecider at the composition root (see internal/infra/runtimebundle BuildOptions).
+# access:
+#   mode: multi_user
+# server:
+#   address: "127.0.0.1:8080"
+#   auth_mode: external
+# auth:
+#   handler: remote
+#   required_level: api_key_sso
+#   remote:
+#     endpoint: "https://auth.example.invalid/v1"
+#     handler: enterprise
+
+# --- Ingress self-defense ---
+# Operator guide: docs/ingress-self-defense.md
+#
+# Default-on. Omitting the block below is identical to the values shown here: a
+# normally exposed proxy rejects common hostile request targets and temporarily
+# backs off repeated unauthenticated access attempts with no extra setup. Opt out
+# explicitly with `access.self_defense.enabled: false` (or
+# `impossible_paths: false` to keep only the adaptive half).
+#
+# Client-address trust is SHARED with `access.geoip.client_ip` above: this feature
+# resolves the source address with the exact same direct-peer and trusted
+# `X-Forwarded-For` / `Forwarded` semantics, and it deliberately has no second
+# forwarding-trust setting and needs no GeoIP country database. Fixed country /
+# IP / CIDR allow-deny policy stays exclusively under `access.geoip` and runs
+# first; there is no second hard-block policy here.
+#
+# `adaptive.exempt_cidrs` is an allowlist of sources exempt from adaptive state and
+# quarantine only. It is never a ban list, never overrides a GeoIP hard denial, and
+# never makes a matched impossible path valid. A successful full authentication
+# chain is a reset, not a trust cache: it clears the address's accumulated offense
+# and later hostile behaviour starts fresh. Credential-bearing and unknown-auth
+# traffic may still reach authentication while an address is quarantined, so a
+# legitimate user behind a shared public IP is never locked out by another actor.
+#
+# Reload vs restart: enabled, impossible_paths, auth_failures, window,
+# initial_quarantine, max_quarantine and exempt_cidrs are generation-reloadable;
+# state_ttl and max_entries size the process-owned adaptive table and are
+# restart-required. A mixed candidate is rejected atomically and the last-good
+# generation keeps running.
+#
+# Deferred non-goals for v1: no external reputation feed, no WAF or request/body
+# inspection, no persistent or distributed ban state, and no automatic subnet
+# escalation. Per-request hostile logging is off; refusals are generic.
+access:
+  self_defense:
+    enabled: true
+    impossible_paths: true
+    adaptive:
+      auth_failures: 5           # unauthenticated 401s inside `window` that start a quarantine (2..100)
+      window: 1m                 # counting window, starts at the first counted failure (1s..1h)
+      initial_quarantine: 1m     # first-offense quarantine, doubled per later offense (1s..1h)
+      max_quarantine: 2h         # exponential ceiling, must be >= initial_quarantine (<= 24h)
+      state_ttl: 24h             # hostile-inactivity lifetime (1m..168h; restart-required)
+      max_entries: 100000        # bounded tracked source entries (1024..1000000; restart-required)
+      exempt_cidrs: []           # adaptive-only exemption allowlist, e.g. [198.51.100.0/24]
+
+# Outbound LLM HTTP client: when trust_environment_proxy is false, HTTP_PROXY/HTTPS_PROXY are ignored.
+# Optional pool/timeouts (defaults match internal/infra/httpclient.DefaultTransportTune):
+# http_client:
+#   trust_environment_proxy: false
+#   max_idle_conns: 100
+#   max_idle_conns_per_host: 64
+#   idle_conn_timeout: 90s
+#   response_header_timeout: 60s
+#   client_timeout: 120s
+
+# Optional connection pool for managed PostgreSQL (any store: postgres path).
+# When any store is postgres, max_open_conns must be > 0 (example: 8). Other omitted/zero
+# fields leave driver defaults. Durations are Go duration strings (e.g. 30m, 90s).
+# connection_mode and schema_mode apply only to dual-plane authority, concurrency, and
+# metering PostgreSQL runtime stores; other PostgreSQL stores retain their own lifecycle.
+# database:
+#   connection_mode: direct        # direct or transaction_pool
+#   schema_mode: auto_migrate       # auto_migrate or verify_only
+#   max_open_conns: 8
+#   max_idle_conns: 2
+#   conn_max_lifetime: 30m
+#   conn_max_idle_time: 2m
+
+logging:
+  level: info
+  format: json
+  add_source: false
+  access_log: false
+  # access_log_skip_paths:
+  #   - "/healthz"
+
+# --- Identity (proxy-wide A-leg/B-leg presentation; issue #147) ---
+# Operator guide: docs/proxy-identity.md
+#
+# Compatibility: omitting identity: now defaults to AIProxer product proxy identity
+# (aiproxer / project GitHub URL). This is an intentional break
+# from older OpenRouter client-first / empty-header defaults.
+#
+# "Transparent" means only the selected identity carriers below (User-Agent,
+# OpenRouter app URL/title, A-leg Server). It is not an arbitrary header tunnel.
+#
+# Modes (FieldPolicy):
+#   proxy       - emit AIProxer product default for that carrier
+#   passthrough - call path: forward accepted client/call value, else omit;
+#                 background/inventory (no call-path client context): product identity
+#   custom      - emit FieldPolicy.value (bounded, control-char safe)
+#   drop        - omit the carrier entirely
+#
+# Upstream (B-leg, proxy -> backend):
+#   user_agent: proxy|passthrough|custom|drop (default proxy)
+#   openrouter.app_url / app_title: same modes (default proxy); OpenRouter only
+# Downstream (A-leg, proxy -> client):
+#   server: proxy|custom|drop only (passthrough rejected); default proxy
+#   Applied stack-wide via stdhttp Server response header (RFC 9110).
+#
+# identity:
+#   upstream:
+#     user_agent: { mode: proxy }   # emits "aiproxer"
+#     openrouter:
+#       app_url: { mode: proxy }    # HTTP-Referer product URL
+#       app_title: { mode: proxy }  # X-OpenRouter-Title (not legacy X-Title)
+#   downstream:
+#     server: { mode: proxy }       # A-leg Server: aiproxer
+#
+# Backend nested override (plugins.backends[].config.identity; nested only —
+# flat identity.app_url / app_title are rejected). Pointer merge: omit field to
+# inherit global; explicit mode drop is not the same as omit.
+#   identity:
+#     user_agent: { mode: custom, value: "MyBackend/1" }
+#     openrouter:
+#       app_url: { mode: passthrough }
+#       app_title: { mode: drop }
+#
+# Eligible B-leg User-Agent / OpenRouter attribution connectors:
+#   openai-responses, openai-legacy, anthropic, gemini, bedrock,
+#   openrouter, nvidia, huggingface
+#
+# Excluded (vendor/local/OAuth/agent/custom; no identity HTTP wrap):
+#   openai-codex, openai-codex-app-server,
+#   acp, cursorcliacp, geminicliacp, agycliacp,
+#   opencode-go, opencode-zen,
+#   ollama, ollama-cloud, llamacpp, lmstudio, vllm, local-stub,
+#   custom-openai-legacy-compatible, custom-openai-responses-compatible,
+#   custom-anthropic-compatible
+#
+# Legacy OpenRouter static_referer / static_title (per-backend only):
+#   Apply when nested backend identity.openrouter.app_* is absent; they override
+#   global identity.upstream.openrouter for that carrier (no startup conflict).
+#   Fail closed only when static_* is paired with nested backend
+#   identity.openrouter.app_* for the same carrier. Prefer nested or global
+#   identity.openrouter.*; remove static_* when migrating to global policy.
+#   Output always uses modern X-OpenRouter-Title (never X-Title).
+#   OpenAI frontends capture A-leg OpenRouter attribution headers; Anthropic/
+#   Gemini do not (User-Agent only) — see docs/proxy-identity.md.
+#
+# Failover/parallel: each B-leg attempt uses that backend's effective policy;
+# A-leg Server stays independent of the selected upstream.
+
+diagnostics:
+  enabled: true
+  health_path: "/healthz"
+  attempts_path: "/admin/attempts"
+  inventory_path: "/debug/inventory"
+  route_trace_path: "/debug/route_trace"
+  # Optional: require header X-AIP-Diagnostics-Secret (min 12 chars) on attempts/inventory/route_trace/pprof.
+  # shared_secret: "change-me-please-12+"
+  # Optional: net/http/pprof (only when diagnostics.enabled). Use localhost binding or auth in front; paths must not overlap.
+  # pprof_path: "/debug/pprof"
+
+# Prometheus / OpenTelemetry (optional). Metrics path must not overlap diagnostic routes above.
+# observability:
+#   metrics:
+#     enabled: false
+#     path: "/metrics"
+#   tracing:
+#     enabled: false
+#     # service_name: "aipstd"
+
+routing:
+  max_attempts: 3
+  affinity:
+    store: memory
+    # Explicit route affinity ({affinity=session} / {affinity=client}) requires an identity by default.
+    # Use ignore only for local/single-user experiments where missing identity should disable stickiness.
+    missing_identity: fail_closed
+  # Route selectors support failover (`|`), weighted branches (`^`), query defaults, and TTFT budgets.
+  # TTFT budget values are integer seconds. A leading global block caps the whole client-side A-leg wait
+  # for first output across all pre-output attempts, while per-leaf annotations cap one backend attempt:
+  #   "{ttft_timeout=60}[ttft_timeout=30]openai-responses:gpt-4o-mini^[ttft_timeout=20]gemini:gemini-2.0-flash"
+  # Route-wide affinity lives in the same leading global block:
+  #   "{affinity=session}[weight=1]openai-a:gpt-4o-mini^[weight=1]openai-b:gpt-4o-mini"
+  # Aliases are also accepted: {session_sticky} and {client_sticky}.
+  default_route: "openai-responses:gpt-4o-mini"
+  # Opt-in A-leg routing-override admin HTTP (disabled by default). Persistence and
+  # runtime enforcement follow continuity even when this surface is off. path_prefix
+  # must not overlap other diagnostics or admin mounts (for example /debug/pprof)
+  # and must be a literal path (ServeMux wildcards such as {id} are rejected).
+  # override_admin:
+  #   enabled: false
+  #   path_prefix: /admin/routing-overrides
+  #   max_body_bytes: 69632
+
+# Optional regexp rewrites of the full route selector string (incoming X-AIP-Route or default_route).
+# First matching rule wins; the replacement template must parse as a valid selector (see routing.Parse). After a
+# match, regexp capture expansion runs; the rewritten string is parsed again at request/default-route time, so a
+# capture can still yield an invalid selector even when the template alone was valid. Not recursive.
+# model_aliases:
+#   - pattern: '^gpt-4$'
+#     replacement: 'openai-responses:gpt-4o-mini'
+
+# Hook bus tuning (see docs/capability-catalogs.md and internal/plugins/features/REFERENCE_PLUGINS.md).
+hooks:
+  tool_reactor_error_policy: fail_open
+
+# Optional models.dev snapshot catalog (disabled by default). Operator guide: docs/capability-catalogs.md
+# model_catalog:
+#   enabled: false
+#   external_updates_enabled: false
+#   # Local JSON snapshot path (required when enabled or when external_updates_enabled needs a cache).
+#   cache_path: ./data/model_catalog.json
+#   # Background refresh (only when external_updates_enabled: true):
+#   # update_interval: 1h
+#   # source_url: "https://example.com/models.json"   # HTTPS recommended; see doc "Trust and exposure"
+#   # fetch_timeout: 30s   # optional extra bound when fetch context has no deadline (defense in depth)
+#   # diagnostics_path: /debug/model_catalog   # must start with /; must not overlap diagnostics.* paths
+#   # model_overrides:
+#   #   - model: "gpt-4o"
+#   #     tools: true
+#   #     context_limit_tokens: 128000
+#   # backend_model_overrides:
+#   #   - backend: "openai-responses"
+#   #     model: "gpt-4o-mini"
+#   #     reasoning: false
+
+# Backend model inventory cache and refresh for routing-time vendor/model lookups.
+# This is separate from model_catalog: it records which configured backend instances expose which models.
+# model_inventory:
+#   cache_path: ./data/backend_model_inventory.json
+#   refresh_enabled: true
+#   refresh_interval: 1h  # minimum 1h; failed refresh keeps the last successful inventory
+#   fetch_timeout: 30s   # per-backend startup/refresh inventory fetch timeout
+#   # diagnostics_path: /debug/model-registry  # protected discovery status (not models.dev)
+
+
+continuity:
+  in_memory: true
+  store: memory
+  # in_memory: true is the legacy spelling of "store: memory". Remove it when you
+  # select a durable store: the two together are refused before startup.
+  # For local durable continuity (file SQLite, existing adapter):
+  # store: sqlite
+  # sqlite_path: ./data/continuity.db
+  # For managed PostgreSQL (Bun-backed store; set postgres_dsn, optional top-level database pool):
+  # store: postgres
+  # postgres_dsn: "postgres://user:pass@host:5432/continuity?sslmode=disable"
+
+# Token accounting records provider-billable and client-visible usage through runtime preflight,
+# stream reconstruction, ledger writes, admin dry-run counting, and metrics-safe observations.
+# accounting:
+#   enabled: true
+#   mode: provider_first          # provider_first | local_only | provider_required
+#   count_timeout: 750ms          # bounds provider/local CountCall and stream reconstruction counts
+#   tokenizer:
+#     default_encoding: cl100k_base
+#     model_mappings:
+#       gpt-4o-mini: o200k_base
+#   preflight:
+#     mode: advisory              # advisory | required
+#     max_context_tokens: 128000
+#     clamp_max_output_tokens: true
+#   ledger:
+#     store: sqlite               # memory | sqlite | postgres
+#     sqlite_path: ./data/token-accounting.db
+#     # store: postgres
+#     # postgres_dsn: "postgres://user:pass@host:5432/token_accounting?sslmode=disable"
+#     write_policy: required      # required fail-closes; best_effort observes/logs and continues
+#   admin:
+#     enabled: true
+#     path: "/admin/token-count"
+#     max_body_bytes: 1048576
+#   observability:
+#     enabled: true
+#   billing:
+#     reports_path: /admin/billing
+
+# Stream recovery (SSE comment keepalives while waiting on upstream; auto-resume is off by default):
+# stream_recovery:
+#   auto_resume:
+#     keepalive_interval: 12s
+
+# Empty-visible-turn corrective retry (issue #1197): off by default. When enabled, a clean
+# accepted completion that produced no visible output - reasoning-only counts as empty - is
+# replaced once by a corrective attempt; its frames are held within the existing retention
+# budget until the decision, and the empty attempt's frames are never released to the client.
+# If the corrective attempt is empty too, its finish is delivered as the accepted outcome.
+# Disabled or omitted keeps today's client-visible events, usage handling, and signals
+# unchanged; the gate is pinned per configuration generation, so an in-flight turn keeps its
+# value across a reload.
+# A wired terminal-decision provider (for example Agent Loop Guard) excludes the retry
+# entirely: the provider keeps its exclusive terminal authority and its evaluation path is
+# unchanged. When an accepted corrective attempt cannot be opened, the turn ends with an
+# explicit recoverable pre-output upstream failure instead of the original empty finish.
+# empty_visible_turn_retry:
+#   enabled: false
+
+# Secure sessions (proxy-owned session id + resume proofs) are always on; omit secure_session to use defaults
+# (memory store, loopback-friendly). Memory store session evidence is non-durable (lost on restart) unless you use
+# store: sqlite with sqlite_path below. token_fingerprint_key may be omitted for memory (ephemeral process-local key);
+# sqlite requires token_fingerprint_key (>=32 chars). Continuity keys and provider conversation ids are not proof of
+# session ownership; only proxy-issued resume material authorizes a turn.
+# Durable local mode (store: sqlite) needs sqlite_path and token_fingerprint_key (>=32 chars).
+# Managed durable (store: postgres) needs postgres_dsn and the same long token_fingerprint_key.
+# Durable audit (audit_durability: durable) requires a durable store (sqlite or postgres), not memory.
+# secure_session:
+#   store: memory
+#   # sqlite_path: ./data/secure_session.db
+#   # postgres_dsn: "postgres://user:pass@host:5432/secure_session?sslmode=disable"  # when store: postgres
+#   resume_window: 168h
+#   token_fingerprint_key: "replace-with-32+byte-secret----------------"
+#   audit_durability: best_effort   # or durable (requires store: sqlite or postgres, plus key; sqlite also needs sqlite_path)
+#   redaction_default: standard
+#   non_durable_warning: log      # silent | log | strict (memory store: operator log when "log" at startup)
+#   diagnostics_expose_summaries: false
+#   diagnostics_path_prefix: "/debug/sessions"
+#   # When diagnostics_expose_summaries is true, set diagnostics.shared_secret (>=12 chars) so operator routes are not world-readable.
+#   require_workspace_id: false   # when true, reject turns with no resolved workspace id (secure-session BeginTurn)
+#   workspace_resolve_on_error: fail_open   # fail_closed: workspace resolver errors deny the request (Req 11.6)
+#   resume_token_bind_principal_only: false # when true, resume fingerprints use only principal id (stable across client hint drift)
+#   # Optional: process-local TTL cache for durable SQL stores (sqlite/postgres) reducing repeated sessionExists /
+#   # transcript_enabled reads. Empty sql_query_cache_ttl disables caching (default). Short TTL trades fewer DB round
+#   # trips for brief staleness if transcript policy or session rows are mutated out-of-band; future admin mutation
+#   # APIs must invalidate this cache when added.
+#   # sql_query_cache_ttl: 30s
+#   # sql_query_cache_max_entries: 4096   # optional cap per logical cache; omit or zero uses 4096 when ttl is set
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+      # External connector (connectors/openrouter): not a root UpstreamAPIKeys pool.
+      # base_url: https://openrouter.ai/api/v1  # default
+      # api_key: ""          # connector-local secret / YAML (not root env key pools)
+      # Legacy (validated at startup; conflicts with matching identity.openrouter.app_*):
+      # static_referer: ""   # legacy static HTTP-Referer when identity.openrouter.app_url omitted
+      # static_title: ""     # legacy static title → emitted as X-OpenRouter-Title
+      # identity:            # nested schema only (flat app_url/app_title rejected)
+      #   user_agent: { mode: proxy }
+      #   openrouter:
+      #     app_url: { mode: proxy }    # proxy|passthrough|custom|drop
+      #     app_title: { mode: proxy }  # emits X-OpenRouter-Title (not legacy X-Title)
+    - id: nvidia
+      enabled: false
+      config: {}
+      # External connector (connectors/nvidia): credentials are connector-local, not root env pools.
+      # base_url: https://integrate.api.nvidia.com/v1  # default
+      # api_key: ""
+    - id: huggingface
+      enabled: false
+      config: {}
+      # External connector (connectors/huggingface): credentials are connector-local, not root env pools.
+      # base_url: https://router.huggingface.co/v1  # default
+      # api_key: ""
+    - id: opencode-go
+      enabled: false
+      config: {}
+      # External connector artifact connectors/opencode (multi-export with opencode-zen).
+      # base_url: https://opencode.ai/zen/go/v1  # default
+      # api_key: ""          # connector-local secret / YAML
+    - id: opencode-zen
+      enabled: false
+      config: {}
+      # Same connectors/opencode artifact; connector-local credentials only.
+      # base_url: https://opencode.ai/zen/v1  # default
+      # api_key: ""
+    - id: openai-codex
+      enabled: false
+      config: {}
+      # External connector (connectors/codex): discovered via plugin manifest.
+      # base_url: https://chatgpt.com/backend-api/codex  # default
+      # access_token: ""     # or api_key; connector-local env OPENAI_CODEX_* when using host secret injection
+      # auth_json_path: ""   # optional Codex CLI auth.json; default discovers ~/.codex/auth.json
+      # catalog_enabled: true
+      # catalog_fallback_path: ""  # optional override of connector-embedded catalog snapshot
+      # catalog_codex_binary_path: ""  # optional; else `executable` / PATH
+      # Connector-specific fields (account_id, refresh_token, managed_oauth_*, transport,
+      # verbosity bumps, etc.) are documented by the connectors/codex artifact.
+    - id: openai-codex-app-server
+      enabled: false
+      config: {}
+      # Same connectors/codex artifact; local-only app-server export.
+      # executable: ""  # optional path to Codex CLI; else CODEX_BIN / PATH
+      # default_workspace: ""
+      # catalog_enabled: true
+      # stale_kill_delay_seconds: 0
+    # Experimental Cursor SDK (local-only; not in EssentialBackendBundle).
+    # Operator guide: docs/cursor-sdk-backend.md
+    # Example: config/examples/cursor-sdk-experimental.yaml
+    # Standalone plugin: install the aiproxer/aiproxer-cursor-sdk release into a trusted
+    # discovery root and provision the SDK with that plugin's documented command
+    # (Node >=22.13, exact @cursor/sdk 1.0.23); AIProxer never runs npm.
+    # Auth: host-delivered CURSOR_API_KEY only, bound through a
+    # backend_discovery.instances secret_refs entry (api_key: {env: CURSOR_API_KEY}).
+    # Literal api_key YAML fails closed. ACP remains external cursorcliacp.
+    # Opt-in registration / discovered connector required — not installed by InstallStandardBundleOn.
+    # - kind: cursorsdk
+    #   id: cursor-sdk
+    #   enabled: false
+    #   config:
+    #     # No api_key field: literal credential YAML fails closed. The key arrives
+    #     # only through a backend_discovery.instances secret_refs binding
+    #     # (api_key: {env: CURSOR_API_KEY}); see config/examples/cursor-sdk-experimental.yaml.
+    #     # bridge_executable: unset on Linux (packaged default); on Windows set the
+    #     # absolute installed launcher path.
+    #     default_workspace: "/absolute/path/to/workspace"
+    #     setting_sources: []           # default none; trusted explicit sources only
+    #     sandbox_mode: required        # or explicit off (local-only; Windows when sandbox unavailable)
+    #     auto_review: false
+    #     mcp_servers: {}
+    - id: ollama
+      enabled: false
+      config: {}
+      # base_url: http://localhost:11434/v1  # default local Ollama OpenAI-compatible root
+      # responses_api: auto  # auto | enabled | disabled (auto probes /api/version for >= 0.13.3)
+      # api_key: ""          # optional reverse-proxy auth; default installs use dummy credential
+      # discovery:
+      #   enabled: true
+      #   local_models: true
+      #   capabilities: true
+      #   timeout: 15s
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+      # base_url: http://localhost:11434/v1  # local Ollama app proxying cloud models
+      # responses_api: auto
+      # discovery:
+      #   enabled: true
+      #   cloud_models: true
+      #   capabilities: true
+      #   cloud_models_url: https://ollama.com/api/tags
+      #   timeout: 15s
+    - id: llamacpp
+      enabled: false
+      config: {}
+      # base_url: http://localhost:8080/v1  # default local llama.cpp OpenAI-compatible root
+      # api_key: ""          # optional reverse-proxy auth; default installs use dummy credential
+      # discovery:
+      #   catalog: true
+      #   catalog_url: https://models.dev/api.json
+      #   timeout: 15s
+    - id: lmstudio
+      enabled: false
+      config: {}
+      # base_url: http://localhost:1234/v1  # default local LM Studio OpenAI-compatible root
+      # api_key: ""          # optional reverse-proxy auth; default installs use dummy credential
+      # discovery:
+      #   catalog: true
+      #   catalog_url: https://models.dev/api.json
+      #   timeout: 15s
+    - id: vllm
+      enabled: false
+      config: {}
+      # base_url: http://localhost:8000/v1  # default local vLLM OpenAI-compatible root
+      # api_key: ""          # optional reverse-proxy auth; default installs use dummy credential
+      # discovery:
+      #   catalog: true
+      #   catalog_url: https://models.dev/api.json
+      #   timeout: 15s
+    # Custom compatible backends are built-in protocol aliases (origin: built_in_compatible).
+    # See docs/custom-compatible-backends.md. Literal api_key/api_keys/credentials in YAML are rejected.
+    # Use kind to select the generic factory; id remains the runtime route backend instance.
+    # backend_prefix must be unique, cannot contain / or :, and cannot collide with built-in or discovered prefixes.
+    # api_key_env_var_root reads ROOT, ROOT_2, ROOT_3, ... Omit for no-auth endpoints.
+    # Optional: tokenizer (cl100k_base|o200k_base), max_concurrent_requests, models (inline|file).
+    # - id: provider123
+    #   kind: custom-openai-legacy-compatible
+    #   enabled: false
+    #   config:
+    #     backend_prefix: provider123
+    #     base_url: https://api.provider123.example/v1
+    #     api_key_env_var_root: PROVIDER123_API_KEY
+    # - id: provider123-responses
+    #   kind: custom-openai-responses-compatible
+    #   enabled: false
+    #   config:
+    #     backend_prefix: provider123-responses
+    #     base_url: https://api.provider123.example/v1
+    #     api_key_env_var_root: PROVIDER123_RESPONSES_API_KEY
+    # - id: provider-anthropic
+    #   kind: custom-anthropic-compatible
+    #   enabled: false
+    #   config:
+    #     backend_prefix: provider-anthropic
+    #     base_url: https://api.provider-anthropic.example
+    #     api_key_env_var_root: PROVIDER_ANTHROPIC_API_KEY
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    # Canonical tool-call repair (ADR 0007): enabled by default when omitted from
+    # standard aipstd configs. Explicit enabled row documents defaults; set
+    # enabled: false to opt out (suppresses injection/enablement).
+    - id: tool-call-repair
+      enabled: true
+      config:
+        mode: conservative
+        max_args_bytes: 65536
+        on_unrepairable: pass_through
+    # Opt out:
+    # - id: tool-call-repair
+    #   enabled: false
+    #
+    # Reasoning output preservation (issue #157): on standard aipstd /
+    # runtimebundle.BuildBootstrap, an enabled restore row is injected when no
+    # matching features row exists (same pattern as tool-call-repair). Explicit
+    # enabled row below documents the exact injected defaults. Set enabled: false
+    # (or omit enabled — plain bool defaults false) to opt out; any matching
+    # instance id or factory kind suppresses injection. Disabled constructs no
+    # participants/store/telemetry. Installed/enabled does not mean universally
+    # active: capture and restore require a compatible-auto.v2 catalog match or
+    # an explicit enabled rule; unmatched candidates are inert. Not a mandatory
+    # StandardDistributionRequirements entry (custom roots are not injected).
+    # Operator guide: docs/reasoning-output-preservation.md
+    - id: reasoning-output-preservation
+      enabled: true
+      config:
+        action: restore
+        use_builtin_catalog: true
+        on_ambiguous: log_skip
+        on_unrepresentable: reject
+        on_state_error: reject
+        state:
+          ttl: 24h
+          max_turns_per_session: 16
+          max_reasoning_bytes_per_turn: 65536
+          max_session_bytes: 262144
+    # Opt out:
+    # - id: reasoning-output-preservation
+    #   enabled: false
+    # Reference (non-noop) examples — enable as needed:
+    # - id: ref-submit-annotate
+    #   enabled: true
+    #   config: { marker: "staging" }
+    # - id: ref-request-suffix
+    #   enabled: true
+    #   config: { suffix: " [ref]" }
+    # - id: ref-tool-prefix
+    #   enabled: true
+    #   config: { prefix: ">>" }
+    #
+    # Secrets guard (issue #151) — ingress secret detection; disabled by default.
+    # Operator guide: docs/secrets-guard.md. Runnable examples: config/examples/secrets-guard-*.yaml
+    # Only one enabled secrets-guard feature instance is supported in v1; multiple enabled
+    # registrations must fail startup. Staged rollout is one action per deployment: disabled -> log -> redact -> block.
+    # - id: secrets-guard
+    #   enabled: false
+    #   config:
+    #     action: block                  # required when enabled: block | redact | log
+    #     audit_failure_policy: fail_closed  # fail_closed | best_effort
+    #     min_secret_bytes: 8
+    #     scan_max_bytes: 2097152        # default 2 MiB per scanned field; max 67108864 (64 MiB)
+    #     single_user:                   # invalid under access.mode: multi_user (omit in multi-user)
+    #       include_popular_env: true    # exact popular names + uppercase *_API_KEY/*_TOKEN (excl. NEXT_PUBLIC_/VITE_/… and CSRF/XSRF/CRSF segments)
+    #       include_env: []              # extra env var names to load at startup
+    #       exclude_env: []              # names to drop from the single-user catalog
+    #     redaction:
+    #       mask_byte: "*"               # single ASCII byte; used when action: redact
+    #       preserve_known_prefixes: true  # keep declared public prefixes (sk-, ghp_, …) during redact
+    #     # single_user catalog is a startup snapshot; credential rotation requires restarting all replicas.
+    #     # log mode leaves ingress unchanged, so downstream response capture may still see a model echo.
+    #
+    # Agent Loop Guard — disabled by default (no row means no ALG terminal-decision provider).
+    # Operator guide: docs/agent-loop-guard.md. Loadable credential-free examples:
+    # config/examples/agent-loop-guard-preferred.yaml and
+    # config/examples/agent-loop-guard-legacy-verifier.yaml
+    #
+    # RECOMMENDED for new deployments: spell the strategy out explicitly. Two mutually
+    # exclusive strategies, never hybrid, no automatic fallback between them.
+    # - id: agent-loop-guard
+    #   enabled: true
+    #   config:
+    #     strategy: attempt_completion    # recommended: worker self-attests via a
+    #                                      # proxy-injected attempt_completion tool;
+    #                                      # no auxiliary model call on the normal path
+    #     max_protocol_reprompts: 1       # default 1; V1 accepts 1..3, integer only
+    #     no_progress_limit: 2            # shared bounded breaker, default 2, max 64
+    #
+    # Omitting `strategy` keeps the pre-spec semantic_verifier behavior for backward
+    # compatibility. That is a compatibility default, NOT a recommendation. The legacy
+    # row below is behaviorally identical to omitting the key and exists to make the
+    # current intent explicit:
+    # - id: agent-loop-guard
+    #   enabled: true
+    #   config:
+    #     strategy: semantic_verifier
+    #     verifier_role: loop_guard           # max 128 chars
+    #     verifier_timeout_seconds: 4        # 1..300
+    #     max_semantic_continuations: 3      # 1..64
+    #     no_progress_limit: 2               # shared bounded breaker
+    #     explicit_completion_policy: trust  # trust | verify; verify makes the verifier
+    #                                        # the authority even for an explicit completion
+    #
+    # Mutual exclusion is by YAML key PRESENCE, not by post-default value: the four
+    # verifier-only keys above are rejected under strategy: attempt_completion, and
+    # max_protocol_reprompts is rejected under strategy: semantic_verifier, whatever the
+    # value. For an ENABLED row such a configuration fails generation compile
+    # (aipstd serve refuses to start).
+    #
+    # A row with `enabled: false` is NOT compiled: the row is skipped before the factory
+    # is ever called, so its whole config block is never decoded and NOT validated at all.
+    # No rule in this block applies to it -- not mutual exclusion, not unknown keys, not
+    # ranges. Do not pre-stage an unvalidated config behind `enabled: false`: write the
+    # block with `enabled: true`, validate it by starting aipstd serve (or applying the
+    # reload), and only then disable the row. Note also that aipstd check-config reports a
+    # feature bundle error only as a WARN while still printing "configuration is valid".
+    #
+    # attempt_completion activates only on a tools-capable backend whose client tool choice
+    # is unset or auto, with no named tool and no allowed-tools subset. Ineligibility is
+    # not an error, is never emulated through prose, and never falls back to the verifier.
+    #
+    # Compaction continuity preservation (issue #312 detector prerequisite) is
+    # disabled by default. It may submit additional user-attributed extractor
+    # inference after a successfully opened primary request. See
+    # docs/compaction-continuity.md and config/examples/dogfood-local-stub.yaml.
+    # - id: compaction-continuity
+    #   enabled: false
+    #   config:
+    #     preserve:
+    #       plan: true
+    #       user_decisions: true
+    #       constraints: true
+    #       rationale: true
+    #       rejected_alternatives: true
+    #     extractor:
+    #       route: "openai-responses:small-model" # independent backend:model selector
+    #       timeout: 8s
+    #       max_input_tokens: 12000
+    #       max_output_tokens: 2000
+    #     worker:
+    #       max_concurrency: 2
+    #       queue_capacity: 16
+    #     barrier:
+    #       timeout: 2s
+    #     capsule:
+    #       max_tokens: 2500
+    #       max_bytes: 1048576
+    #     source:
+    #       ttl: 2h
+    #       max_bytes: 4194304
+    #     result:
+    #       ttl: 2h
+    #       max_bytes: 4194304
+    #       max_count: 16
+    #     failure:
+    #       mode: fail_open
+    #     branch_ttl: 2h
+    #     max_branch_entries: 1024
+    #
+    # Proxy-side Codex memory (proxy-codex-memory): per-user session capture,
+    # background extraction/consolidation and first-turn summary injection.
+    # Disabled by default; enable only with a durable continuity DB and per-user
+    # API-key principals (never list a shared key).
+    - id: proxy-memory
+      enabled: false
+      config:
+        principals: ["alice", "bob"]   # per-user API-key principal IDs; never list a shared key
+        extract_route: "openai:gpt-5-mini"
+        consolidate_route: "openai:gpt-5"

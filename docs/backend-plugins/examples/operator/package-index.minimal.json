@@ -1,0 +1,6 @@
+{
+  "schema": "aip.plugin.package.index/v1",
+  "profile": "minimal",
+  "platform": "linux/amd64",
+  "plugins": []
+}

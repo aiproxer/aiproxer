@@ -1,0 +1,107 @@
+# NO-KEY LOCAL STUB — exercises canonical tool-call repair (ADR 0007 / issue #152).
+# local-stub emits a schema-determined pending-value tool tail; tool-call-repair completes it before the client wire.
+# Not a live-provider configuration.
+server:
+  address: "127.0.0.1:18084"
+
+routing:
+  max_attempts: 3
+  default_route: "dogfood-local:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: dogfood-local
+      enabled: true
+      config:
+        text: "[dogfood] tool-call repair"
+        tool_name: get_weather
+        # Intentionally pending-value JSON; the request schema default supplies the value.
+        tool_args: '{"location":'
+        input_tokens: 3
+        output_tokens: 7
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    - id: tool-call-repair
+      enabled: true
+      config: {}

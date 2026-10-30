@@ -1,0 +1,1008 @@
+syntax = "proto3";
+
+package aiproxer.backendplugin.v1;
+
+option go_package = "github.com/aiproxer/aiproxer/api/backendplugin/v1;backendpluginv1";
+
+// BackendPlugin is the versioned local gRPC ABI for executable backend connectors.
+// Transport-level automatic retries MUST be disabled by hosts and plugins.
+service BackendPlugin {
+  rpc Negotiate(NegotiateRequest) returns (NegotiateResponse);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+  rpc CloseInstance(CloseInstanceRequest) returns (CloseInstanceResponse);
+  rpc ResolveProfile(ResolveProfileRequest) returns (ResolveProfileResponse);
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+  rpc CountTokens(CountTokensRequest) returns (CountTokensResponse);
+  rpc FinalizeBilling(FinalizeBillingRequest) returns (FinalizeBillingResponse);
+  rpc RenewPromptCache(RenewPromptCacheRequest) returns (RenewPromptCacheResponse);
+  rpc ReleasePromptCache(ReleasePromptCacheRequest) returns (ReleasePromptCacheResponse);
+  rpc Execute(stream ExecuteClientFrame) returns (stream ExecuteServerFrame);
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc GracefulShutdown(GracefulShutdownRequest) returns (GracefulShutdownResponse);
+}
+
+enum CredentialMode {
+  CREDENTIAL_MODE_UNSPECIFIED = 0;
+  CREDENTIAL_MODE_STATIC = 1;
+  CREDENTIAL_MODE_WORKLOAD = 2;
+  CREDENTIAL_MODE_OAUTH_USER = 3;
+  CREDENTIAL_MODE_NONE = 4;
+  CREDENTIAL_MODE_UNKNOWN = 5;
+}
+
+enum AccessScope {
+  ACCESS_SCOPE_UNSPECIFIED = 0;
+  ACCESS_SCOPE_ANY = 1;
+  ACCESS_SCOPE_LOCAL_ONLY = 2;
+}
+
+enum ProcessSharing {
+  PROCESS_SHARING_UNSPECIFIED = 0;
+  PROCESS_SHARING_PER_INSTANCE = 1;
+  PROCESS_SHARING_SHARED_ARTIFACT = 2;
+}
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_SYSTEM = 1;
+  ROLE_USER = 2;
+  ROLE_ASSISTANT = 3;
+  ROLE_TOOL = 4;
+  ROLE_DEVELOPER = 5;
+}
+
+enum PartKind {
+  PART_KIND_UNSPECIFIED = 0;
+  PART_KIND_TEXT = 1;
+  PART_KIND_IMAGE_REF = 2;
+  PART_KIND_FILE_REF = 3;
+  PART_KIND_REASONING = 4;
+  PART_KIND_TOOL_CALL = 5;
+  PART_KIND_TOOL_RESULT = 6;
+  PART_KIND_JSON = 7;
+  PART_KIND_VIDEO_REF = 8;
+  PART_KIND_REFUSAL = 9;
+  PART_KIND_SUMMARY = 10;
+  PART_KIND_ANNOTATION = 11;
+  PART_KIND_ASSISTANT_REF = 12;
+  // PART_KIND_EXTENSION is an opaque vendor-prefixed custom content part
+  // preserved losslessly (minor >= 3, feature exact_openresponses_fields).
+  PART_KIND_EXTENSION = 13;
+}
+
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INVALID_ARGUMENT = 1;
+  ERROR_CODE_UNAUTHENTICATED = 2;
+  ERROR_CODE_PERMISSION_DENIED = 3;
+  ERROR_CODE_NOT_FOUND = 4;
+  ERROR_CODE_RESOURCE_EXHAUSTED = 5;
+  ERROR_CODE_FAILED_PRECONDITION = 6;
+  ERROR_CODE_ABORTED = 7;
+  ERROR_CODE_UNAVAILABLE = 8;
+  ERROR_CODE_INTERNAL = 9;
+  ERROR_CODE_PROVIDER_TRANSIENT = 10;
+  ERROR_CODE_PROVIDER_TERMINAL = 11;
+  ERROR_CODE_PROTOCOL_VIOLATION = 12;
+  ERROR_CODE_CANCELLED = 13;
+}
+
+enum CancelReason {
+  CANCEL_REASON_UNSPECIFIED = 0;
+  CANCEL_REASON_CLIENT = 1;
+  CANCEL_REASON_HOST = 2;
+  CANCEL_REASON_DEADLINE = 3;
+  CANCEL_REASON_SHUTDOWN = 4;
+}
+
+enum CancelMode {
+  CANCEL_MODE_UNSPECIFIED = 0;
+  CANCEL_MODE_NONE = 1;
+  CANCEL_MODE_PROVIDER = 2;
+  CANCEL_MODE_TRANSPORT = 3;
+  CANCEL_MODE_CLOSE_ONLY = 4;
+}
+
+enum ClientFrameKind {
+  CLIENT_FRAME_KIND_UNSPECIFIED = 0;
+  CLIENT_FRAME_KIND_START = 1;
+  CLIENT_FRAME_KIND_CANCEL = 2;
+  CLIENT_FRAME_KIND_CLOSE_INPUT = 3;
+}
+
+enum ServerFrameKind {
+  SERVER_FRAME_KIND_UNSPECIFIED = 0;
+  SERVER_FRAME_KIND_ACCEPTED = 1;
+  SERVER_FRAME_KIND_EVENT = 2;
+  SERVER_FRAME_KIND_DIAGNOSTIC = 3;
+  SERVER_FRAME_KIND_CANCEL_OUTCOME = 4;
+  SERVER_FRAME_KIND_TERMINAL = 5;
+  // Host-only accounting evidence; never exposed as a canonical event.
+  SERVER_FRAME_KIND_ACCOUNTING_EVIDENCE = 6;
+  // Host-only prompt-cache residency evidence; never exposed as a canonical event.
+  SERVER_FRAME_KIND_PROMPT_CACHE_OBSERVATION = 7;
+}
+
+enum AccountingSource {
+  ACCOUNTING_SOURCE_UNSPECIFIED = 0;
+  ACCOUNTING_SOURCE_PROVIDER_REPORTED = 1;
+  ACCOUNTING_SOURCE_PROVIDER_COUNT_API = 2;
+  ACCOUNTING_SOURCE_LOCAL_ESTIMATOR = 3;
+  ACCOUNTING_SOURCE_LOCAL_TOKENIZER = 4;
+}
+
+enum AccountingAuthority {
+  ACCOUNTING_AUTHORITY_UNSPECIFIED = 0;
+  ACCOUNTING_AUTHORITY_AUTHORITATIVE = 1;
+  ACCOUNTING_AUTHORITY_ESTIMATED = 2;
+  ACCOUNTING_AUTHORITY_DELEGATED = 3;
+  ACCOUNTING_AUTHORITY_ADVISORY = 4;
+}
+
+enum AccountingPlane {
+  ACCOUNTING_PLANE_UNSPECIFIED = 0;
+  ACCOUNTING_PLANE_PROVIDER_BILLABLE = 1;
+}
+
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_RESPONSE_STARTED = 1;
+  EVENT_KIND_MESSAGE_STARTED = 2;
+  EVENT_KIND_TEXT_DELTA = 3;
+  EVENT_KIND_REASONING_DELTA = 4;
+  EVENT_KIND_REASONING_SIGNATURE_DELTA = 5;
+  EVENT_KIND_REASONING_OPAQUE_DELTA = 6;
+  EVENT_KIND_TOOL_CALL_STARTED = 7;
+  EVENT_KIND_TOOL_CALL_ARGS_DELTA = 8;
+  EVENT_KIND_TOOL_CALL_FINISHED = 9;
+  EVENT_KIND_USAGE_DELTA = 10;
+  EVENT_KIND_WARNING = 11;
+  EVENT_KIND_ERROR = 12;
+  EVENT_KIND_RESPONSE_FINISHED = 13;
+  EVENT_KIND_ASSISTANT_IMAGE_REF = 14;
+  EVENT_KIND_ASSISTANT_FILE_REF = 15;
+  EVENT_KIND_REASONING_PART = 16;
+}
+
+enum TerminalStatus {
+  TERMINAL_STATUS_UNSPECIFIED = 0;
+  TERMINAL_STATUS_SUCCESS = 1;
+  TERMINAL_STATUS_FAILURE = 2;
+  TERMINAL_STATUS_CANCELLED = 3;
+}
+
+enum PromptCacheLifecycle {
+  PROMPT_CACHE_LIFECYCLE_UNSPECIFIED = 0;
+  PROMPT_CACHE_LIFECYCLE_UNKNOWN = 1;
+  PROMPT_CACHE_LIFECYCLE_SLIDING_EXPIRY = 2;
+  PROMPT_CACHE_LIFECYCLE_FIXED_EXPIRY = 3;
+  PROMPT_CACHE_LIFECYCLE_MINIMUM_RESIDENCY = 4;
+  PROMPT_CACHE_LIFECYCLE_BEST_EFFORT = 5;
+}
+
+enum PromptCacheRenewStatus {
+  PROMPT_CACHE_RENEW_STATUS_UNSPECIFIED = 0;
+  PROMPT_CACHE_RENEW_STATUS_RENEWED = 1;
+  PROMPT_CACHE_RENEW_STATUS_STILL_RESIDENT = 2;
+  PROMPT_CACHE_RENEW_STATUS_COLD_RECREATED = 3;
+  PROMPT_CACHE_RENEW_STATUS_STALE = 4;
+  PROMPT_CACHE_RENEW_STATUS_UNSUPPORTED = 5;
+  PROMPT_CACHE_RENEW_STATUS_CONTROL_FAILED = 6;
+}
+
+message Feature {
+  string name = 1;
+  bool required = 2;
+}
+
+message NegotiateRequest {
+  uint32 host_major = 1;
+  uint32 host_minor = 2;
+  repeated Feature host_features = 3;
+  bool disable_transport_retries = 4;
+}
+
+message NegotiateResponse {
+  uint32 plugin_major = 1;
+  uint32 plugin_minor = 2;
+  repeated Feature plugin_features = 3;
+  uint32 negotiated_minor = 4;
+  repeated string enabled_features = 5;
+  bool compatible = 6;
+  string reject_reason = 7;
+  bool disable_transport_retries = 8;
+  // negotiation_token is issued only when compatible=true; Configure must present it.
+  string negotiation_token = 9;
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  PluginDescriptor descriptor = 1;
+}
+
+message PluginDescriptor {
+  uint32 protocol_major = 1;
+  uint32 protocol_minor = 2;
+  string plugin_id = 3;
+  string version = 4;
+  string build_id = 5;
+  repeated Feature features = 6;
+  repeated FactoryDescriptor factories = 7;
+}
+
+message FactoryDescriptor {
+  string kind = 1;
+  string display_name = 2;
+  string description = 3;
+  CredentialMode credential_mode = 4;
+  AccessScope access_scope = 5;
+  repeated string route_prefixes = 6;
+  bool supports_count_tokens = 7;
+  bool supports_finalize_billing = 8;
+  bool supports_dynamic_inventory = 9;
+  bool supports_model_aware_profile = 10;
+  ProcessSharing process_sharing = 11;
+  bool experimental = 12;
+  bool deprecated = 13;
+  CapabilitySummary static_capabilities = 14;
+  TransportCapabilitySummary transport_capabilities = 15;
+  // supports_accounting_evidence_v2 advertises the lossless host-only
+  // observation sideband. It is additive; V1 fields retain their meaning.
+  bool supports_accounting_evidence_v2 = 16;
+}
+
+message CapabilitySummary {
+  bool streaming = 1;
+  bool tools = 2;
+  bool vision = 3;
+  bool documents = 4;
+  bool structured_outputs = 5;
+  bool reasoning = 6;
+  bool reasoning_replay = 7;
+  bool parallel_tool_calls = 8;
+  bool ordered_items = 9;
+  bool item_references = 10;
+  bool compaction = 11;
+  bool assistant_phase = 12;
+  bool opaque_extensions = 13;
+  bool video_input = 14;
+  bool annotations = 15;
+  bool assistant_media_refs = 16;
+}
+
+message DialectSupportWire {
+  repeated DialectRequirementWire item_dialects = 1;
+  repeated DialectRequirementWire reasoning_dialects = 2;
+  repeated DialectRequirementWire compaction_dialects = 3;
+  repeated ExtensionRequirementWire extension_types = 4;
+}
+
+message TransportCapabilitySummary {
+  bool keepalive = 1;
+  bool cancellation = 2;
+  bool bidirectional_stream = 3;
+}
+
+message SecretBundle {
+  map<string, bytes> values = 1;
+}
+
+message RuntimePolicy {
+  uint64 max_request_bytes = 1;
+  uint64 max_stream_frame_bytes = 2;
+  uint64 max_pending_events = 3;
+  int64 request_timeout_ms = 4;
+  int64 cancel_deadline_ms = 5;
+  string diagnostics_verbosity = 6;
+  uint32 max_concurrent_executions = 7;
+  bool local_only = 8;
+  repeated string allowed_env_names = 9;
+  bool disable_transport_retries = 10;
+  // quota_switch_retry_after_ms is the nonsecret proxy-wide quota-switch
+  // threshold in milliseconds. Zero selects the coordinator default; positive
+  // is the explicit Retry-After duration strictly above which a 429 advances.
+  // Additive field 11: old binaries ignore it and keep the default.
+  int64 quota_switch_retry_after_ms = 11;
+}
+
+message ConfigureRequest {
+  string instance_id = 1;
+  string factory_kind = 2;
+  bytes config_yaml = 3;
+  SecretBundle secrets = 4;
+  RuntimePolicy runtime_policy = 5;
+  // negotiation_token binds configure to a prior compatible NegotiateResponse.
+  string negotiation_token = 6;
+}
+
+message ConfigureResponse {
+  string instance_id = 1;
+}
+
+message CloseInstanceRequest {
+  string instance_id = 1;
+}
+
+message CloseInstanceResponse {}
+
+message ResolveProfileRequest {
+  string instance_id = 1;
+  optional string model_id = 2;
+}
+
+message ResolveProfileResponse {
+  ResolvedProfile profile = 1;
+}
+
+message ResolvedProfile {
+  CapabilitySummary capabilities = 1;
+  TransportCapabilitySummary transport_capabilities = 2;
+  bool reasoning_replay_supported = 3;
+  repeated string route_prefixes = 4;
+  bool enforce_max_output = 5;
+  optional uint32 max_output_tokens = 6;
+  bool supports_count_tokens = 7;
+  bool supports_finalize_billing = 8;
+  bool supports_dynamic_inventory = 9;
+  string evidence_source = 10;
+  string profile_version = 11;
+  DialectSupportWire dialect_support = 12;
+  PromptCacheProfile prompt_cache_profile = 13;
+  // Explicit capability bit for the negotiated V2 economic sideband.
+  bool supports_accounting_evidence_v2 = 14;
+  // Optional provider-owned graded reasoning-effort facts for the exact
+  // requested model (minor >= 11, feature reasoning_effort_values_v1).
+  // Absent means the provider published no fact. Never a global vocabulary.
+  ReasoningEffortValuesV1 reasoning_effort_values = 15;
+}
+
+message ReasoningEffortValuesV1 {
+  // Exact ResolveProfile request model_id this declaration answers.
+  string model_id = 1;
+  // Provider-verified graded effort values, exact strings.
+  repeated string supported = 2;
+  // True attests this is the complete accepted graded input set.
+  bool exhaustive = 3;
+}
+
+message PromptCacheProfile {
+  bool observation_supported = 1;
+  bool renewal_supported = 2;
+  repeated PromptCacheLifecycle lifecycle_kinds = 3;
+}
+
+message PromptCacheTiming {
+  optional int64 observed_at_unix_ms = 1;
+  optional int64 expires_at_unix_ms = 2;
+  optional int64 minimum_resident_until_unix_ms = 3;
+}
+
+message PromptCacheEvidence {
+  optional int64 input_tokens = 1;
+  optional int64 output_tokens = 2;
+  optional int64 cache_read_tokens = 3;
+  optional int64 cache_write_tokens = 4;
+  optional int64 total_tokens = 5;
+}
+
+message PromptCacheObservation {
+  string a_leg_id = 1;
+  string b_leg_id = 2;
+  string backend_instance_id = 3;
+  string target_id = 4;
+  string generation_id = 5;
+  PromptCacheLifecycle lifecycle = 6;
+  PromptCacheTiming timing = 7;
+  bool renewable = 8;
+  bytes handle = 9;
+  PromptCacheEvidence evidence = 10;
+}
+
+message RenewPromptCacheRequest {
+  string instance_id = 1;
+  bytes handle = 2;
+  string operation_id = 3;
+}
+
+message RenewPromptCacheResponse {
+  PromptCacheRenewStatus status = 1;
+  PromptCacheObservation observation = 2;
+  PromptCacheEvidence evidence = 3;
+  AccountingEvidence accounting = 4;
+}
+
+message ReleasePromptCacheRequest {
+  string instance_id = 1;
+  bytes handle = 2;
+}
+
+message ReleasePromptCacheResponse {}
+
+message ListModelsRequest {
+  string instance_id = 1;
+  uint32 max_models = 2;
+}
+
+message ListModelsResponse {
+  repeated ModelDescriptor models = 1;
+  string inventory_source = 2;
+  int64 fetched_unix_ms = 3;
+  optional int64 refresh_after_unix_ms = 4;
+  string error_code = 5;
+}
+
+message ModelDescriptor {
+  string canonical_model_id = 1;
+  string native_model_id = 2;
+  string display_name = 3;
+  string route_prefix = 4;
+  string factory_kind = 5;
+  CapabilitySummary capabilities = 6;
+  // is_default marks the model the connector designates as the instance's
+  // default: the model a request that names no model should use. The
+  // connector owns that choice, because only the connector knows the model's
+  // role. At most one model of a response may carry it; a connector that
+  // cannot name a default leaves every model unmarked.
+  bool is_default = 7;
+}
+
+message CountTokensRequest {
+  string instance_id = 1;
+  string model_id = 2;
+  Invocation invocation = 3;
+}
+
+message CountTokensResponse {
+  optional int64 input_tokens = 1;
+  UsagePresence presence = 2;
+  string evidence_quality = 3;
+}
+
+message FinalizeBillingRequest {
+  string instance_id = 1;
+  string a_leg_id = 2;
+  string b_leg_id = 3;
+  string model_id = 4;
+  string reason = 5;
+  string idempotency_key = 6;
+}
+
+message FinalizeBillingResponse {
+  UsageEvidence usage = 1;
+  string evidence_quality = 2;
+  // V2 observations are host-only and never become canonical client events.
+  repeated AccountingEvidenceV2 accounting_evidence_v2 = 3;
+}
+
+message UsagePresence {
+  bool input_tokens = 1;
+  bool output_tokens = 2;
+  bool cache_read_tokens = 3;
+  bool cache_write_tokens = 4;
+  bool reasoning_tokens = 5;
+  bool total_tokens = 6;
+}
+
+message UsageEvidence {
+  optional int64 input_tokens = 1;
+  optional int64 output_tokens = 2;
+  optional int64 cache_read_tokens = 3;
+  optional int64 cache_write_tokens = 4;
+  optional int64 reasoning_tokens = 5;
+  optional int64 total_tokens = 6;
+  UsagePresence presence = 7;
+  RawJSONValue raw_usage_json = 8;
+  // input_tokens_exclude_cache_read declares that the provider cache reads
+  // are not contained in input_tokens. The zero value retains the legacy
+  // inclusive-input interpretation; it affects the input projections a
+  // frontend applies, not the reported quantities.
+  bool input_tokens_exclude_cache_read = 9;
+  // input_tokens_exclude_cache_write declares that the provider cache writes
+  // are not contained in input_tokens. The zero value means the input quantity
+  // already includes the cache writes, which is the legacy inclusive-input
+  // interpretation. The declaration is independent of
+  // input_tokens_exclude_cache_read: a producer may exclude reads while
+  // including writes, exclude writes while including reads, or exclude both.
+  bool input_tokens_exclude_cache_write = 10;
+}
+
+message RawJSONValue {
+  oneof state {
+    bool is_null = 1;
+    bytes json = 2;
+  }
+}
+
+message Invocation {
+  string request_id = 1;
+  string attempt_id = 2;
+  string a_leg_id = 3;
+  string b_leg_id = 4;
+  string canonical_model_id = 5;
+  string native_model_id = 6;
+  repeated Message instructions = 7;
+  repeated Message messages = 8;
+  repeated ToolDef tools = 9;
+  optional string tool_choice = 10;
+  GenerationOptions options = 11;
+  map<string, string> safe_metadata = 12;
+  string operation = 13;
+  string delivery_mode = 14;
+  string transport_mode = 15;
+  bool item_authority = 16;
+  repeated InvocationItem items = 17;
+  ProtocolRequirementsWire protocol_requirements = 18;
+  // prompt_cache_key is a proxy-carried prompt-caching hint (minor >= 3,
+  // feature exact_openresponses_fields). Never forwarded to legacy ABIs.
+  string prompt_cache_key = 19;
+  // proxy_owned_session_id is injected by the proxy host from validated
+  // secure-session state. It is not client-provided metadata.
+  string proxy_owned_session_id = 20;
+  repeated SemanticExtensionWire semantic_extensions = 21;
+}
+
+// SemanticExtensionWire carries one bounded residual canonical semantic. It is
+// not a complete request/response tunnel; identity participates in admission.
+message SemanticExtensionWire {
+  string namespace = 1;
+  string type = 2;
+  string implementor = 3;
+  string direction = 4;
+  enum Presence {
+    PRESENCE_UNSPECIFIED = 0;
+    PRESENCE_NULL = 1;
+    PRESENCE_VALUE = 2;
+  }
+  Presence presence = 5;
+  bytes json = 6;
+}
+
+message ProtocolRequirementsWire {
+  repeated string capabilities = 1;
+  repeated DialectRequirementWire item_dialects = 2;
+  repeated DialectRequirementWire reasoning_dialects = 3;
+  repeated DialectRequirementWire compaction_dialects = 4;
+  repeated ExtensionRequirementWire extension_types = 5;
+}
+
+message DialectRequirementWire {
+  string kind = 1;
+  string dialect = 2;
+  string implementor = 3;
+}
+
+message ExtensionRequirementWire {
+  string namespace = 1;
+  string type = 2;
+  string implementor = 3;
+}
+
+message InvocationItem {
+  string kind = 1;
+  string id = 2;
+  string status = 3;
+  Role role = 4;
+  string phase = 5;
+  repeated InvocationContentPart content = 6;
+  InvocationToolCall tool_call = 7;
+  InvocationToolResult tool_result = 8;
+  InvocationItemReference item_reference = 9;
+  InvocationReasoningItem reasoning = 10;
+  InvocationCompactionItem compaction = 11;
+  InvocationExtensionItem extension = 12;
+}
+
+message InvocationItemReference {
+  string id = 1;
+}
+
+message InvocationReasoningItem {
+  optional string dialect = 1;
+  optional string text = 2;
+  RawJSONValue opaque = 3;
+  optional string signature = 4;
+  // Exact OpenAI Responses reasoning-item fields (minor >= 3, feature
+  // exact_openresponses_fields). Presence: absent vs null vs value.
+  RawJSONValue summary = 5;
+  RawJSONValue content = 6;
+  RawJSONValue encrypted_content = 7;
+}
+
+message InvocationCompactionItem {
+  string dialect = 1;
+  string implementor = 2;
+  RawJSONValue opaque = 3;
+  optional string encapsulated_id = 4;
+  // Exact provider compaction blob (minor >= 3, feature exact_openresponses_fields).
+  optional string encrypted_content = 5;
+}
+
+message InvocationExtensionItem {
+  string namespace = 1;
+  string type = 2;
+  string implementor = 3;
+  RawJSONValue opaque = 4;
+  optional string direction = 5;
+}
+
+message InvocationContentPart {
+  PartKind kind = 1;
+  optional string text = 2;
+  optional string image_ref = 3;
+  optional string file_ref = 4;
+  optional string video_ref = 5;
+  optional string reasoning_dialect = 6;
+  optional string reasoning_text = 7;
+  RawJSONValue reasoning_opaque = 8;
+  optional string refusal = 9;
+  optional string summary = 10;
+  optional string annotation_type = 11;
+  RawJSONValue annotation_data = 12;
+  optional string assistant_ref = 13;
+  optional string image_mime = 14;
+  optional string file_mime = 15;
+  optional string file_name = 16;
+  optional string video_mime = 17;
+  optional string reasoning_signature = 18;
+  // Exact OpenAI Responses content-part fields (minor >= 3, feature
+  // exact_openresponses_fields). Presence: absent vs null vs value.
+  optional string file_data = 19;
+  optional string extension_type = 20;
+  RawJSONValue extension_data = 21;
+  RawJSONValue reasoning_summary = 22;
+  RawJSONValue reasoning_content = 23;
+  RawJSONValue reasoning_encrypted_content = 24;
+  // Canonical extension identity metadata. These do not alter OpenResponses
+  // wire data; the object in extension_data remains the lossless carrier.
+  optional string extension_namespace = 25;
+  optional string extension_implementor = 26;
+}
+
+message InvocationToolCall {
+  string call_id = 1;
+  string name = 2;
+  RawJSONValue arguments = 3;
+}
+
+message InvocationToolResult {
+  string call_id = 1;
+  string name = 2;
+  optional string output = 3;
+  repeated InvocationContentPart structured_parts = 4;
+}
+
+message Message {
+  Role role = 1;
+  repeated Part parts = 2;
+}
+
+message Part {
+  PartKind kind = 1;
+  optional string text = 2;
+  optional string image_ref = 3;
+  optional string file_ref = 4;
+  optional string reasoning_text = 5;
+  RawJSONValue tool_args_json = 6;
+  optional string tool_call_id = 7;
+  optional string tool_name = 8;
+  optional string reasoning_dialect = 9;
+  RawJSONValue reasoning_opaque = 10;
+  // Exact OpenAI Responses reasoning-item fields (minor >= 3, feature
+  // exact_openresponses_fields). Presence: absent vs null vs value.
+  RawJSONValue reasoning_summary = 11;
+  RawJSONValue reasoning_content = 12;
+  RawJSONValue reasoning_encrypted_content = 13;
+}
+
+message ToolDef {
+  string name = 1;
+  string description = 2;
+  RawJSONValue parameters_json = 3;
+}
+
+message GenerationOptions {
+  optional uint32 max_output_tokens = 1;
+  optional int32 temperature_millis = 2;
+  optional string reasoning_effort = 3;
+  optional bool parallel_tool_calls = 4;
+  optional string response_mime_type = 5;
+  RawJSONValue response_schema_json = 6;
+}
+
+message ExecuteClientFrame {
+  ClientFrameKind kind = 1;
+  uint64 sequence = 2;
+  string instance_id = 3;
+  Invocation invocation = 4;
+  CancelReason cancel_reason = 5;
+  int64 cancel_deadline_unix_ms = 6;
+}
+
+message AccountingEvidence {
+  optional int64 input_tokens = 1;
+  optional int64 output_tokens = 2;
+  optional int64 cache_read_tokens = 3;
+  optional int64 cache_write_tokens = 4;
+  optional int64 reasoning_tokens = 5;
+  optional int64 total_tokens = 6;
+  UsagePresence presence = 7;
+  AccountingSource source = 8;
+  AccountingAuthority authority = 9;
+  AccountingPlane plane = 10;
+  string dedupe_key = 11;
+  // input_tokens_exclude_cache_read declares that cache reads are not
+  // contained in input_tokens. The zero value retains the legacy
+  // inclusive-input interpretation; it affects uncached-input projections,
+  // not the reported quantities.
+  bool input_tokens_exclude_cache_read = 12;
+  // input_tokens_exclude_cache_write declares that cache writes are not
+  // contained in input_tokens. The zero value means the input quantity already
+  // includes the cache writes, which is the legacy inclusive-input
+  // interpretation. The declaration is independent of
+  // input_tokens_exclude_cache_read: a producer may exclude reads while
+  // including writes, exclude writes while including reads, or exclude both.
+  bool input_tokens_exclude_cache_write = 13;
+}
+
+message CanonicalEvent {
+  EventKind kind = 1;
+  optional int32 message_index = 2;
+  optional string delta = 3;
+  optional string signature = 4;
+  bytes opaque = 5;
+  optional string tool_call_id = 6;
+  optional string tool_name = 7;
+  UsageEvidence usage = 8;
+  optional string warning = 9;
+  PluginError error = 10;
+  optional string image_ref = 11;
+  optional string file_ref = 12;
+  optional string reasoning_dialect = 13;
+  bytes reasoning_opaque = 14;
+  // Exact OpenAI Responses reasoning-item fields (minor >= 3, feature
+  // exact_openresponses_fields). Presence: absent vs null vs value.
+  RawJSONValue reasoning_summary = 15;
+  RawJSONValue reasoning_content = 16;
+  RawJSONValue reasoning_encrypted_content = 17;
+  // finish_reason is optional terminal taxonomy on response_finished (vendor
+  // stop/finish reason, for example "length"). Empty/absent means a legacy
+  // producer left terminal semantics to frontend inference.
+  optional string finish_reason = 18;
+  // response_status is explicit terminal status on response_finished
+  // ("completed" or "incomplete"). Empty/absent means a legacy producer left
+  // terminal semantics to frontend inference.
+  optional string response_status = 19;
+}
+
+message Terminal {
+  TerminalStatus status = 1;
+  PluginError error = 2;
+}
+
+message CancelOutcome {
+  bool acknowledged = 1;
+  string detail = 2;
+  CancelReason reason = 3;
+  CancelMode mode = 4;
+}
+
+message ExecuteServerFrame {
+  ServerFrameKind kind = 1;
+  uint64 sequence = 2;
+  CanonicalEvent event = 3;
+  string diagnostic = 4;
+  CancelOutcome cancel_outcome = 5;
+  Terminal terminal = 6;
+  AccountingEvidence accounting_evidence = 7;
+  PromptCacheObservation prompt_cache_observation = 8;
+  // V2 keeps the V1 accounting frame kind and adds a distinct payload field.
+  // Old generated clients cannot interpret this field and therefore fail
+  // closed instead of silently dropping provider economics.
+  AccountingEvidenceV2 accounting_evidence_v2 = 9;
+}
+
+message PluginError {
+  ErrorCode code = 1;
+  string message = 2;
+  bool retryable = 3;
+  bool output_committed = 4;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool serving = 1;
+  string detail = 2;
+}
+
+message GracefulShutdownRequest {
+  int64 drain_timeout_ms = 1;
+}
+
+message GracefulShutdownResponse {
+  bool accepted = 1;
+}
+
+// AccountingEvidenceV2 is the versioned, host-only economic sideband. The
+// nested observation is the canonical metering.Observation envelope; this
+// transport wrapper carries an explicit coverage disposition so a V1 bridge
+// cannot claim complete V2 semantics. All fields are additive to the V1 ABI.
+message AccountingEvidenceV2 {
+  EconomicObservationV2 observation = 1;
+  string coverage = 2;
+  string coverage_reason = 3;
+}
+
+message EconomicDecimalV2 {
+  // Signed base-10 coefficient. Floating point is deliberately not used.
+  string coefficient = 1;
+  uint32 scale = 2;
+}
+
+message EconomicDimensionV2 {
+  string name = 1;
+  string value = 2;
+}
+
+message EconomicComponentKeyV2 {
+  string direction = 1;
+  string component = 2;
+  string unit = 3;
+  string schema_id = 4;
+  repeated EconomicDimensionV2 dimensions = 5;
+}
+
+message EconomicMeasureV2 {
+  EconomicComponentKeyV2 key = 1;
+  // A missing message is absent; coefficient "0", scale 0 is explicit zero.
+  EconomicDecimalV2 value = 2;
+  string quality = 3;
+  string method_ref = 4;
+  string reason = 5;
+}
+
+message EconomicSubjectV2 {
+  string kind = 1;
+  string store_id = 2;
+  string tenant_id = 3;
+  string account_id = 4;
+  string a_leg_id = 5;
+  string request_id = 6;
+  string billing_call_id = 7;
+  string call_id = 8;
+  string b_leg_id = 9;
+  string attempt_id = 10;
+  uint64 attempt_seq = 11;
+  string submission_id = 12;
+  string provider_account_key = 13;
+  string provider_request_id = 14;
+  string provider_charge_id = 15;
+  string resource_id = 16;
+  string period_id = 17;
+  string pool_id = 18;
+  string window_id = 19;
+  string statement_id = 20;
+  string statement_line_id = 21;
+  int64 reset_at_unix_nanos = 22;
+  int64 start_at_unix_nanos = 23;
+  int64 end_at_unix_nanos = 24;
+}
+
+message EconomicCorrelationV2 {
+  string store_id = 1;
+  string tenant_id = 2;
+  string request_id = 3;
+  string call_id = 4;
+  string billing_call_id = 5;
+  string a_leg_id = 6;
+  string b_leg_id = 7;
+  string attempt_id = 8;
+  uint64 attempt_seq = 9;
+  string submission_id = 10;
+  string provider_account_key = 11;
+  string provider_request_id = 12;
+  string provider_charge_id = 13;
+  string parent_work_id = 14;
+  string resource_id = 15;
+  string period_id = 16;
+}
+
+// EconomicScopeValueV2 preserves unknown versus known-empty attribution.
+message EconomicScopeValueV2 {
+  bool known = 1;
+  string value = 2;
+}
+
+message EconomicScopeV2 {
+  string subject_kind = 1;
+  EconomicScopeValueV2 principal_id = 2;
+  EconomicScopeValueV2 display_name = 3;
+  EconomicScopeValueV2 auth_method = 4;
+  EconomicScopeValueV2 credential_id = 5;
+  repeated string roles = 6;
+  map<string, string> safe_claims = 7;
+  EconomicScopeValueV2 tenant_id = 8;
+  EconomicScopeValueV2 organization_id = 9;
+  EconomicScopeValueV2 workspace_id = 10;
+  EconomicScopeValueV2 project_id = 11;
+  EconomicScopeValueV2 department_id = 12;
+  EconomicScopeValueV2 cost_center_id = 13;
+  map<string, string> policy_labels = 14;
+  string origin = 15;
+  EconomicScopeValueV2 parent_trace_id = 16;
+}
+
+message EconomicChargeRefV2 {
+  string store_id = 1;
+  string observation_id = 2;
+  uint64 revision = 3;
+  string charge_item_id = 4;
+}
+
+message EconomicCoverageV2 {
+  EconomicChargeRefV2 ref = 1;
+  string relation = 2;
+}
+
+message EconomicPaymentPartyV2 {
+  string kind = 1;
+  string id = 2;
+}
+
+message EconomicChargeV2 {
+  string charge_item_id = 1;
+  EconomicComponentKeyV2 component = 2;
+  EconomicDecimalV2 amount = 3;
+  string currency = 4;
+  string kind = 5;
+  EconomicPaymentPartyV2 payer = 6;
+  repeated EconomicCoverageV2 covers = 7;
+}
+
+message EconomicObservationRefV2 {
+  string store_id = 1;
+  string observation_id = 2;
+  uint64 revision = 3;
+  string payload_hash = 4;
+}
+
+message EconomicEvidenceFieldV2 {
+  string path = 1;
+  string name = 2;
+  string lexeme = 3;
+  string value = 4;
+  bool present = 5;
+  bool null = 6;
+  string acquisition = 7;
+}
+
+// EconomicObservationV2 mirrors metering.Observation field-for-field. Typed
+// nested messages preserve decimal/presence, component identity, provider
+// charge coverage, supersession and safe original lexemes.
+message EconomicObservationV2 {
+  uint32 version = 1;
+  string id = 2;
+  string source_event_key = 3;
+  uint64 revision = 4;
+  string stream_id = 5;
+  uint64 sequence = 6;
+  string origin = 7;
+  string acquisition = 8;
+  string authority = 9;
+  string perspective = 10;
+  string boundary = 11;
+  string lifecycle = 12;
+  EconomicSubjectV2 subject = 13;
+  EconomicCorrelationV2 correlation = 14;
+  EconomicScopeV2 scope = 15;
+  string semantics = 16;
+  int64 observed_at_unix_nanos = 17;
+  int64 received_at_unix_nanos = 18;
+  string mapping_ref = 19;
+  repeated EconomicMeasureV2 measures = 20;
+  repeated EconomicChargeV2 charges = 21;
+  repeated EconomicObservationRefV2 supersedes = 22;
+  repeated EconomicEvidenceFieldV2 evidence = 23;
+}

@@ -1,0 +1,25 @@
+{
+  "feature_name": "aleg-cancellation-bleg-termination-hardening",
+  "created_at": "2026-08-22T22:41:00+02:00",
+  "updated_at": "2026-08-24T21:30:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "status": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Formalize issue #431 as a post-PR-#428 brownfield hardening/certification effort. Preserve attemptSession.TerminalizeAttempt as the sole physical B-leg terminal owner while adding a linearizable A-leg launch/cancel barrier, concurrent cancellation fan-out, truthful physical CancelResult propagation, an additive negotiated backend-plugin active-Execute cancellation handshake with bounded per-attempt graceful-to-force fallback and legacy transport compatibility, and attempt-owned provider-sideband evidence preservation for exactly-once terminal B-leg billing. Preserve streaming/no-retry-after-output, B2BUA attempt sequence, secure-session, selector, frontend, billing-rating/journal, and provider/core boundaries. PR #428 is merged on main as 7a6c7532 and the final merged ready-owned cancellation/publication baseline has been revalidated; the spec is implementation-ready."
+}

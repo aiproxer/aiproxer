@@ -1,0 +1,20 @@
+# Connector release metadata - packaging indexes are generated from this file.
+# The closed artifact exports the direct-inference factory only; the
+# SIWC-backed Codex app-server export is reserved for a later phase.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.openai-chatgpt-plan
+factory_kind: openai-chatgpt-plan
+module: github.com/aiproxer/aiproxer/connectors/openaichatgptplan
+command: ./cmd/aip-backend-openaichatgptplan
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: openai-chatgpt-plan-v0.1.0
+protocol_major: 1
+protocol_min_minor: 0
+protocol_max_minor: 0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

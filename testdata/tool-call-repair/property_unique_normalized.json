@@ -1,0 +1,26 @@
+{
+  "name": "property_unique_normalized",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"Location\":\"NYC\"}"
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"location\":\"NYC\"}",
+    "require_schema_valid": true,
+    "reason_code": "property_renamed"
+  }
+}

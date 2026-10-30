@@ -1,0 +1,12 @@
+// Negative fixture: a connector that re-creates the host-owned multi-user
+// authority locally. Connector modules are separate Go modules, so a same-named
+// identifier alone would be harmless; the bypass signal is a package-local
+// multi-user approval table or eligibility function that a future reader could
+// mistake for the host decision.
+package fixture
+
+// multiUserEligibilityTable re-creates the host approval registry in a connector.
+var multiUserEligibilityTable = map[string]bool{"synthetic-external-connector": true}
+
+// IsApprovedForMultiUser invents a local eligibility decision.
+func IsApprovedForMultiUser(kind string) bool { return multiUserEligibilityTable[kind] }

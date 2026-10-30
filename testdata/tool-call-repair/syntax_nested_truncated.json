@@ -1,0 +1,37 @@
+{
+  "name": "syntax_nested_truncated",
+  "catalog": [
+    {
+      "name": "search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "tags": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "search",
+    "args_json": "{\"query\":\"x\",\"filters\":{\"tags\":[\"a\""
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"query\":\"x\",\"filters\":{\"tags\":[\"a\"]}}",
+    "require_schema_valid": true,
+    "json_valid": true,
+    "reason_code": "syntax_repaired"
+  }
+}

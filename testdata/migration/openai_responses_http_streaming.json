@@ -1,0 +1,86 @@
+{
+  "events": [
+    {
+      "type": "response.created",
+      "sequence_number": 0,
+      "response": {
+        "id": "resp-contract-stream",
+        "model": "mock-model"
+      }
+    },
+    {
+      "type": "response.in_progress",
+      "sequence_number": 1,
+      "response": {
+        "id": "resp-contract-stream",
+        "status": "in_progress"
+      }
+    },
+    {
+      "type": "response.file_search.in_progress",
+      "item_id": "fs_1",
+      "output_index": 0,
+      "content_index": 0,
+      "detail": {
+        "query": "hello"
+      },
+      "sequence_number": 2
+    },
+    {
+      "type": "response.output_text.delta",
+      "sequence_number": 3,
+      "output_index": 0,
+      "content_index": 0,
+      "item_id": "msg_1",
+      "delta": "Hello"
+    },
+    {
+      "type": "response.output_text.done",
+      "sequence_number": 4,
+      "output_index": 0,
+      "content_index": 0,
+      "item_id": "msg_1",
+      "text": "Hello"
+    },
+    {
+      "type": "response.output_item.done",
+      "sequence_number": 5,
+      "output_index": 0,
+      "item_id": "msg_1",
+      "item": {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "status": "completed",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Hello"
+          }
+        ]
+      }
+    },
+    {
+      "type": "response.completed",
+      "sequence_number": 6,
+      "response": {
+        "id": "resp-contract-stream",
+        "output": [
+          {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Hello"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "done": "[DONE]"
+}

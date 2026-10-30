@@ -1,0 +1,26 @@
+{
+  "name": "missing_required_no_default",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{}"
+  },
+  "expect": {
+    "action": "unrepairable",
+    "args_json_unchanged": true,
+    "reason_code": "unrepairable",
+    "must_not_mutate": true
+  }
+}

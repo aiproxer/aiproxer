@@ -1,0 +1,24 @@
+{
+  "feature_name": "agent-runtime-routing-composition-safety",
+  "created_at": "2026-08-14T12:37:00+02:00",
+  "updated_at": "2026-08-15T02:36:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "completed": true,
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "project_description": "Add generation-bound execution-class metadata and a default-safe routing composition policy so whole-agent/orchestration runtimes (ACP harnesses, Codex App Server, Cursor SDK, and similar future connectors) remain directly routable but are rejected from weighted, parallel, thinker, and failover selector composition unless an operator explicitly selects unrestricted legacy behavior. Keep routing syntax, canonical lipapi contracts, provider SDK isolation, and inference-only composition unchanged; classify per backend export/factory, project to configured backend instance IDs, validate expanded selectors before dynamic routing or backend side effects, and reuse the same semantic preflight for runtime requests, admin route overrides, configured defaults, and reload. Normative external-review clarifications are recorded in review-amendments.md and apply before implementation; all CodeRabbit review threads have been cross-checked and resolved without advancing the implementation approval gate."
+}

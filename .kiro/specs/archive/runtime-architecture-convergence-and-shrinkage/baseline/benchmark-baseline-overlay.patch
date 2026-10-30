@@ -1,0 +1,201 @@
+diff --git a/internal/infra/runtimebundle/reload_bench_test.go b/internal/infra/runtimebundle/reload_bench_test.go
+index 06577d94..72a4ddfc 100644
+--- a/internal/infra/runtimebundle/reload_bench_test.go
++++ b/internal/infra/runtimebundle/reload_bench_test.go
+@@ -5,0 +6 @@ import (
++	"os"
+@@ -6,0 +8 @@ import (
++	"strings"
+@@ -7,0 +10 @@ import (
++	"time"
+@@ -8,0 +12 @@ import (
++	"github.com/matdev83/go-llm-interactive-proxy/internal/core/configreload"
+@@ -55,0 +60,188 @@ func BenchmarkCandidateCompilation(b *testing.B) {
++
++const (
++	baselineDogfoodLocalStubRelPath = "../../../config/examples/dogfood-local-stub.yaml"
++	baselineLocalStubTextOriginal   = `text: "[dogfood] local stub"`
++	baselineLocalStubTextGenOne     = `text: "generation-one"`
++	baselineLocalStubTextGenTwo     = `text: "generation-two"`
++)
++
++func BenchmarkBuildHost(b *testing.B) {
++	cfgPath := filepath.Join("..", "..", "..", "config", "examples", "dogfood-local-stub.yaml")
++	in := runtimebundle.BuildBootstrapInput{
++		ConfigPath:      cfgPath,
++		Mode:            runtimebundle.BootstrapServe,
++		Mandatory:       lipsdk.StandardDistributionRequirements(),
++		LogWriter:       io.Discard,
++		HandlerComposer: stdhttp.ComposeRequestPlane,
++	}
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		res, err := runtimebundle.BuildBootstrap(b.Context(), in)
++		if err != nil {
++			b.Fatalf("BuildBootstrap: %v", err)
++		}
++		host, err := runtimebundle.AttachReloadHost(b.Context(), res, cfgPath, stdhttp.ComposeRequestPlane)
++		if err != nil {
++			b.StopTimer()
++			closeBaselineHost(b, res, nil)
++			b.Fatalf("AttachReloadHost: %v", err)
++		}
++		b.StopTimer()
++		closeBaselineHost(b, res, host)
++		b.StartTimer()
++	}
++}
++
++func BenchmarkSuccessfulReload(b *testing.B) {
++	base, err := os.ReadFile(baselineDogfoodLocalStubRelPath)
++	if err != nil {
++		b.Fatalf("read dogfood fixture: %v", err)
++	}
++	bodyOne := baselineLocalStubVersionBody(b, string(base), baselineLocalStubTextGenOne)
++	bodyTwo := baselineLocalStubVersionBody(b, string(base), baselineLocalStubTextGenTwo)
++	if len(bodyOne) != len(bodyTwo) {
++		b.Fatalf("alternate bodies must be equal length: %d vs %d", len(bodyOne), len(bodyTwo))
++	}
++
++	dir := b.TempDir()
++	cfgPath := filepath.Join(dir, "cfg.yaml")
++	baselineAtomicReplaceFile(b, cfgPath, bodyOne)
++	res, host := buildBaselineReloadHost(b, cfgPath)
++	b.Cleanup(func() { closeBaselineHost(b, res, host) })
++
++	next := bodyTwo
++	worker := runtimehost.NewLifecycleWorker()
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		b.StopTimer()
++		baselineAtomicReplaceFile(b, cfgPath, next)
++		if next == bodyTwo {
++			next = bodyOne
++		} else {
++			next = bodyTwo
++		}
++		b.StartTimer()
++
++		result := host.Coordinator.Reload(b.Context(), configreload.ReloadTrigger{Kind: configreload.TriggerAPI, SafeActor: "bench-success"})
++		if result.Category != configreload.ResultPublished {
++			b.Fatalf("reload category=%q want %q reason=%q", result.Category, configreload.ResultPublished, result.ReasonCategory)
++		}
++
++		b.StopTimer()
++		previous := res.GenerationManager.GenerationByID(result.PreviousGeneration)
++		if previous == nil {
++			b.Fatalf("previous generation %d not retained", result.PreviousGeneration)
++		}
++		if err := worker.Retire(context.Background(), previous, nil); err != nil {
++			b.Fatalf("retire previous generation %d: %v", result.PreviousGeneration, err)
++		}
++		baselineWaitRetainedBelow(b, res.GenerationManager, 0, 5*time.Second)
++		b.StartTimer()
++	}
++}
++
++func BenchmarkNoopReload(b *testing.B) {
++	dir := b.TempDir()
++	cfgPath := filepath.Join(dir, "cfg.yaml")
++	raw, err := os.ReadFile(baselineDogfoodLocalStubRelPath)
++	if err != nil {
++		b.Fatalf("read dogfood fixture: %v", err)
++	}
++	baselineAtomicReplaceFile(b, cfgPath, string(raw))
++	res, host := buildBaselineReloadHost(b, cfgPath)
++	b.Cleanup(func() { closeBaselineHost(b, res, host) })
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		result := host.Coordinator.Reload(b.Context(), configreload.ReloadTrigger{Kind: configreload.TriggerAPI, SafeActor: "bench-noop"})
++		if result.Category != configreload.ResultNoop {
++			b.Fatalf("reload category=%q want %q reason=%q", result.Category, configreload.ResultNoop, result.ReasonCategory)
++		}
++	}
++}
++
++func buildBaselineReloadHost(b *testing.B, cfgPath string) (runtimebundle.BootstrapResult, *runtimebundle.ReloadHost) {
++	b.Helper()
++	res, err := runtimebundle.BuildBootstrap(b.Context(), runtimebundle.BuildBootstrapInput{
++		ConfigPath:      cfgPath,
++		Mode:            runtimebundle.BootstrapServe,
++		Mandatory:       lipsdk.StandardDistributionRequirements(),
++		LogWriter:       io.Discard,
++		HandlerComposer: stdhttp.ComposeRequestPlane,
++	})
++	if err != nil {
++		b.Fatalf("BuildBootstrap: %v", err)
++	}
++	host, err := runtimebundle.AttachReloadHost(b.Context(), res, cfgPath, stdhttp.ComposeRequestPlane)
++	if err != nil {
++		closeBaselineHost(b, res, nil)
++		b.Fatalf("AttachReloadHost: %v", err)
++	}
++	return res, host
++}
++
++func closeBaselineHost(b *testing.B, res runtimebundle.BootstrapResult, host *runtimebundle.ReloadHost) {
++	b.Helper()
++	ctx := context.Background()
++	if host != nil {
++		host.BeginShutdown()
++		if err := host.WaitForIdle(ctx); err != nil {
++			b.Errorf("WaitForIdle: %v", err)
++		}
++	}
++	if res.GenerationManager != nil {
++		if err := res.GenerationManager.ShutdownDetached(ctx, runtimehost.NewLifecycleWorker()); err != nil {
++			b.Errorf("ShutdownDetached: %v", err)
++		}
++		if res.GenerationManager.HasOpenGenerations() {
++			b.Error("generations remain open after shutdown")
++		}
++	}
++	if res.ProcessServices != nil {
++		if err := res.ProcessServices.Close(); err != nil {
++			b.Errorf("ProcessServices.Close: %v", err)
++		}
++	}
++	if res.ShutdownTracing != nil {
++		if err := res.ShutdownTracing(ctx); err != nil {
++			b.Errorf("ShutdownTracing: %v", err)
++		}
++	}
++}
++
++func baselineLocalStubVersionBody(b *testing.B, base, replacement string) string {
++	b.Helper()
++	if !strings.Contains(base, baselineLocalStubTextOriginal) {
++		b.Fatalf("fixture missing %q", baselineLocalStubTextOriginal)
++	}
++	return strings.Replace(base, baselineLocalStubTextOriginal, replacement, 1)
++}
++
++func baselineAtomicReplaceFile(b *testing.B, path, body string) {
++	b.Helper()
++	tmp := path + ".tmp"
++	if err := os.WriteFile(tmp, []byte(body), 0o600); err != nil {
++		b.Fatalf("write temp: %v", err)
++	}
++	if err := os.Rename(tmp, path); err != nil {
++		b.Fatalf("rename: %v", err)
++	}
++}
++
++func baselineWaitRetainedBelow(b *testing.B, manager *runtimehost.Manager, max int, timeout time.Duration) {
++	b.Helper()
++	deadline := time.Now().Add(timeout)
++	for {
++		manager.SweepClosed()
++		if manager.RetainedCount() <= max {
++			return
++		}
++		if time.Now().After(deadline) {
++			b.Fatalf("retained=%d still above %d after %s", manager.RetainedCount(), max, timeout)
++		}
++		time.Sleep(time.Millisecond)
++	}
++}

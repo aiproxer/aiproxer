@@ -1,0 +1,3912 @@
+[
+  {
+    "category": "const",
+    "name": "AccessScopeAny",
+    "detail": "AccessScopeAny backendplugin.AccessScope = \"any\""
+  },
+  {
+    "category": "const",
+    "name": "AccessScopeLocalOnly",
+    "detail": "AccessScopeLocalOnly backendplugin.AccessScope = \"local_only\""
+  },
+  {
+    "category": "const",
+    "name": "AccessScopeUnspecified",
+    "detail": "AccessScopeUnspecified backendplugin.AccessScope = \"\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingAuthorityAdvisory",
+    "detail": "AccountingAuthorityAdvisory backendplugin.AccountingAuthority = \"advisory\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingAuthorityAuthoritative",
+    "detail": "AccountingAuthorityAuthoritative backendplugin.AccountingAuthority = \"authoritative\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingAuthorityDelegated",
+    "detail": "AccountingAuthorityDelegated backendplugin.AccountingAuthority = \"delegated\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingAuthorityEstimated",
+    "detail": "AccountingAuthorityEstimated backendplugin.AccountingAuthority = \"estimated\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingAuthorityUnknown",
+    "detail": "AccountingAuthorityUnknown backendplugin.AccountingAuthority = \"\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingPlaneProviderBillable",
+    "detail": "AccountingPlaneProviderBillable backendplugin.AccountingPlane = \"provider_billable\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingPlaneUnknown",
+    "detail": "AccountingPlaneUnknown backendplugin.AccountingPlane = \"\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingSourceLocalEstimator",
+    "detail": "AccountingSourceLocalEstimator backendplugin.AccountingSource = \"local_estimator\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingSourceLocalTokenizer",
+    "detail": "AccountingSourceLocalTokenizer backendplugin.AccountingSource = \"local_tokenizer\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingSourceProviderCountAPI",
+    "detail": "AccountingSourceProviderCountAPI backendplugin.AccountingSource = \"provider_count_api\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingSourceProviderReported",
+    "detail": "AccountingSourceProviderReported backendplugin.AccountingSource = \"provider_reported\""
+  },
+  {
+    "category": "const",
+    "name": "AccountingSourceUnknown",
+    "detail": "AccountingSourceUnknown backendplugin.AccountingSource = \"\""
+  },
+  {
+    "category": "const",
+    "name": "CancelModeCloseOnly",
+    "detail": "CancelModeCloseOnly backendplugin.CancelMode = \"close_only\""
+  },
+  {
+    "category": "const",
+    "name": "CancelModeNone",
+    "detail": "CancelModeNone backendplugin.CancelMode = \"none\""
+  },
+  {
+    "category": "const",
+    "name": "CancelModeProvider",
+    "detail": "CancelModeProvider backendplugin.CancelMode = \"provider\""
+  },
+  {
+    "category": "const",
+    "name": "CancelModeTransport",
+    "detail": "CancelModeTransport backendplugin.CancelMode = \"transport\""
+  },
+  {
+    "category": "const",
+    "name": "CancelModeUnspecified",
+    "detail": "CancelModeUnspecified backendplugin.CancelMode = \"\""
+  },
+  {
+    "category": "const",
+    "name": "CancelReasonClient",
+    "detail": "CancelReasonClient backendplugin.CancelReason = \"client\""
+  },
+  {
+    "category": "const",
+    "name": "CancelReasonDeadline",
+    "detail": "CancelReasonDeadline backendplugin.CancelReason = \"deadline\""
+  },
+  {
+    "category": "const",
+    "name": "CancelReasonHost",
+    "detail": "CancelReasonHost backendplugin.CancelReason = \"host\""
+  },
+  {
+    "category": "const",
+    "name": "CancelReasonShutdown",
+    "detail": "CancelReasonShutdown backendplugin.CancelReason = \"shutdown\""
+  },
+  {
+    "category": "const",
+    "name": "CancelReasonUnspecified",
+    "detail": "CancelReasonUnspecified backendplugin.CancelReason = \"\""
+  },
+  {
+    "category": "const",
+    "name": "ClientFrameCancel",
+    "detail": "ClientFrameCancel backendplugin.ClientFrameKind = \"cancel\""
+  },
+  {
+    "category": "const",
+    "name": "ClientFrameCloseInput",
+    "detail": "ClientFrameCloseInput backendplugin.ClientFrameKind = \"close_input\""
+  },
+  {
+    "category": "const",
+    "name": "ClientFrameStart",
+    "detail": "ClientFrameStart backendplugin.ClientFrameKind = \"start\""
+  },
+  {
+    "category": "const",
+    "name": "ClientFrameUnspecified",
+    "detail": "ClientFrameUnspecified backendplugin.ClientFrameKind = \"\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialClassAPIKey",
+    "detail": "CredentialClassAPIKey backendplugin.CredentialClass = \"api_key\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialClassAPIToken",
+    "detail": "CredentialClassAPIToken backendplugin.CredentialClass = \"api_token\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialClassStaticNonrotatable",
+    "detail": "CredentialClassStaticNonrotatable backendplugin.CredentialClass = \"static_nonrotatable\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialContractVersion",
+    "detail": "CredentialContractVersion untyped int = 2"
+  },
+  {
+    "category": "const",
+    "name": "CredentialModeNone",
+    "detail": "CredentialModeNone backendplugin.CredentialMode = \"none\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialModeOAuthUser",
+    "detail": "CredentialModeOAuthUser backendplugin.CredentialMode = \"oauth_user\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialModeStatic",
+    "detail": "CredentialModeStatic backendplugin.CredentialMode = \"static\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialModeUnknown",
+    "detail": "CredentialModeUnknown backendplugin.CredentialMode = \"unknown\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialModeUnspecified",
+    "detail": "CredentialModeUnspecified backendplugin.CredentialMode = \"\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialModeWorkload",
+    "detail": "CredentialModeWorkload backendplugin.CredentialMode = \"workload\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialSelectionNoRotation",
+    "detail": "CredentialSelectionNoRotation backendplugin.CredentialSelection = \"no_rotation\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialSelectionQuotaPreOutput",
+    "detail": "CredentialSelectionQuotaPreOutput backendplugin.CredentialSelection = \"quota_pre_output\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialSelectionSessionAdmission",
+    "detail": "CredentialSelectionSessionAdmission backendplugin.CredentialSelection = \"session_admission\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialSlotAPIKey",
+    "detail": "CredentialSlotAPIKey backendplugin.CredentialSlot = \"api_key\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialSlotAPIToken",
+    "detail": "CredentialSlotAPIToken backendplugin.CredentialSlot = \"api_token\""
+  },
+  {
+    "category": "const",
+    "name": "CredentialSourceHostEnv",
+    "detail": "CredentialSourceHostEnv backendplugin.CredentialSource = \"host_env\""
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxAccountingDedupeKeyBytes",
+    "detail": "DefaultMaxAccountingDedupeKeyBytes uint64 = 256"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxConfigYAMLBytes",
+    "detail": "DefaultMaxConfigYAMLBytes uint64 = 1048576"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxDiagnosticBytes",
+    "detail": "DefaultMaxDiagnosticBytes uint64 = 65536"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxEconomicEvidencePerAttempt",
+    "detail": "DefaultMaxEconomicEvidencePerAttempt uint64 = 1024"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxEconomicObservationBytes",
+    "detail": "DefaultMaxEconomicObservationBytes uint64 = 65536"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxMessageBytes",
+    "detail": "DefaultMaxMessageBytes uint64 = 4194304"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxModelsPerResponse",
+    "detail": "DefaultMaxModelsPerResponse uint32 = 10000"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxPendingEvents",
+    "detail": "DefaultMaxPendingEvents uint64 = 1024"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxRawJSONBytes",
+    "detail": "DefaultMaxRawJSONBytes uint64 = 262144"
+  },
+  {
+    "category": "const",
+    "name": "DefaultMaxStreamFrameBytes",
+    "detail": "DefaultMaxStreamFrameBytes uint64 = 1048576"
+  },
+  {
+    "category": "const",
+    "name": "EnvChannelFD",
+    "detail": "EnvChannelFD untyped string = \"AIP_PLUGIN_CHANNEL_FD\""
+  },
+  {
+    "category": "const",
+    "name": "EnvChannelPipe",
+    "detail": "EnvChannelPipe untyped string = \"AIP_PLUGIN_CHANNEL_PIPE\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeAborted",
+    "detail": "ErrorCodeAborted backendplugin.ErrorCode = \"aborted\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeCancelled",
+    "detail": "ErrorCodeCancelled backendplugin.ErrorCode = \"cancelled\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeFailedPrecondition",
+    "detail": "ErrorCodeFailedPrecondition backendplugin.ErrorCode = \"failed_precondition\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeInternal",
+    "detail": "ErrorCodeInternal backendplugin.ErrorCode = \"internal\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeInvalidArgument",
+    "detail": "ErrorCodeInvalidArgument backendplugin.ErrorCode = \"invalid_argument\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeNotFound",
+    "detail": "ErrorCodeNotFound backendplugin.ErrorCode = \"not_found\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodePermissionDenied",
+    "detail": "ErrorCodePermissionDenied backendplugin.ErrorCode = \"permission_denied\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeProtocolViolation",
+    "detail": "ErrorCodeProtocolViolation backendplugin.ErrorCode = \"protocol_violation\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeProviderTerminal",
+    "detail": "ErrorCodeProviderTerminal backendplugin.ErrorCode = \"provider_terminal\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeProviderTransient",
+    "detail": "ErrorCodeProviderTransient backendplugin.ErrorCode = \"provider_transient\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeResourceExhausted",
+    "detail": "ErrorCodeResourceExhausted backendplugin.ErrorCode = \"resource_exhausted\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeUnauthenticated",
+    "detail": "ErrorCodeUnauthenticated backendplugin.ErrorCode = \"unauthenticated\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeUnavailable",
+    "detail": "ErrorCodeUnavailable backendplugin.ErrorCode = \"unavailable\""
+  },
+  {
+    "category": "const",
+    "name": "ErrorCodeUnspecified",
+    "detail": "ErrorCodeUnspecified backendplugin.ErrorCode = \"\""
+  },
+  {
+    "category": "const",
+    "name": "EventAssistantFileRef",
+    "detail": "EventAssistantFileRef backendplugin.EventKind = \"assistant_file_ref\""
+  },
+  {
+    "category": "const",
+    "name": "EventAssistantImageRef",
+    "detail": "EventAssistantImageRef backendplugin.EventKind = \"assistant_image_ref\""
+  },
+  {
+    "category": "const",
+    "name": "EventError",
+    "detail": "EventError backendplugin.EventKind = \"error\""
+  },
+  {
+    "category": "const",
+    "name": "EventMessageStarted",
+    "detail": "EventMessageStarted backendplugin.EventKind = \"message_started\""
+  },
+  {
+    "category": "const",
+    "name": "EventReasoningDelta",
+    "detail": "EventReasoningDelta backendplugin.EventKind = \"reasoning_delta\""
+  },
+  {
+    "category": "const",
+    "name": "EventReasoningOpaqueDelta",
+    "detail": "EventReasoningOpaqueDelta backendplugin.EventKind = \"reasoning_opaque_delta\""
+  },
+  {
+    "category": "const",
+    "name": "EventReasoningPart",
+    "detail": "EventReasoningPart backendplugin.EventKind = \"reasoning_part\""
+  },
+  {
+    "category": "const",
+    "name": "EventReasoningSignatureDelta",
+    "detail": "EventReasoningSignatureDelta backendplugin.EventKind = \"reasoning_signature_delta\""
+  },
+  {
+    "category": "const",
+    "name": "EventResponseFinished",
+    "detail": "EventResponseFinished backendplugin.EventKind = \"response_finished\""
+  },
+  {
+    "category": "const",
+    "name": "EventResponseStarted",
+    "detail": "EventResponseStarted backendplugin.EventKind = \"response_started\""
+  },
+  {
+    "category": "const",
+    "name": "EventTextDelta",
+    "detail": "EventTextDelta backendplugin.EventKind = \"text_delta\""
+  },
+  {
+    "category": "const",
+    "name": "EventToolCallArgsDelta",
+    "detail": "EventToolCallArgsDelta backendplugin.EventKind = \"tool_call_args_delta\""
+  },
+  {
+    "category": "const",
+    "name": "EventToolCallFinished",
+    "detail": "EventToolCallFinished backendplugin.EventKind = \"tool_call_finished\""
+  },
+  {
+    "category": "const",
+    "name": "EventToolCallStarted",
+    "detail": "EventToolCallStarted backendplugin.EventKind = \"tool_call_started\""
+  },
+  {
+    "category": "const",
+    "name": "EventUnspecified",
+    "detail": "EventUnspecified backendplugin.EventKind = \"\""
+  },
+  {
+    "category": "const",
+    "name": "EventUsageDelta",
+    "detail": "EventUsageDelta backendplugin.EventKind = \"usage_delta\""
+  },
+  {
+    "category": "const",
+    "name": "EventWarning",
+    "detail": "EventWarning backendplugin.EventKind = \"warning\""
+  },
+  {
+    "category": "const",
+    "name": "EvidenceCoverageComplete",
+    "detail": "EvidenceCoverageComplete backendplugin.EvidenceCoverage = \"complete\""
+  },
+  {
+    "category": "const",
+    "name": "EvidenceCoveragePartial",
+    "detail": "EvidenceCoveragePartial backendplugin.EvidenceCoverage = \"partial\""
+  },
+  {
+    "category": "const",
+    "name": "EvidenceCoverageUnsupported",
+    "detail": "EvidenceCoverageUnsupported backendplugin.EvidenceCoverage = \"unsupported\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureAccountingEvidence",
+    "detail": "FeatureAccountingEvidence untyped string = \"accounting_evidence_sideband\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureAccountingEvidenceV2",
+    "detail": "FeatureAccountingEvidenceV2 untyped string = \"accounting_evidence_v2\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureCancellationHandshake",
+    "detail": "FeatureCancellationHandshake untyped string = \"cancellation_handshake_v1\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureEconomicEvidenceV2",
+    "detail": "FeatureEconomicEvidenceV2 untyped string = \"accounting_evidence_v2\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureEconomicsV2",
+    "detail": "FeatureEconomicsV2 untyped string = \"accounting_evidence_v2\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureExactOpenResponsesFields",
+    "detail": "FeatureExactOpenResponsesFields untyped string = \"exact_openresponses_fields\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureExactReasoningParts",
+    "detail": "FeatureExactReasoningParts untyped string = \"exact_reasoning_parts\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureHostBoundEconomicEvidenceV2",
+    "detail": "FeatureHostBoundEconomicEvidenceV2 untyped string = \"host_bound_economic_evidence_v2\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureOrderedItems",
+    "detail": "FeatureOrderedItems untyped string = \"ordered_items\""
+  },
+  {
+    "category": "const",
+    "name": "FeaturePromptCacheResidency",
+    "detail": "FeaturePromptCacheResidency untyped string = \"prompt_cache_residency_v1\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureProxyOwnedSessionID",
+    "detail": "FeatureProxyOwnedSessionID untyped string = \"proxy_owned_session_id\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureReasoningEffortValues",
+    "detail": "FeatureReasoningEffortValues untyped string = \"reasoning_effort_values_v1\""
+  },
+  {
+    "category": "const",
+    "name": "FeatureSemanticExtensions",
+    "detail": "FeatureSemanticExtensions untyped string = \"semantic_extensions_v1\""
+  },
+  {
+    "category": "const",
+    "name": "MaxCredentialSlotCount",
+    "detail": "MaxCredentialSlotCount untyped int = 256"
+  },
+  {
+    "category": "const",
+    "name": "MaxCredentialSlotSecretBytes",
+    "detail": "MaxCredentialSlotSecretBytes untyped int = 65536"
+  },
+  {
+    "category": "const",
+    "name": "MaxCredentialSlotTotalBytes",
+    "detail": "MaxCredentialSlotTotalBytes untyped int = 262144"
+  },
+  {
+    "category": "const",
+    "name": "MaxReasoningEffortModelIDBytes",
+    "detail": "MaxReasoningEffortModelIDBytes untyped int = 256"
+  },
+  {
+    "category": "const",
+    "name": "MaxReasoningEffortValueBytes",
+    "detail": "MaxReasoningEffortValueBytes untyped int = 64"
+  },
+  {
+    "category": "const",
+    "name": "MaxReasoningEffortValues",
+    "detail": "MaxReasoningEffortValues untyped int = 32"
+  },
+  {
+    "category": "const",
+    "name": "MetaDeliveryMode",
+    "detail": "MetaDeliveryMode untyped string = \"aip.delivery_mode\""
+  },
+  {
+    "category": "const",
+    "name": "MetaExtensionPrefix",
+    "detail": "MetaExtensionPrefix untyped string = \"ext.\""
+  },
+  {
+    "category": "const",
+    "name": "MetaOperation",
+    "detail": "MetaOperation untyped string = \"aip.operation\""
+  },
+  {
+    "category": "const",
+    "name": "MetaProtocolRequirements",
+    "detail": "MetaProtocolRequirements untyped string = \"aip.protocol_requirements\""
+  },
+  {
+    "category": "const",
+    "name": "MetaRouteParamPrefix",
+    "detail": "MetaRouteParamPrefix untyped string = \"route.param.\""
+  },
+  {
+    "category": "const",
+    "name": "MetaTransportMode",
+    "detail": "MetaTransportMode untyped string = \"aip.transport_mode\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindAnnotation",
+    "detail": "PartKindAnnotation backendplugin.PartKind = \"annotation\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindAssistantRef",
+    "detail": "PartKindAssistantRef backendplugin.PartKind = \"assistant_ref\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindExtension",
+    "detail": "PartKindExtension backendplugin.PartKind = \"extension\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindFileRef",
+    "detail": "PartKindFileRef backendplugin.PartKind = \"file_ref\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindImageRef",
+    "detail": "PartKindImageRef backendplugin.PartKind = \"image_ref\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindJSON",
+    "detail": "PartKindJSON backendplugin.PartKind = \"json\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindReasoning",
+    "detail": "PartKindReasoning backendplugin.PartKind = \"reasoning\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindRefusal",
+    "detail": "PartKindRefusal backendplugin.PartKind = \"refusal\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindSummary",
+    "detail": "PartKindSummary backendplugin.PartKind = \"summary\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindText",
+    "detail": "PartKindText backendplugin.PartKind = \"text\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindToolCall",
+    "detail": "PartKindToolCall backendplugin.PartKind = \"tool_call\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindToolResult",
+    "detail": "PartKindToolResult backendplugin.PartKind = \"tool_result\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindUnspecified",
+    "detail": "PartKindUnspecified backendplugin.PartKind = \"\""
+  },
+  {
+    "category": "const",
+    "name": "PartKindVideoRef",
+    "detail": "PartKindVideoRef backendplugin.PartKind = \"video_ref\""
+  },
+  {
+    "category": "const",
+    "name": "ProcessSharingPerInstance",
+    "detail": "ProcessSharingPerInstance backendplugin.ProcessSharing = \"per_instance\""
+  },
+  {
+    "category": "const",
+    "name": "ProcessSharingSharedArtifact",
+    "detail": "ProcessSharingSharedArtifact backendplugin.ProcessSharing = \"shared_artifact\""
+  },
+  {
+    "category": "const",
+    "name": "ProcessSharingUnspecified",
+    "detail": "ProcessSharingUnspecified backendplugin.ProcessSharing = \"\""
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMajorV1",
+    "detail": "ProtocolMajorV1 uint32 = 1"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorAccountingEvidence",
+    "detail": "ProtocolMinorAccountingEvidence uint32 = 5"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorAccountingEvidenceV2",
+    "detail": "ProtocolMinorAccountingEvidenceV2 uint32 = 9"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorCancellationHandshake",
+    "detail": "ProtocolMinorCancellationHandshake uint32 = 8"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorEconomicEvidenceV2",
+    "detail": "ProtocolMinorEconomicEvidenceV2 uint32 = 9"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorEconomicsV2",
+    "detail": "ProtocolMinorEconomicsV2 uint32 = 9"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorExactOpenResponsesFields",
+    "detail": "ProtocolMinorExactOpenResponsesFields uint32 = 3"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorExactReasoningParts",
+    "detail": "ProtocolMinorExactReasoningParts uint32 = 1"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorHostBoundEconomicEvidenceV2",
+    "detail": "ProtocolMinorHostBoundEconomicEvidenceV2 uint32 = 10"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorOrderedItems",
+    "detail": "ProtocolMinorOrderedItems uint32 = 2"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorPromptCacheResidency",
+    "detail": "ProtocolMinorPromptCacheResidency uint32 = 7"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorProxyOwnedSessionID",
+    "detail": "ProtocolMinorProxyOwnedSessionID uint32 = 4"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorReasoningEffortValues",
+    "detail": "ProtocolMinorReasoningEffortValues uint32 = 11"
+  },
+  {
+    "category": "const",
+    "name": "ProtocolMinorSemanticExtensions",
+    "detail": "ProtocolMinorSemanticExtensions uint32 = 6"
+  },
+  {
+    "category": "const",
+    "name": "RawJSONAbsent",
+    "detail": "RawJSONAbsent backendplugin.RawJSONState = 0"
+  },
+  {
+    "category": "const",
+    "name": "RawJSONNull",
+    "detail": "RawJSONNull backendplugin.RawJSONState = 1"
+  },
+  {
+    "category": "const",
+    "name": "RawJSONValue",
+    "detail": "RawJSONValue backendplugin.RawJSONState = 2"
+  },
+  {
+    "category": "const",
+    "name": "RoleAssistant",
+    "detail": "RoleAssistant backendplugin.Role = \"assistant\""
+  },
+  {
+    "category": "const",
+    "name": "RoleDeveloper",
+    "detail": "RoleDeveloper backendplugin.Role = \"developer\""
+  },
+  {
+    "category": "const",
+    "name": "RoleSystem",
+    "detail": "RoleSystem backendplugin.Role = \"system\""
+  },
+  {
+    "category": "const",
+    "name": "RoleTool",
+    "detail": "RoleTool backendplugin.Role = \"tool\""
+  },
+  {
+    "category": "const",
+    "name": "RoleUnspecified",
+    "detail": "RoleUnspecified backendplugin.Role = \"\""
+  },
+  {
+    "category": "const",
+    "name": "RoleUser",
+    "detail": "RoleUser backendplugin.Role = \"user\""
+  },
+  {
+    "category": "const",
+    "name": "SemanticExtensionNull",
+    "detail": "SemanticExtensionNull backendplugin.SemanticExtensionPresence = \"null\""
+  },
+  {
+    "category": "const",
+    "name": "SemanticExtensionValue",
+    "detail": "SemanticExtensionValue backendplugin.SemanticExtensionPresence = \"value\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameAccepted",
+    "detail": "ServerFrameAccepted backendplugin.ServerFrameKind = \"accepted\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameAccountingEvidence",
+    "detail": "ServerFrameAccountingEvidence backendplugin.ServerFrameKind = \"accounting_evidence\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameCancelOutcome",
+    "detail": "ServerFrameCancelOutcome backendplugin.ServerFrameKind = \"cancel_outcome\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameDiagnostic",
+    "detail": "ServerFrameDiagnostic backendplugin.ServerFrameKind = \"diagnostic\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameEvent",
+    "detail": "ServerFrameEvent backendplugin.ServerFrameKind = \"event\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFramePromptCacheObservation",
+    "detail": "ServerFramePromptCacheObservation backendplugin.ServerFrameKind = \"prompt_cache_observation\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameTerminal",
+    "detail": "ServerFrameTerminal backendplugin.ServerFrameKind = \"terminal\""
+  },
+  {
+    "category": "const",
+    "name": "ServerFrameUnspecified",
+    "detail": "ServerFrameUnspecified backendplugin.ServerFrameKind = \"\""
+  },
+  {
+    "category": "const",
+    "name": "TerminalCancelled",
+    "detail": "TerminalCancelled backendplugin.TerminalStatus = \"cancelled\""
+  },
+  {
+    "category": "const",
+    "name": "TerminalFailure",
+    "detail": "TerminalFailure backendplugin.TerminalStatus = \"failure\""
+  },
+  {
+    "category": "const",
+    "name": "TerminalSuccess",
+    "detail": "TerminalSuccess backendplugin.TerminalStatus = \"success\""
+  },
+  {
+    "category": "const",
+    "name": "TerminalUnspecified",
+    "detail": "TerminalUnspecified backendplugin.TerminalStatus = \"\""
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.Authority"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.CacheReadTokens"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.CacheWriteTokens"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.DedupeKey"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.InputTokens"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.InputTokensExcludeCacheRead"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.InputTokensExcludeCacheWrite"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.OutputTokens"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.Plane"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.Presence"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.ReasoningTokens"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.Source"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidence.TotalTokens"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidenceV2.Coverage"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidenceV2.CoverageReason"
+  },
+  {
+    "category": "field",
+    "name": "AccountingEvidenceV2.Observation"
+  },
+  {
+    "category": "field",
+    "name": "CancelOutcome.Acknowledged"
+  },
+  {
+    "category": "field",
+    "name": "CancelOutcome.Detail"
+  },
+  {
+    "category": "field",
+    "name": "CancelOutcome.Mode"
+  },
+  {
+    "category": "field",
+    "name": "CancelOutcome.Reason"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Delta"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Error"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.FileRef"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.FinishReason"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ImageRef"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Kind"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.MessageIndex"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Opaque"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ReasoningContent"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ReasoningDialect"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ReasoningEncryptedContent"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ReasoningOpaque"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ReasoningSummary"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ResponseStatus"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Signature"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ToolCallID"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.ToolName"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Usage"
+  },
+  {
+    "category": "field",
+    "name": "CanonicalEvent.Warning"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Annotations"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.AssistantMediaRefs"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.AssistantPhase"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Compaction"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Documents"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.ItemReferences"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.OpaqueExtensions"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.OrderedItems"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.ParallelToolCalls"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Reasoning"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.ReasoningReplay"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Streaming"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.StructuredOutputs"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Tools"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.VideoInput"
+  },
+  {
+    "category": "field",
+    "name": "CapabilitySummary.Vision"
+  },
+  {
+    "category": "field",
+    "name": "ClientFrame.CancelDeadlineUnixMS"
+  },
+  {
+    "category": "field",
+    "name": "ClientFrame.CancelReason"
+  },
+  {
+    "category": "field",
+    "name": "ClientFrame.InstanceID"
+  },
+  {
+    "category": "field",
+    "name": "ClientFrame.Invocation"
+  },
+  {
+    "category": "field",
+    "name": "ClientFrame.Kind"
+  },
+  {
+    "category": "field",
+    "name": "ClientFrame.Sequence"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.ConfigYAML"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.FactoryKind"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.InstanceID"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.Negotiation"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.NegotiationToken"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.RuntimePolicy"
+  },
+  {
+    "category": "field",
+    "name": "ConfigureRequest.Secrets"
+  },
+  {
+    "category": "field",
+    "name": "CountTokensRequest.InstanceID"
+  },
+  {
+    "category": "field",
+    "name": "CountTokensRequest.Invocation"
+  },
+  {
+    "category": "field",
+    "name": "CountTokensRequest.ModelID"
+  },
+  {
+    "category": "field",
+    "name": "CountTokensResponse.EvidenceQuality"
+  },
+  {
+    "category": "field",
+    "name": "CountTokensResponse.InputTokens"
+  },
+  {
+    "category": "field",
+    "name": "CountTokensResponse.Presence"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.Class"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.EnvRoot"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.QuotaDomain"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.Selection"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.Slot"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.Source"
+  },
+  {
+    "category": "field",
+    "name": "CredentialContract.Version"
+  },
+  {
+    "category": "field",
+    "name": "DialectRequirementDTO.Dialect"
+  },
+  {
+    "category": "field",
+    "name": "DialectRequirementDTO.Implementor"
+  },
+  {
+    "category": "field",
+    "name": "DialectRequirementDTO.Kind"
+  },
+  {
+    "category": "field",
+    "name": "DialectSupport.CompactionDialects"
+  },
+  {
+    "category": "field",
+    "name": "DialectSupport.ExtensionTypes"
+  },
+  {
+    "category": "field",
+    "name": "DialectSupport.ItemDialects"
+  },
+  {
+    "category": "field",
+    "name": "DialectSupport.ReasoningDialects"
+  },
+  {
+    "category": "field",
+    "name": "ExtensionRequirementDTO.Implementor"
+  },
+  {
+    "category": "field",
+    "name": "ExtensionRequirementDTO.Namespace"
+  },
+  {
+    "category": "field",
+    "name": "ExtensionRequirementDTO.Type"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.AccessScope"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.CredentialMode"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.Deprecated"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.Description"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.DisplayName"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.Experimental"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.Kind"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.ProcessSharing"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.RoutePrefixes"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.StaticCapabilities"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.SupportsAccountingEvidenceV2"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.SupportsCountTokens"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.SupportsDynamicInventory"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.SupportsFinalizeBilling"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.SupportsModelAwareProfile"
+  },
+  {
+    "category": "field",
+    "name": "FactoryDescriptor.TransportCapabilities"
+  },
+  {
+    "category": "field",
+    "name": "Feature.Name"
+  },
+  {
+    "category": "field",
+    "name": "Feature.Required"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingRequest.ALegID"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingRequest.BLegID"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingRequest.IdempotencyKey"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingRequest.InstanceID"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingRequest.ModelID"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingRequest.Reason"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingResponse.AccountingV2"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingResponse.EvidenceQuality"
+  },
+  {
+    "category": "field",
+    "name": "FinalizeBillingResponse.Usage"
+  },
+  {
+    "category": "field",
+    "name": "GRPCServer.PluginOffer"
+  },
+  {
+    "category": "field",
+    "name": "GRPCServer.Service"
+  },
+  {
+    "category": "field",
+    "name": "GenerationOptions.MaxOutputTokens"
+  },
+  {
+    "category": "field",
+    "name": "GenerationOptions.ParallelToolCalls"
+  },
+  {
+    "category": "field",
+    "name": "GenerationOptions.ReasoningEffort"
+  },
+  {
+    "category": "field",
+    "name": "GenerationOptions.ResponseMIMEType"
+  },
+  {
+    "category": "field",
+    "name": "GenerationOptions.ResponseSchemaJSON"
+  },
+  {
+    "category": "field",
+    "name": "GenerationOptions.TemperatureMillis"
+  },
+  {
+    "category": "field",
+    "name": "GracefulShutdownRequest.DrainTimeoutMS"
+  },
+  {
+    "category": "field",
+    "name": "GracefulShutdownResponse.Accepted"
+  },
+  {
+    "category": "field",
+    "name": "HealthResponse.Detail"
+  },
+  {
+    "category": "field",
+    "name": "HealthResponse.Serving"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.ALegID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.AttemptID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.BLegID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.CanonicalModelID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.DeliveryMode"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.Instructions"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.ItemAuthority"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.Items"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.Messages"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.NativeModelID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.Operation"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.Options"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.PromptCacheKey"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.ProtocolRequirements"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.ProxyOwnedSessionID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.RequestID"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.SafeMetadata"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.SemanticExtensions"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.ToolChoice"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.Tools"
+  },
+  {
+    "category": "field",
+    "name": "Invocation.TransportMode"
+  },
+  {
+    "category": "field",
+    "name": "InvocationCompactionItem.Dialect"
+  },
+  {
+    "category": "field",
+    "name": "InvocationCompactionItem.EncapsulatedID"
+  },
+  {
+    "category": "field",
+    "name": "InvocationCompactionItem.EncryptedContent"
+  },
+  {
+    "category": "field",
+    "name": "InvocationCompactionItem.Implementor"
+  },
+  {
+    "category": "field",
+    "name": "InvocationCompactionItem.Opaque"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.AnnotationData"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.AnnotationType"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.AssistantRef"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.ExtensionData"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.ExtensionImplementor"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.ExtensionNamespace"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.ExtensionType"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.FileData"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.FileMIME"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.FileName"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.FileRef"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.ImageMIME"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.ImageRef"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.Kind"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.Reasoning"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.Refusal"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.Summary"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.Text"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.VideoMIME"
+  },
+  {
+    "category": "field",
+    "name": "InvocationContentPart.VideoRef"
+  },
+  {
+    "category": "field",
+    "name": "InvocationExtensionItem.Direction"
+  },
+  {
+    "category": "field",
+    "name": "InvocationExtensionItem.Implementor"
+  },
+  {
+    "category": "field",
+    "name": "InvocationExtensionItem.Namespace"
+  },
+  {
+    "category": "field",
+    "name": "InvocationExtensionItem.Opaque"
+  },
+  {
+    "category": "field",
+    "name": "InvocationExtensionItem.Type"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Compaction"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Content"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Extension"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.ID"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.ItemReference"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Kind"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Phase"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Reasoning"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Role"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.Status"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.ToolCall"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItem.ToolResult"
+  },
+  {
+    "category": "field",
+    "name": "InvocationItemReference.ID"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.Content"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.Dialect"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.EncryptedContent"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.Opaque"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.Signature"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.Summary"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningItem.Text"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.Content"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.Dialect"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.EncryptedContent"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.Opaque"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.Signature"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.Summary"
+  },
+  {
+    "category": "field",
+    "name": "InvocationReasoningPart.Text"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolCall.Arguments"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolCall.CallID"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolCall.Name"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolResult.CallID"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolResult.Name"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolResult.Output"
+  },
+  {
+    "category": "field",
+    "name": "InvocationToolResult.StructuredParts"
+  },
+  {
+    "category": "field",
+    "name": "ListModelsResponse.ErrorCode"
+  },
+  {
+    "category": "field",
+    "name": "ListModelsResponse.FetchedUnixMS"
+  },
+  {
+    "category": "field",
+    "name": "ListModelsResponse.InventorySource"
+  },
+  {
+    "category": "field",
+    "name": "ListModelsResponse.Models"
+  },
+  {
+    "category": "field",
+    "name": "ListModelsResponse.RefreshAfterUnixMS"
+  },
+  {
+    "category": "field",
+    "name": "Message.Parts"
+  },
+  {
+    "category": "field",
+    "name": "Message.Role"
+  },
+  {
+    "category": "field",
+    "name": "ModeError.Code"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.CanonicalModelID"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.Capabilities"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.DisplayName"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.FactoryKind"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.IsDefault"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.NativeModelID"
+  },
+  {
+    "category": "field",
+    "name": "ModelDescriptor.RoutePrefix"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.Compatible"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.EnabledFeatures"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.NegotiatedMinor"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.NegotiationToken"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.PluginFeatures"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.PluginMajor"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.PluginMinor"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.RejectReason"
+  },
+  {
+    "category": "field",
+    "name": "Negotiation.TransportPolicy"
+  },
+  {
+    "category": "field",
+    "name": "OrderedSecretSlot.Index"
+  },
+  {
+    "category": "field",
+    "name": "OrderedSecretSlot.Name"
+  },
+  {
+    "category": "field",
+    "name": "OrderedSecretSlot.Value"
+  },
+  {
+    "category": "field",
+    "name": "Part.FileRef"
+  },
+  {
+    "category": "field",
+    "name": "Part.ImageRef"
+  },
+  {
+    "category": "field",
+    "name": "Part.Kind"
+  },
+  {
+    "category": "field",
+    "name": "Part.ReasoningContent"
+  },
+  {
+    "category": "field",
+    "name": "Part.ReasoningDialect"
+  },
+  {
+    "category": "field",
+    "name": "Part.ReasoningEncryptedContent"
+  },
+  {
+    "category": "field",
+    "name": "Part.ReasoningOpaque"
+  },
+  {
+    "category": "field",
+    "name": "Part.ReasoningSummary"
+  },
+  {
+    "category": "field",
+    "name": "Part.ReasoningText"
+  },
+  {
+    "category": "field",
+    "name": "Part.Text"
+  },
+  {
+    "category": "field",
+    "name": "Part.ToolArgsJSON"
+  },
+  {
+    "category": "field",
+    "name": "Part.ToolCallID"
+  },
+  {
+    "category": "field",
+    "name": "Part.ToolName"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.BuildID"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.Factories"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.Features"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.PluginID"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.ProtocolMajor"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.ProtocolMinor"
+  },
+  {
+    "category": "field",
+    "name": "PluginDescriptor.Version"
+  },
+  {
+    "category": "field",
+    "name": "PluginError.Code"
+  },
+  {
+    "category": "field",
+    "name": "PluginError.Message"
+  },
+  {
+    "category": "field",
+    "name": "PluginError.OutputCommitted"
+  },
+  {
+    "category": "field",
+    "name": "PluginError.Retryable"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolOffer.DisableTransportRetries"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolOffer.Features"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolOffer.Major"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolOffer.Minor"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolRequirements.Capabilities"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolRequirements.CompactionDialects"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolRequirements.ExtensionTypes"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolRequirements.ItemDialects"
+  },
+  {
+    "category": "field",
+    "name": "ProtocolRequirements.ReasoningDialects"
+  },
+  {
+    "category": "field",
+    "name": "ReasoningEffortValuesV1.Exhaustive"
+  },
+  {
+    "category": "field",
+    "name": "ReasoningEffortValuesV1.ModelID"
+  },
+  {
+    "category": "field",
+    "name": "ReasoningEffortValuesV1.Supported"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.Capabilities"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.DialectSupport"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.EnforceMaxOutput"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.EvidenceSource"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.MaxOutputTokens"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.ProfileVersion"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.PromptCacheProfile"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.ReasoningEffortValues"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.ReasoningReplaySupported"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.RoutePrefixes"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.SupportsAccountingEvidenceV2"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.SupportsCountTokens"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.SupportsDynamicInventory"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.SupportsFinalizeBilling"
+  },
+  {
+    "category": "field",
+    "name": "ResolvedProfile.TransportCapabilities"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.AllowedEnvNames"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.CancelDeadlineMS"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.DiagnosticsVerbosity"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.DisableTransportRetries"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.LocalOnly"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.MaxConcurrentExecutions"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.MaxPendingEvents"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.MaxRequestBytes"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.MaxStreamFrameBytes"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.QuotaSwitchRetryAfterMS"
+  },
+  {
+    "category": "field",
+    "name": "RuntimePolicy.RequestTimeoutMS"
+  },
+  {
+    "category": "field",
+    "name": "SecretBundle.Values"
+  },
+  {
+    "category": "field",
+    "name": "SemanticExtension.Data"
+  },
+  {
+    "category": "field",
+    "name": "SemanticExtension.Direction"
+  },
+  {
+    "category": "field",
+    "name": "SemanticExtension.Implementor"
+  },
+  {
+    "category": "field",
+    "name": "SemanticExtension.Namespace"
+  },
+  {
+    "category": "field",
+    "name": "SemanticExtension.Presence"
+  },
+  {
+    "category": "field",
+    "name": "SemanticExtension.Type"
+  },
+  {
+    "category": "field",
+    "name": "ServeOptions.ListenAddr"
+  },
+  {
+    "category": "field",
+    "name": "ServeOptions.Name"
+  },
+  {
+    "category": "field",
+    "name": "ServeOptions.Stderr"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.Accounting"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.AccountingV2"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.CancelOutcome"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.Diagnostic"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.Event"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.Kind"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.PromptCacheObservation"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.Sequence"
+  },
+  {
+    "category": "field",
+    "name": "ServerFrame.Terminal"
+  },
+  {
+    "category": "field",
+    "name": "Terminal.Error"
+  },
+  {
+    "category": "field",
+    "name": "Terminal.Status"
+  },
+  {
+    "category": "field",
+    "name": "ToolDef.Description"
+  },
+  {
+    "category": "field",
+    "name": "ToolDef.Name"
+  },
+  {
+    "category": "field",
+    "name": "ToolDef.ParametersJSON"
+  },
+  {
+    "category": "field",
+    "name": "TransportCapabilitySummary.BidirectionalStream"
+  },
+  {
+    "category": "field",
+    "name": "TransportCapabilitySummary.Cancellation"
+  },
+  {
+    "category": "field",
+    "name": "TransportCapabilitySummary.Keepalive"
+  },
+  {
+    "category": "field",
+    "name": "TransportPolicy.DisableAutomaticRetries"
+  },
+  {
+    "category": "field",
+    "name": "TransportPolicy.MaxMessageBytes"
+  },
+  {
+    "category": "field",
+    "name": "TransportPolicy.MaxStreamFrameBytes"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.CacheReadTokens"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.CacheWriteTokens"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.InputTokens"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.InputTokensExcludeCacheRead"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.InputTokensExcludeCacheWrite"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.OutputTokens"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.Presence"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.RawUsageJSON"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.ReasoningTokens"
+  },
+  {
+    "category": "field",
+    "name": "UsageEvidence.TotalTokens"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.Correlation"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.MappingRef"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.ObservationID"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.ObservedAt"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.ReceivedAt"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.Revision"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.Scope"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.Sequence"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.SourceEventKey"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.StoreID"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.StreamID"
+  },
+  {
+    "category": "field",
+    "name": "V1EvidenceIdentity.Subject"
+  },
+  {
+    "category": "func",
+    "name": "AccessScopeFromAipsdk",
+    "detail": "func AccessScopeFromAipsdk(s aipsdk.BackendAccessScope) (AccessScope, error)"
+  },
+  {
+    "category": "func",
+    "name": "AccountingEvidenceNegotiated",
+    "detail": "func AccountingEvidenceNegotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "AccountingEvidenceV2FromProto",
+    "detail": "func AccountingEvidenceV2FromProto(p *backendpluginv1.AccountingEvidenceV2) (AccountingEvidenceV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "AccountingEvidenceV2FromProtoPtr",
+    "detail": "func AccountingEvidenceV2FromProtoPtr(p *backendpluginv1.AccountingEvidenceV2) (*AccountingEvidenceV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "AccountingEvidenceV2FromV1",
+    "detail": "func AccountingEvidenceV2FromV1(e AccountingEvidence, id V1EvidenceIdentity) (AccountingEvidenceV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "AccountingEvidenceV2Negotiated",
+    "detail": "func AccountingEvidenceV2Negotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "AccountingEvidenceV2ToProto",
+    "detail": "func AccountingEvidenceV2ToProto(e *AccountingEvidenceV2) (*backendpluginv1.AccountingEvidenceV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "ApplyCallWireMetadata",
+    "detail": "func ApplyCallWireMetadata(inv *Invocation, call aipapi.Call, routeParams map[string]string) error"
+  },
+  {
+    "category": "func",
+    "name": "ApplyCallWireMetadataWithNegotiation",
+    "detail": "func ApplyCallWireMetadataWithNegotiation(inv *Invocation, call aipapi.Call, routeParams map[string]string, neg Negotiation) error"
+  },
+  {
+    "category": "func",
+    "name": "ApplyItemAuthorityMetadata",
+    "detail": "func ApplyItemAuthorityMetadata(inv *Invocation, call aipapi.Call)"
+  },
+  {
+    "category": "func",
+    "name": "ApplyOrderedItemWire",
+    "detail": "func ApplyOrderedItemWire(inv *Invocation, call aipapi.Call)"
+  },
+  {
+    "category": "func",
+    "name": "CallFromInvocation",
+    "detail": "func CallFromInvocation(inv Invocation) (aipapi.Call, error)"
+  },
+  {
+    "category": "func",
+    "name": "CancelCauseFromCancelReason",
+    "detail": "func CancelCauseFromCancelReason(reason CancelReason) aipapi.CancelCause"
+  },
+  {
+    "category": "func",
+    "name": "CancelOutcomeFromProto",
+    "detail": "func CancelOutcomeFromProto(p *backendpluginv1.CancelOutcome) (*CancelOutcome, error)"
+  },
+  {
+    "category": "func",
+    "name": "CancelOutcomeToProto",
+    "detail": "func CancelOutcomeToProto(c *CancelOutcome) (*backendpluginv1.CancelOutcome, error)"
+  },
+  {
+    "category": "func",
+    "name": "CancellationHandshakeNegotiated",
+    "detail": "func CancellationHandshakeNegotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "CanonicalEventFromAipapi",
+    "detail": "func CanonicalEventFromAipapi(ev aipapi.Event) *CanonicalEvent"
+  },
+  {
+    "category": "func",
+    "name": "CanonicalEventFromProto",
+    "detail": "func CanonicalEventFromProto(p *backendpluginv1.CanonicalEvent) (*CanonicalEvent, error)"
+  },
+  {
+    "category": "func",
+    "name": "CanonicalEventToProto",
+    "detail": "func CanonicalEventToProto(e *CanonicalEvent) (*backendpluginv1.CanonicalEvent, error)"
+  },
+  {
+    "category": "func",
+    "name": "CapabilitySummaryFromAipapi",
+    "detail": "func CapabilitySummaryFromAipapi(caps aipapi.BackendCaps) CapabilitySummary"
+  },
+  {
+    "category": "func",
+    "name": "ClassifyEffortSupport",
+    "detail": "func ClassifyEffortSupport(decl *ReasoningEffortValuesV1, modelID, effort string) (supported, decided bool)"
+  },
+  {
+    "category": "func",
+    "name": "ClientFrameFromProto",
+    "detail": "func ClientFrameFromProto(p *backendpluginv1.ExecuteClientFrame) (ClientFrame, error)"
+  },
+  {
+    "category": "func",
+    "name": "ClientFrameToProto",
+    "detail": "func ClientFrameToProto(f ClientFrame) (*backendpluginv1.ExecuteClientFrame, error)"
+  },
+  {
+    "category": "func",
+    "name": "ConfigureRequestFromProto",
+    "detail": "func ConfigureRequestFromProto(p *backendpluginv1.ConfigureRequest, neg Negotiation) (ConfigureRequest, error)"
+  },
+  {
+    "category": "func",
+    "name": "ConfigureRequestToProto",
+    "detail": "func ConfigureRequestToProto(r ConfigureRequest) *backendpluginv1.ConfigureRequest"
+  },
+  {
+    "category": "func",
+    "name": "CountTokensRequestFromProto",
+    "detail": "func CountTokensRequestFromProto(p *backendpluginv1.CountTokensRequest) (CountTokensRequest, error)"
+  },
+  {
+    "category": "func",
+    "name": "CountTokensRequestToProto",
+    "detail": "func CountTokensRequestToProto(r CountTokensRequest) (*backendpluginv1.CountTokensRequest, error)"
+  },
+  {
+    "category": "func",
+    "name": "CountTokensResponseFromProto",
+    "detail": "func CountTokensResponseFromProto(p *backendpluginv1.CountTokensResponse) (CountTokensResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "CountTokensResponseToProto",
+    "detail": "func CountTokensResponseToProto(r CountTokensResponse) *backendpluginv1.CountTokensResponse"
+  },
+  {
+    "category": "func",
+    "name": "CredentialModeFromAipsdk",
+    "detail": "func CredentialModeFromAipsdk(m aipsdk.BackendCredentialMode) (CredentialMode, error)"
+  },
+  {
+    "category": "func",
+    "name": "DecodeOrderedSecretSlots",
+    "detail": "func DecodeOrderedSecretSlots(bundle SecretBundle, base CredentialSlot) ([]OrderedSecretSlot, error)"
+  },
+  {
+    "category": "func",
+    "name": "DefaultTransportPolicy",
+    "detail": "func DefaultTransportPolicy() TransportPolicy"
+  },
+  {
+    "category": "func",
+    "name": "DialectSupportFromAipapi",
+    "detail": "func DialectSupportFromAipapi(s aipapi.DialectSupport) DialectSupport"
+  },
+  {
+    "category": "func",
+    "name": "DialectSupportToAipapi",
+    "detail": "func DialectSupportToAipapi(d DialectSupport) aipapi.DialectSupport"
+  },
+  {
+    "category": "func",
+    "name": "EconomicDecimalV2FromProto",
+    "detail": "func EconomicDecimalV2FromProto(p *backendpluginv1.EconomicDecimalV2) (metering.Decimal, error)"
+  },
+  {
+    "category": "func",
+    "name": "EconomicDecimalV2ToProto",
+    "detail": "func EconomicDecimalV2ToProto(d metering.Decimal) (*backendpluginv1.EconomicDecimalV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "EconomicEvidenceV2Negotiated",
+    "detail": "func EconomicEvidenceV2Negotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "EconomicObservationV2FromProto",
+    "detail": "func EconomicObservationV2FromProto(p *backendpluginv1.EconomicObservationV2) (metering.Observation, error)"
+  },
+  {
+    "category": "func",
+    "name": "EconomicObservationV2ToProto",
+    "detail": "func EconomicObservationV2ToProto(o metering.Observation) (*backendpluginv1.EconomicObservationV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "EconomicsV2Negotiated",
+    "detail": "func EconomicsV2Negotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "FinalizeBillingRequestFromProto",
+    "detail": "func FinalizeBillingRequestFromProto(p *backendpluginv1.FinalizeBillingRequest) (FinalizeBillingRequest, error)"
+  },
+  {
+    "category": "func",
+    "name": "FinalizeBillingRequestToProto",
+    "detail": "func FinalizeBillingRequestToProto(r FinalizeBillingRequest) *backendpluginv1.FinalizeBillingRequest"
+  },
+  {
+    "category": "func",
+    "name": "FinalizeBillingResponseFromProto",
+    "detail": "func FinalizeBillingResponseFromProto(p *backendpluginv1.FinalizeBillingResponse) (FinalizeBillingResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "FinalizeBillingResponseToProto",
+    "detail": "func FinalizeBillingResponseToProto(r FinalizeBillingResponse) (*backendpluginv1.FinalizeBillingResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "ForwardExecute",
+    "detail": "func ForwardExecute(stream ExecuteStream, open OpenManagedStream) error"
+  },
+  {
+    "category": "func",
+    "name": "GracefulShutdownRequestFromProto",
+    "detail": "func GracefulShutdownRequestFromProto(p *backendpluginv1.GracefulShutdownRequest) GracefulShutdownRequest"
+  },
+  {
+    "category": "func",
+    "name": "GracefulShutdownRequestToProto",
+    "detail": "func GracefulShutdownRequestToProto(r GracefulShutdownRequest) *backendpluginv1.GracefulShutdownRequest"
+  },
+  {
+    "category": "func",
+    "name": "GracefulShutdownResponseFromProto",
+    "detail": "func GracefulShutdownResponseFromProto(p *backendpluginv1.GracefulShutdownResponse) GracefulShutdownResponse"
+  },
+  {
+    "category": "func",
+    "name": "GracefulShutdownResponseToProto",
+    "detail": "func GracefulShutdownResponseToProto(r GracefulShutdownResponse) *backendpluginv1.GracefulShutdownResponse"
+  },
+  {
+    "category": "func",
+    "name": "HasItemAuthorityInvocation",
+    "detail": "func HasItemAuthorityInvocation(inv Invocation) bool"
+  },
+  {
+    "category": "func",
+    "name": "HasItemAuthorityMetadata",
+    "detail": "func HasItemAuthorityMetadata(meta map[string]string) bool"
+  },
+  {
+    "category": "func",
+    "name": "HasItemAuthorityWire",
+    "detail": "func HasItemAuthorityWire(inv Invocation) bool"
+  },
+  {
+    "category": "func",
+    "name": "HealthResponseFromProto",
+    "detail": "func HealthResponseFromProto(p *backendpluginv1.HealthResponse) HealthResponse"
+  },
+  {
+    "category": "func",
+    "name": "HealthResponseToProto",
+    "detail": "func HealthResponseToProto(h HealthResponse) *backendpluginv1.HealthResponse"
+  },
+  {
+    "category": "func",
+    "name": "HostBoundEconomicEvidenceV2Negotiated",
+    "detail": "func HostBoundEconomicEvidenceV2Negotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "InvocationFromProto",
+    "detail": "func InvocationFromProto(p *backendpluginv1.Invocation) (Invocation, error)"
+  },
+  {
+    "category": "func",
+    "name": "InvocationToProto",
+    "detail": "func InvocationToProto(inv Invocation) (*backendpluginv1.Invocation, error)"
+  },
+  {
+    "category": "func",
+    "name": "LiftAccountingEvidenceV1",
+    "detail": "func LiftAccountingEvidenceV1(e AccountingEvidence, id V1EvidenceIdentity) (AccountingEvidenceV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "ListModelsResponseFromProto",
+    "detail": "func ListModelsResponseFromProto(p *backendpluginv1.ListModelsResponse) (ListModelsResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "ListModelsResponseToProto",
+    "detail": "func ListModelsResponseToProto(r ListModelsResponse) *backendpluginv1.ListModelsResponse"
+  },
+  {
+    "category": "func",
+    "name": "Main",
+    "detail": "func Main(name string, svc Service)"
+  },
+  {
+    "category": "func",
+    "name": "ModeErrorf",
+    "detail": "func ModeErrorf(code string, args ...any) ModeError"
+  },
+  {
+    "category": "func",
+    "name": "MustNegotiateBeforeConfigure",
+    "detail": "func MustNegotiateBeforeConfigure(neg Negotiation) error"
+  },
+  {
+    "category": "func",
+    "name": "Negotiate",
+    "detail": "func Negotiate(host, plugin ProtocolOffer) (Negotiation, error)"
+  },
+  {
+    "category": "func",
+    "name": "NegotiationFromNegotiateResponse",
+    "detail": "func NegotiationFromNegotiateResponse(p *backendpluginv1.NegotiateResponse) (Negotiation, error)"
+  },
+  {
+    "category": "func",
+    "name": "NegotiationToNegotiateResponse",
+    "detail": "func NegotiationToNegotiateResponse(n Negotiation) (*backendpluginv1.NegotiateResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "NewGRPCServer",
+    "detail": "func NewGRPCServer(offer ProtocolOffer, svc Service) *GRPCServer"
+  },
+  {
+    "category": "func",
+    "name": "NewUsageEvidenceBuffer",
+    "detail": "func NewUsageEvidenceBuffer() *UsageEvidenceBuffer"
+  },
+  {
+    "category": "func",
+    "name": "ObservationV2FromProto",
+    "detail": "func ObservationV2FromProto(p *backendpluginv1.EconomicObservationV2) (metering.Observation, error)"
+  },
+  {
+    "category": "func",
+    "name": "ObservationV2ToProto",
+    "detail": "func ObservationV2ToProto(o metering.Observation) (*backendpluginv1.EconomicObservationV2, error)"
+  },
+  {
+    "category": "func",
+    "name": "OutputCommittedEvent",
+    "detail": "func OutputCommittedEvent(kind EventKind) bool"
+  },
+  {
+    "category": "func",
+    "name": "PluginDescriptorFromProto",
+    "detail": "func PluginDescriptorFromProto(p *backendpluginv1.PluginDescriptor) (PluginDescriptor, error)"
+  },
+  {
+    "category": "func",
+    "name": "PluginDescriptorToProto",
+    "detail": "func PluginDescriptorToProto(d PluginDescriptor) (*backendpluginv1.PluginDescriptor, error)"
+  },
+  {
+    "category": "func",
+    "name": "PluginErrorFromProto",
+    "detail": "func PluginErrorFromProto(p *backendpluginv1.PluginError) (*PluginError, error)"
+  },
+  {
+    "category": "func",
+    "name": "PluginErrorToProto",
+    "detail": "func PluginErrorToProto(e *PluginError) (*backendpluginv1.PluginError, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheEvidenceFromProto",
+    "detail": "func PromptCacheEvidenceFromProto(e *backendpluginv1.PromptCacheEvidence) (promptcache.CacheEvidence, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheEvidenceToProto",
+    "detail": "func PromptCacheEvidenceToProto(e promptcache.CacheEvidence) (*backendpluginv1.PromptCacheEvidence, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheNegotiated",
+    "detail": "func PromptCacheNegotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheObservationFromProto",
+    "detail": "func PromptCacheObservationFromProto(o *backendpluginv1.PromptCacheObservation) (*promptcache.Observation, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheObservationToProto",
+    "detail": "func PromptCacheObservationToProto(o *promptcache.Observation) (*backendpluginv1.PromptCacheObservation, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheProfileFromProto",
+    "detail": "func PromptCacheProfileFromProto(p *backendpluginv1.PromptCacheProfile) (promptcache.Profile, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheProfileToProto",
+    "detail": "func PromptCacheProfileToProto(p promptcache.Profile) (*backendpluginv1.PromptCacheProfile, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheRenewResponseFromProto",
+    "detail": "func PromptCacheRenewResponseFromProto(p *backendpluginv1.RenewPromptCacheResponse) (promptcache.RenewResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheRenewResponseToProto",
+    "detail": "func PromptCacheRenewResponseToProto(response promptcache.RenewResponse) (*backendpluginv1.RenewPromptCacheResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheRenewResultFromProto",
+    "detail": "func PromptCacheRenewResultFromProto(p *backendpluginv1.RenewPromptCacheResponse) (promptcache.RenewResult, *AccountingEvidence, error)"
+  },
+  {
+    "category": "func",
+    "name": "PromptCacheRenewResultToProto",
+    "detail": "func PromptCacheRenewResultToProto(r promptcache.RenewResult, accounting *AccountingEvidence) (*backendpluginv1.RenewPromptCacheResponse, error)"
+  },
+  {
+    "category": "func",
+    "name": "ProtocolOfferFromNegotiateRequest",
+    "detail": "func ProtocolOfferFromNegotiateRequest(p *backendpluginv1.NegotiateRequest) (ProtocolOffer, error)"
+  },
+  {
+    "category": "func",
+    "name": "ProtocolOfferToNegotiateRequest",
+    "detail": "func ProtocolOfferToNegotiateRequest(o ProtocolOffer) (*backendpluginv1.NegotiateRequest, error)"
+  },
+  {
+    "category": "func",
+    "name": "ProtocolRequirementsFromInvocation",
+    "detail": "func ProtocolRequirementsFromInvocation(inv Invocation) (aipapi.ProtocolRequirements, bool)"
+  },
+  {
+    "category": "func",
+    "name": "ProtocolRequirementsFromMetadata",
+    "detail": "func ProtocolRequirementsFromMetadata(meta map[string]string) (aipapi.ProtocolRequirements, bool)"
+  },
+  {
+    "category": "func",
+    "name": "ProxyOwnedSemanticExtensionsSupported",
+    "detail": "func ProxyOwnedSemanticExtensionsSupported(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "ProxyOwnedSessionIDSupported",
+    "detail": "func ProxyOwnedSessionIDSupported(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "RawJSONAbsentValue",
+    "detail": "func RawJSONAbsentValue() RawJSON"
+  },
+  {
+    "category": "func",
+    "name": "RawJSONFromBytes",
+    "detail": "func RawJSONFromBytes(b []byte) RawJSON"
+  },
+  {
+    "category": "func",
+    "name": "RawJSONFromProto",
+    "detail": "func RawJSONFromProto(v *backendpluginv1.RawJSONValue) (RawJSON, error)"
+  },
+  {
+    "category": "func",
+    "name": "RawJSONNullValue",
+    "detail": "func RawJSONNullValue() RawJSON"
+  },
+  {
+    "category": "func",
+    "name": "RawJSONToProto",
+    "detail": "func RawJSONToProto(r RawJSON) *backendpluginv1.RawJSONValue"
+  },
+  {
+    "category": "func",
+    "name": "ReasoningEffortValuesNegotiated",
+    "detail": "func ReasoningEffortValuesNegotiated(neg Negotiation) bool"
+  },
+  {
+    "category": "func",
+    "name": "RequireAccountingEvidenceV2",
+    "detail": "func RequireAccountingEvidenceV2(neg Negotiation) error"
+  },
+  {
+    "category": "func",
+    "name": "RequireExactOpenResponsesABISupport",
+    "detail": "func RequireExactOpenResponsesABISupport(neg Negotiation, call aipapi.Call) error"
+  },
+  {
+    "category": "func",
+    "name": "RequireExactOpenResponsesEventABISupport",
+    "detail": "func RequireExactOpenResponsesEventABISupport(neg Negotiation, ev *CanonicalEvent) error"
+  },
+  {
+    "category": "func",
+    "name": "RequireOrderedItemABISupport",
+    "detail": "func RequireOrderedItemABISupport(neg Negotiation, call aipapi.Call) error"
+  },
+  {
+    "category": "func",
+    "name": "RequireSemanticExtensionsABISupport",
+    "detail": "func RequireSemanticExtensionsABISupport(neg Negotiation, call aipapi.Call) error"
+  },
+  {
+    "category": "func",
+    "name": "ResolvedProfileFromProto",
+    "detail": "func ResolvedProfileFromProto(p *backendpluginv1.ResolvedProfile) (ResolvedProfile, error)"
+  },
+  {
+    "category": "func",
+    "name": "ResolvedProfileToProto",
+    "detail": "func ResolvedProfileToProto(p ResolvedProfile) *backendpluginv1.ResolvedProfile"
+  },
+  {
+    "category": "func",
+    "name": "RestoreCallWireMetadata",
+    "detail": "func RestoreCallWireMetadata(call *aipapi.Call, meta map[string]string)"
+  },
+  {
+    "category": "func",
+    "name": "RouteParam",
+    "detail": "func RouteParam(meta map[string]string, name string) string"
+  },
+  {
+    "category": "func",
+    "name": "RuntimePolicyFromProto",
+    "detail": "func RuntimePolicyFromProto(p *backendpluginv1.RuntimePolicy) RuntimePolicy"
+  },
+  {
+    "category": "func",
+    "name": "RuntimePolicyToProto",
+    "detail": "func RuntimePolicyToProto(p RuntimePolicy) *backendpluginv1.RuntimePolicy"
+  },
+  {
+    "category": "func",
+    "name": "Serve",
+    "detail": "func Serve(ctx context.Context, svc Service, opts ServeOptions) error"
+  },
+  {
+    "category": "func",
+    "name": "ServerFrameConservativeBytes",
+    "detail": "func ServerFrameConservativeBytes(f ServerFrame) uint64"
+  },
+  {
+    "category": "func",
+    "name": "ServerFrameFromProto",
+    "detail": "func ServerFrameFromProto(p *backendpluginv1.ExecuteServerFrame) (ServerFrame, error)"
+  },
+  {
+    "category": "func",
+    "name": "ServerFrameSizeBytes",
+    "detail": "func ServerFrameSizeBytes(f ServerFrame) uint64"
+  },
+  {
+    "category": "func",
+    "name": "ServerFrameToProto",
+    "detail": "func ServerFrameToProto(f ServerFrame) (*backendpluginv1.ExecuteServerFrame, error)"
+  },
+  {
+    "category": "func",
+    "name": "TerminalFromProto",
+    "detail": "func TerminalFromProto(p *backendpluginv1.Terminal) (*Terminal, error)"
+  },
+  {
+    "category": "func",
+    "name": "TerminalToProto",
+    "detail": "func TerminalToProto(t *Terminal) (*backendpluginv1.Terminal, error)"
+  },
+  {
+    "category": "func",
+    "name": "ToolChoiceFromWire",
+    "detail": "func ToolChoiceFromWire(s *string) (aipapi.ToolChoice, error)"
+  },
+  {
+    "category": "func",
+    "name": "ToolChoiceToWire",
+    "detail": "func ToolChoiceToWire(tc aipapi.ToolChoice) *string"
+  },
+  {
+    "category": "func",
+    "name": "UsageEvidenceFromProto",
+    "detail": "func UsageEvidenceFromProto(p *backendpluginv1.UsageEvidence) (UsageEvidence, error)"
+  },
+  {
+    "category": "func",
+    "name": "UsageEvidenceToProto",
+    "detail": "func UsageEvidenceToProto(u UsageEvidence) (*backendpluginv1.UsageEvidence, error)"
+  },
+  {
+    "category": "func",
+    "name": "UsagePresenceFromProto",
+    "detail": "func UsagePresenceFromProto(p *backendpluginv1.UsagePresence) UsagePresence"
+  },
+  {
+    "category": "func",
+    "name": "UsagePresenceToProto",
+    "detail": "func UsagePresenceToProto(p UsagePresence) *backendpluginv1.UsagePresence"
+  },
+  {
+    "category": "func",
+    "name": "ValidateAccessScope",
+    "detail": "func ValidateAccessScope(s AccessScope) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateAccountingEvidence",
+    "detail": "func ValidateAccountingEvidence(e AccountingEvidence) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateCancelMode",
+    "detail": "func ValidateCancelMode(m CancelMode) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateClientFrameBounds",
+    "detail": "func ValidateClientFrameBounds(f ClientFrame) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateCredentialMode",
+    "detail": "func ValidateCredentialMode(m CredentialMode) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateEventKind",
+    "detail": "func ValidateEventKind(k EventKind) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateNegotiationResult",
+    "detail": "func ValidateNegotiationResult(host ProtocolOffer, neg Negotiation) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateRawJSONSize",
+    "detail": "func ValidateRawJSONSize(n, limit uint64) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateServerFrameBounds",
+    "detail": "func ValidateServerFrameBounds(f ServerFrame) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateServerFrameSize",
+    "detail": "func ValidateServerFrameSize(f ServerFrame, limit uint64) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateSize",
+    "detail": "func ValidateSize(n, limit uint64) error"
+  },
+  {
+    "category": "func",
+    "name": "ValidateToolChoiceABI",
+    "detail": "func ValidateToolChoiceABI(tc aipapi.ToolChoice) error"
+  },
+  {
+    "category": "method",
+    "name": "AccountingEvidenceSource.DrainAccountingEvidence"
+  },
+  {
+    "category": "method",
+    "name": "AccountingEvidenceV2.Validate",
+    "detail": "func (e AccountingEvidenceV2) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "AccountingEvidenceV2Source.DrainAccountingEvidenceV2"
+  },
+  {
+    "category": "method",
+    "name": "BillingFinalizer.FinalizeBilling"
+  },
+  {
+    "category": "method",
+    "name": "ClientFrame.ValidateShape",
+    "detail": "func (f ClientFrame) ValidateShape() error"
+  },
+  {
+    "category": "method",
+    "name": "ConfigureRequest.Validate",
+    "detail": "func (r ConfigureRequest) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "ConfiguredInstance.Close"
+  },
+  {
+    "category": "method",
+    "name": "ConfiguredInstance.Execute"
+  },
+  {
+    "category": "method",
+    "name": "ConfiguredInstance.ListModels"
+  },
+  {
+    "category": "method",
+    "name": "ConfiguredInstance.Resolve"
+  },
+  {
+    "category": "method",
+    "name": "CredentialContract.Validate",
+    "detail": "func (c CredentialContract) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "EconomicEvidenceSource.DrainEconomicEvidence"
+  },
+  {
+    "category": "method",
+    "name": "ExecuteStream.Context"
+  },
+  {
+    "category": "method",
+    "name": "ExecuteStream.Recv"
+  },
+  {
+    "category": "method",
+    "name": "ExecuteStream.Send"
+  },
+  {
+    "category": "method",
+    "name": "FinalizeBillingRequest.Validate",
+    "detail": "func (r FinalizeBillingRequest) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.CloseInstance",
+    "detail": "func (s *GRPCServer) CloseInstance(ctx context.Context, req *backendpluginv1.CloseInstanceRequest) (*backendpluginv1.CloseInstanceResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.Configure",
+    "detail": "func (s *GRPCServer) Configure(ctx context.Context, req *backendpluginv1.ConfigureRequest) (*backendpluginv1.ConfigureResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.CountTokens",
+    "detail": "func (s *GRPCServer) CountTokens(ctx context.Context, req *backendpluginv1.CountTokensRequest) (*backendpluginv1.CountTokensResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.Describe",
+    "detail": "func (s *GRPCServer) Describe(ctx context.Context, _ *backendpluginv1.DescribeRequest) (*backendpluginv1.DescribeResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.Execute",
+    "detail": "func (s *GRPCServer) Execute(stream backendpluginv1.BackendPlugin_ExecuteServer) error"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.FinalizeBilling",
+    "detail": "func (s *GRPCServer) FinalizeBilling(ctx context.Context, req *backendpluginv1.FinalizeBillingRequest) (*backendpluginv1.FinalizeBillingResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.GracefulShutdown",
+    "detail": "func (s *GRPCServer) GracefulShutdown(ctx context.Context, req *backendpluginv1.GracefulShutdownRequest) (*backendpluginv1.GracefulShutdownResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.Health",
+    "detail": "func (s *GRPCServer) Health(ctx context.Context, _ *backendpluginv1.HealthRequest) (*backendpluginv1.HealthResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.ListModels",
+    "detail": "func (s *GRPCServer) ListModels(ctx context.Context, req *backendpluginv1.ListModelsRequest) (*backendpluginv1.ListModelsResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.Negotiate",
+    "detail": "func (s *GRPCServer) Negotiate(ctx context.Context, req *backendpluginv1.NegotiateRequest) (*backendpluginv1.NegotiateResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.ReleasePromptCache",
+    "detail": "func (s *GRPCServer) ReleasePromptCache(ctx context.Context, req *backendpluginv1.ReleasePromptCacheRequest) (*backendpluginv1.ReleasePromptCacheResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.RenewPromptCache",
+    "detail": "func (s *GRPCServer) RenewPromptCache(ctx context.Context, req *backendpluginv1.RenewPromptCacheRequest) (*backendpluginv1.RenewPromptCacheResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "GRPCServer.ResolveProfile",
+    "detail": "func (s *GRPCServer) ResolveProfile(ctx context.Context, req *backendpluginv1.ResolveProfileRequest) (*backendpluginv1.ResolveProfileResponse, error)"
+  },
+  {
+    "category": "method",
+    "name": "Invocation.Validate",
+    "detail": "func (inv Invocation) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "ListModelsResponse.Validate",
+    "detail": "func (r ListModelsResponse) Validate(maxModels uint32) error"
+  },
+  {
+    "category": "method",
+    "name": "ModeError.Error",
+    "detail": "func (e ModeError) Error() string"
+  },
+  {
+    "category": "method",
+    "name": "OptionalExecuteStreamCloser.Close"
+  },
+  {
+    "category": "method",
+    "name": "OptionalNegotiatedStream.Negotiation"
+  },
+  {
+    "category": "method",
+    "name": "PluginDescriptor.Validate",
+    "detail": "func (d PluginDescriptor) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "ProcessSharing.Validate",
+    "detail": "func (p ProcessSharing) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "PromptCacheController.ReleasePromptCache"
+  },
+  {
+    "category": "method",
+    "name": "PromptCacheController.RenewPromptCache"
+  },
+  {
+    "category": "method",
+    "name": "RawJSON.Bytes",
+    "detail": "func (r RawJSON) Bytes() []byte"
+  },
+  {
+    "category": "method",
+    "name": "RawJSON.State",
+    "detail": "func (r RawJSON) State() RawJSONState"
+  },
+  {
+    "category": "method",
+    "name": "RawJSON.Validate",
+    "detail": "func (r RawJSON) Validate(maxBytes uint64) error"
+  },
+  {
+    "category": "method",
+    "name": "ReasoningEffortValuesV1.Validate",
+    "detail": "func (v *ReasoningEffortValuesV1) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "ServerFrame.ValidateShape",
+    "detail": "func (f ServerFrame) ValidateShape() error"
+  },
+  {
+    "category": "method",
+    "name": "Service.Configure"
+  },
+  {
+    "category": "method",
+    "name": "Service.Describe"
+  },
+  {
+    "category": "method",
+    "name": "StreamValidator.Push",
+    "detail": "func (v *StreamValidator) Push(frame ServerFrame) error"
+  },
+  {
+    "category": "method",
+    "name": "TerminalError.TerminalPluginError"
+  },
+  {
+    "category": "method",
+    "name": "TokenCounter.CountTokens"
+  },
+  {
+    "category": "method",
+    "name": "TransportPolicy.Validate",
+    "detail": "func (p TransportPolicy) Validate() error"
+  },
+  {
+    "category": "method",
+    "name": "UsageEvidence.ValidatePresence",
+    "detail": "func (u UsageEvidence) ValidatePresence() error"
+  },
+  {
+    "category": "method",
+    "name": "UsageEvidenceBuffer.AccountingEvidenceEnabled",
+    "detail": "func (b *UsageEvidenceBuffer) AccountingEvidenceEnabled() bool"
+  },
+  {
+    "category": "method",
+    "name": "UsageEvidenceBuffer.AddUsageEvent",
+    "detail": "func (b *UsageEvidenceBuffer) AddUsageEvent(event aipapi.Event, fallbackDedupeKey string)"
+  },
+  {
+    "category": "method",
+    "name": "UsageEvidenceBuffer.DrainAccountingEvidence",
+    "detail": "func (b *UsageEvidenceBuffer) DrainAccountingEvidence() []AccountingEvidence"
+  },
+  {
+    "category": "method",
+    "name": "UsageEvidenceBuffer.SetEnabled",
+    "detail": "func (b *UsageEvidenceBuffer) SetEnabled(enabled bool)"
+  },
+  {
+    "category": "method",
+    "name": "frameSequencer.Err",
+    "detail": "func (s *frameSequencer) Err() error"
+  },
+  {
+    "category": "method",
+    "name": "frameSequencer.Send",
+    "detail": "func (s *frameSequencer) Send(frame ServerFrame) error"
+  },
+  {
+    "category": "method",
+    "name": "frameSequencer.TerminalSent",
+    "detail": "func (s *frameSequencer) TerminalSent() bool"
+  },
+  {
+    "category": "method",
+    "name": "grpcExecuteStream.Context",
+    "detail": "func (g *grpcExecuteStream) Context() context.Context"
+  },
+  {
+    "category": "method",
+    "name": "grpcExecuteStream.Negotiation",
+    "detail": "func (g *grpcExecuteStream) Negotiation() Negotiation"
+  },
+  {
+    "category": "method",
+    "name": "grpcExecuteStream.Recv",
+    "detail": "func (g *grpcExecuteStream) Recv() (ClientFrame, error)"
+  },
+  {
+    "category": "method",
+    "name": "grpcExecuteStream.Send",
+    "detail": "func (g *grpcExecuteStream) Send(frame ServerFrame) error"
+  },
+  {
+    "category": "method",
+    "name": "singleConnListener.Accept",
+    "detail": "func (l *singleConnListener) Accept() (net.Conn, error)"
+  },
+  {
+    "category": "method",
+    "name": "singleConnListener.Addr",
+    "detail": "func (l *singleConnListener) Addr() net.Addr"
+  },
+  {
+    "category": "method",
+    "name": "singleConnListener.Close",
+    "detail": "func (l *singleConnListener) Close() error"
+  },
+  {
+    "category": "struct",
+    "name": "AccountingEvidence",
+    "detail": "AccountingEvidence struct {\n\tInputTokens                  *int64\n\tOutputTokens                 *int64\n\tCacheReadTokens              *int64\n\tCacheWriteTokens             *int64\n\tReasoningTokens              *int64\n\tTotalTokens                  *int64\n\tPresence                     UsagePresence\n\tSource                       AccountingSource\n\tAuthority                    AccountingAuthority\n\tPlane                        AccountingPlane\n\tDedupeKey                    string\n\tInputTokensExcludeCacheRead  bool\n\tInputTokensExcludeCacheWrite bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "AccountingEvidenceV2",
+    "detail": "AccountingEvidenceV2 struct {\n\tObservation    metering.Observation\n\tCoverage       EvidenceCoverage\n\tCoverageReason string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "CancelOutcome",
+    "detail": "CancelOutcome struct {\n\tAcknowledged bool\n\tDetail       string\n\tReason       CancelReason\n\tMode         CancelMode\n}"
+  },
+  {
+    "category": "struct",
+    "name": "CanonicalEvent",
+    "detail": "CanonicalEvent struct {\n\tKind             EventKind\n\tMessageIndex     *int32\n\tDelta            *string\n\tSignature        *string\n\tOpaque           []byte\n\tToolCallID       *string\n\tToolName         *string\n\tUsage            *UsageEvidence\n\tWarning          *string\n\tError            *PluginError\n\tImageRef         *string\n\tFileRef          *string\n\tReasoningDialect *string\n\tReasoningOpaque  []byte\n\n\tReasoningSummary          RawJSON\n\tReasoningContent          RawJSON\n\tReasoningEncryptedContent RawJSON\n\n\tFinishReason *string\n\n\tResponseStatus *string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "CapabilitySummary",
+    "detail": "CapabilitySummary struct {\n\tStreaming          bool\n\tTools              bool\n\tVision             bool\n\tDocuments          bool\n\tStructuredOutputs  bool\n\tReasoning          bool\n\tReasoningReplay    bool\n\tParallelToolCalls  bool\n\tOrderedItems       bool\n\tItemReferences     bool\n\tCompaction         bool\n\tAssistantPhase     bool\n\tOpaqueExtensions   bool\n\tVideoInput         bool\n\tAnnotations        bool\n\tAssistantMediaRefs bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ClientFrame",
+    "detail": "ClientFrame struct {\n\tKind                 ClientFrameKind\n\tSequence             uint64\n\tInstanceID           string\n\tInvocation           *Invocation\n\tCancelReason         CancelReason\n\tCancelDeadlineUnixMS int64\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ConfigureRequest",
+    "detail": "ConfigureRequest struct {\n\tInstanceID       string\n\tFactoryKind      string\n\tConfigYAML       []byte\n\tSecrets          SecretBundle\n\tRuntimePolicy    RuntimePolicy\n\tNegotiation      Negotiation\n\tNegotiationToken string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "CountTokensRequest",
+    "detail": "CountTokensRequest struct {\n\tInstanceID string\n\tModelID    string\n\tInvocation Invocation\n}"
+  },
+  {
+    "category": "struct",
+    "name": "CountTokensResponse",
+    "detail": "CountTokensResponse struct {\n\tInputTokens     *int64\n\tPresence        UsagePresence\n\tEvidenceQuality string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "CredentialContract",
+    "detail": "CredentialContract struct {\n\tVersion     uint32              `json:\"version\"`\n\tClass       CredentialClass     `json:\"class\"`\n\tSource      CredentialSource    `json:\"source\"`\n\tEnvRoot     string              `json:\"env_root\"`\n\tSlot        CredentialSlot      `json:\"slot\"`\n\tSelection   CredentialSelection `json:\"selection\"`\n\tQuotaDomain string              `json:\"quota_domain\"`\n}"
+  },
+  {
+    "category": "struct",
+    "name": "DialectRequirementDTO",
+    "detail": "DialectRequirementDTO struct {\n\tKind        string\n\tDialect     string\n\tImplementor string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "DialectSupport",
+    "detail": "DialectSupport struct {\n\tItemDialects       []DialectRequirementDTO\n\tReasoningDialects  []DialectRequirementDTO\n\tCompactionDialects []DialectRequirementDTO\n\tExtensionTypes     []ExtensionRequirementDTO\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ExtensionRequirementDTO",
+    "detail": "ExtensionRequirementDTO struct {\n\tNamespace   string\n\tType        string\n\tImplementor string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "FactoryDescriptor",
+    "detail": "FactoryDescriptor struct {\n\tKind                      string\n\tDisplayName               string\n\tDescription               string\n\tCredentialMode            CredentialMode\n\tAccessScope               AccessScope\n\tRoutePrefixes             []string\n\tSupportsCountTokens       bool\n\tSupportsFinalizeBilling   bool\n\tSupportsDynamicInventory  bool\n\tSupportsModelAwareProfile bool\n\tProcessSharing            ProcessSharing\n\tExperimental              bool\n\tDeprecated                bool\n\tStaticCapabilities        CapabilitySummary\n\tTransportCapabilities     TransportCapabilitySummary\n\n\tSupportsAccountingEvidenceV2 bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "Feature",
+    "detail": "Feature struct {\n\tName string\n\n\tRequired bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "FinalizeBillingRequest",
+    "detail": "FinalizeBillingRequest struct {\n\tInstanceID     string\n\tALegID         string\n\tBLegID         string\n\tModelID        string\n\tReason         string\n\tIdempotencyKey string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "FinalizeBillingResponse",
+    "detail": "FinalizeBillingResponse struct {\n\tUsage           UsageEvidence\n\tEvidenceQuality string\n\n\tAccountingV2 []AccountingEvidenceV2\n}"
+  },
+  {
+    "category": "struct",
+    "name": "GRPCServer",
+    "detail": "GRPCServer struct {\n\tbackendpluginv1.UnimplementedBackendPluginServer\n\n\tPluginOffer ProtocolOffer\n\tService     Service\n\n\tmu           sync.Mutex\n\tleaseCond    *sync.Cond\n\tstatus       HealthResponse\n\tnegotiations map[string]Negotiation\n\tinstances    map[string]*trackedInstance\n}"
+  },
+  {
+    "category": "struct",
+    "name": "GenerationOptions",
+    "detail": "GenerationOptions struct {\n\tMaxOutputTokens    *uint32\n\tTemperatureMillis  *int32\n\tReasoningEffort    *string\n\tParallelToolCalls  *bool\n\tResponseMIMEType   *string\n\tResponseSchemaJSON RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "GracefulShutdownRequest",
+    "detail": "GracefulShutdownRequest struct {\n\tDrainTimeoutMS int64\n}"
+  },
+  {
+    "category": "struct",
+    "name": "GracefulShutdownResponse",
+    "detail": "GracefulShutdownResponse struct {\n\tAccepted bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "HealthResponse",
+    "detail": "HealthResponse struct {\n\tServing bool\n\tDetail  string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "Invocation",
+    "detail": "Invocation struct {\n\tRequestID        string\n\tAttemptID        string\n\tALegID           string\n\tBLegID           string\n\tCanonicalModelID string\n\tNativeModelID    string\n\tInstructions     []Message\n\tMessages         []Message\n\tTools            []ToolDef\n\tToolChoice       *string\n\tOptions          GenerationOptions\n\tSafeMetadata     map[string]string\n\n\tProxyOwnedSessionID string\n\n\tPromptCacheKey     string\n\tSemanticExtensions []SemanticExtension\n\n\tOperation            string\n\tDeliveryMode         string\n\tTransportMode        string\n\tItemAuthority        bool\n\tItems                []InvocationItem\n\tProtocolRequirements ProtocolRequirements\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationCompactionItem",
+    "detail": "InvocationCompactionItem struct {\n\tEncapsulatedID string\n\tDialect        string\n\tImplementor    string\n\tOpaque         RawJSON\n\n\tEncryptedContent string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationContentPart",
+    "detail": "InvocationContentPart struct {\n\tKind           PartKind\n\tText           *string\n\tImageRef       *string\n\tImageMIME      *string\n\tFileRef        *string\n\tFileMIME       *string\n\tFileName       *string\n\tVideoRef       *string\n\tVideoMIME      *string\n\tReasoning      *InvocationReasoningPart\n\tRefusal        *string\n\tSummary        *string\n\tAnnotationType *string\n\tAnnotationData RawJSON\n\tAssistantRef   *string\n\n\tFileData *string\n\n\tExtensionType *string\n\tExtensionData RawJSON\n\n\tExtensionNamespace   *string\n\tExtensionImplementor *string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationExtensionItem",
+    "detail": "InvocationExtensionItem struct {\n\tNamespace   string\n\tType        string\n\tImplementor string\n\tDirection   string\n\tOpaque      RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationItem",
+    "detail": "InvocationItem struct {\n\tKind          string\n\tID            string\n\tStatus        string\n\tRole          Role\n\tPhase         string\n\tContent       []InvocationContentPart\n\tToolCall      *InvocationToolCall\n\tToolResult    *InvocationToolResult\n\tItemReference *InvocationItemReference\n\tReasoning     *InvocationReasoningItem\n\tCompaction    *InvocationCompactionItem\n\tExtension     *InvocationExtensionItem\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationItemReference",
+    "detail": "InvocationItemReference struct {\n\tID string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationReasoningItem",
+    "detail": "InvocationReasoningItem struct {\n\tDialect   *string\n\tText      *string\n\tSignature *string\n\tOpaque    RawJSON\n\n\tSummary          RawJSON\n\tContent          RawJSON\n\tEncryptedContent RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationReasoningPart",
+    "detail": "InvocationReasoningPart struct {\n\tDialect   *string\n\tText      *string\n\tSignature *string\n\tOpaque    RawJSON\n\n\tSummary          RawJSON\n\tContent          RawJSON\n\tEncryptedContent RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationToolCall",
+    "detail": "InvocationToolCall struct {\n\tCallID    string\n\tName      string\n\tArguments RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "InvocationToolResult",
+    "detail": "InvocationToolResult struct {\n\tCallID          string\n\tName            string\n\tOutput          *string\n\tStructuredParts []InvocationContentPart\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ListModelsResponse",
+    "detail": "ListModelsResponse struct {\n\tModels             []ModelDescriptor\n\tInventorySource    string\n\tFetchedUnixMS      int64\n\tRefreshAfterUnixMS *int64\n\tErrorCode          string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "Message",
+    "detail": "Message struct {\n\tRole  Role\n\tParts []Part\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ModeError",
+    "detail": "ModeError struct {\n\tCode string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ModelDescriptor",
+    "detail": "ModelDescriptor struct {\n\tCanonicalModelID string\n\tNativeModelID    string\n\tDisplayName      string\n\tRoutePrefix      string\n\tFactoryKind      string\n\n\tIsDefault    bool\n\tCapabilities CapabilitySummary\n}"
+  },
+  {
+    "category": "struct",
+    "name": "Negotiation",
+    "detail": "Negotiation struct {\n\tCompatible bool\n\n\tNegotiatedMinor uint32\n\n\tEnabledFeatures []string\n\n\tRejectReason string\n\n\tTransportPolicy TransportPolicy\n\n\tPluginMajor uint32\n\n\tPluginMinor uint32\n\n\tPluginFeatures []Feature\n\n\tNegotiationToken string\n}"
+  },
+  {
+    "category": "struct",
+    "name": "OrderedSecretSlot",
+    "detail": "OrderedSecretSlot struct {\n\tName  string\n\tIndex int\n\tValue []byte\n}"
+  },
+  {
+    "category": "struct",
+    "name": "Part",
+    "detail": "Part struct {\n\tKind             PartKind\n\tText             *string\n\tImageRef         *string\n\tFileRef          *string\n\tReasoningText    *string\n\tReasoningDialect *string\n\tReasoningOpaque  RawJSON\n\tToolArgsJSON     RawJSON\n\tToolCallID       *string\n\tToolName         *string\n\n\tReasoningSummary          RawJSON\n\tReasoningContent          RawJSON\n\tReasoningEncryptedContent RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "PluginDescriptor",
+    "detail": "PluginDescriptor struct {\n\tProtocolMajor uint32\n\tProtocolMinor uint32\n\tPluginID      string\n\tVersion       string\n\tBuildID       string\n\tFeatures      []Feature\n\tFactories     []FactoryDescriptor\n}"
+  },
+  {
+    "category": "struct",
+    "name": "PluginError",
+    "detail": "PluginError struct {\n\tCode            ErrorCode\n\tMessage         string\n\tRetryable       bool\n\tOutputCommitted bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ProtocolOffer",
+    "detail": "ProtocolOffer struct {\n\tMajor uint32\n\n\tMinor uint32\n\n\tFeatures []Feature\n\n\tDisableTransportRetries bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ProtocolRequirements",
+    "detail": "ProtocolRequirements struct {\n\tCapabilities       []string\n\tItemDialects       []DialectRequirementDTO\n\tReasoningDialects  []DialectRequirementDTO\n\tCompactionDialects []DialectRequirementDTO\n\tExtensionTypes     []ExtensionRequirementDTO\n}"
+  },
+  {
+    "category": "struct",
+    "name": "RawJSON",
+    "detail": "RawJSON struct {\n\tstate RawJSONState\n\tdata  []byte\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ReasoningEffortValuesV1",
+    "detail": "ReasoningEffortValuesV1 struct {\n\tModelID string\n\n\tSupported []string\n\n\tExhaustive bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ResolvedProfile",
+    "detail": "ResolvedProfile struct {\n\tCapabilities             CapabilitySummary\n\tTransportCapabilities    TransportCapabilitySummary\n\tDialectSupport           DialectSupport\n\tReasoningReplaySupported bool\n\tRoutePrefixes            []string\n\tEnforceMaxOutput         bool\n\tMaxOutputTokens          *uint32\n\tSupportsCountTokens      bool\n\tSupportsFinalizeBilling  bool\n\tSupportsDynamicInventory bool\n\tEvidenceSource           string\n\tProfileVersion           string\n\tPromptCacheProfile       promptcache.Profile\n\n\tSupportsAccountingEvidenceV2 bool\n\n\tReasoningEffortValues *ReasoningEffortValuesV1\n}"
+  },
+  {
+    "category": "struct",
+    "name": "RuntimePolicy",
+    "detail": "RuntimePolicy struct {\n\tMaxRequestBytes         uint64\n\tMaxStreamFrameBytes     uint64\n\tMaxPendingEvents        uint64\n\tRequestTimeoutMS        int64\n\tCancelDeadlineMS        int64\n\tDiagnosticsVerbosity    string\n\tMaxConcurrentExecutions uint32\n\tLocalOnly               bool\n\tAllowedEnvNames         []string\n\tDisableTransportRetries bool\n\n\tQuotaSwitchRetryAfterMS int64\n}"
+  },
+  {
+    "category": "struct",
+    "name": "SecretBundle",
+    "detail": "SecretBundle struct {\n\tValues map[string][]byte\n}"
+  },
+  {
+    "category": "struct",
+    "name": "SemanticExtension",
+    "detail": "SemanticExtension struct {\n\tNamespace   string\n\tType        string\n\tImplementor string\n\tDirection   string\n\tPresence    SemanticExtensionPresence\n\tData        RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ServeOptions",
+    "detail": "ServeOptions struct {\n\tName string\n\n\tListenAddr string\n\n\tStderr io.Writer\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ServerFrame",
+    "detail": "ServerFrame struct {\n\tKind          ServerFrameKind\n\tSequence      uint64\n\tEvent         *CanonicalEvent\n\tDiagnostic    string\n\tCancelOutcome *CancelOutcome\n\tTerminal      *Terminal\n\tAccounting    *AccountingEvidence\n\n\tAccountingV2           *AccountingEvidenceV2\n\tPromptCacheObservation *promptcache.Observation\n}"
+  },
+  {
+    "category": "struct",
+    "name": "StreamValidator",
+    "detail": "StreamValidator struct {\n\tisAccepted bool\n\tnextSeq    uint64\n\tterminated bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "Terminal",
+    "detail": "Terminal struct {\n\tStatus TerminalStatus\n\tError  *PluginError\n}"
+  },
+  {
+    "category": "struct",
+    "name": "ToolDef",
+    "detail": "ToolDef struct {\n\tName           string\n\tDescription    string\n\tParametersJSON RawJSON\n}"
+  },
+  {
+    "category": "struct",
+    "name": "TransportCapabilitySummary",
+    "detail": "TransportCapabilitySummary struct {\n\tKeepalive           bool\n\tCancellation        bool\n\tBidirectionalStream bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "TransportPolicy",
+    "detail": "TransportPolicy struct {\n\tDisableAutomaticRetries bool\n\n\tMaxMessageBytes uint64\n\n\tMaxStreamFrameBytes uint64\n}"
+  },
+  {
+    "category": "struct",
+    "name": "UsageEvidence",
+    "detail": "UsageEvidence struct {\n\tInputTokens      *int64\n\tOutputTokens     *int64\n\tCacheReadTokens  *int64\n\tCacheWriteTokens *int64\n\tReasoningTokens  *int64\n\tTotalTokens      *int64\n\tPresence         UsagePresence\n\tRawUsageJSON     RawJSON\n\n\tInputTokensExcludeCacheRead bool\n\n\tInputTokensExcludeCacheWrite bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "UsageEvidenceBuffer",
+    "detail": "UsageEvidenceBuffer struct {\n\tmu               sync.Mutex\n\titems            []AccountingEvidence\n\tlastFingerprint  map[string]string\n\tfingerprintOrder []string\n\tenabled          bool\n}"
+  },
+  {
+    "category": "struct",
+    "name": "V1EvidenceIdentity",
+    "detail": "V1EvidenceIdentity struct {\n\tStoreID        string\n\tObservationID  string\n\tSourceEventKey string\n\tRevision       uint64\n\tStreamID       string\n\tSequence       uint64\n\tSubject        metering.SubjectRef\n\tCorrelation    metering.CorrelationV2\n\tScope          scope.PrincipalScopeView\n\tObservedAt     time.Time\n\tReceivedAt     time.Time\n\tMappingRef     string\n}"
+  },
+  {
+    "category": "type",
+    "name": "AccessScope",
+    "detail": "AccessScope = aipsdk.BackendAccessScope"
+  },
+  {
+    "category": "type",
+    "name": "AccountingAuthority",
+    "detail": "AccountingAuthority string"
+  },
+  {
+    "category": "type",
+    "name": "AccountingEvidenceSource",
+    "detail": "AccountingEvidenceSource interface {\n\tDrainAccountingEvidence() []AccountingEvidence\n}"
+  },
+  {
+    "category": "type",
+    "name": "AccountingEvidenceV2Source",
+    "detail": "AccountingEvidenceV2Source interface {\n\tDrainAccountingEvidenceV2() []AccountingEvidenceV2\n}"
+  },
+  {
+    "category": "type",
+    "name": "AccountingPlane",
+    "detail": "AccountingPlane string"
+  },
+  {
+    "category": "type",
+    "name": "AccountingSource",
+    "detail": "AccountingSource string"
+  },
+  {
+    "category": "type",
+    "name": "BillingFinalizer",
+    "detail": "BillingFinalizer interface {\n\tFinalizeBilling(ctx context.Context, req FinalizeBillingRequest) (FinalizeBillingResponse, error)\n}"
+  },
+  {
+    "category": "type",
+    "name": "CancelMode",
+    "detail": "CancelMode = aipapi.CancelMode"
+  },
+  {
+    "category": "type",
+    "name": "CancelReason",
+    "detail": "CancelReason string"
+  },
+  {
+    "category": "type",
+    "name": "ClientFrameKind",
+    "detail": "ClientFrameKind string"
+  },
+  {
+    "category": "type",
+    "name": "ConfiguredInstance",
+    "detail": "ConfiguredInstance interface {\n\tResolve(ctx context.Context, modelID *string) (ResolvedProfile, error)\n\n\tListModels(ctx context.Context, maxModels uint32) (ListModelsResponse, error)\n\n\tExecute(stream ExecuteStream) error\n\n\tClose(ctx context.Context) error\n}"
+  },
+  {
+    "category": "type",
+    "name": "CredentialClass",
+    "detail": "CredentialClass string"
+  },
+  {
+    "category": "type",
+    "name": "CredentialMode",
+    "detail": "CredentialMode = aipsdk.BackendCredentialMode"
+  },
+  {
+    "category": "type",
+    "name": "CredentialSelection",
+    "detail": "CredentialSelection string"
+  },
+  {
+    "category": "type",
+    "name": "CredentialSlot",
+    "detail": "CredentialSlot string"
+  },
+  {
+    "category": "type",
+    "name": "CredentialSource",
+    "detail": "CredentialSource string"
+  },
+  {
+    "category": "type",
+    "name": "EconomicEvidenceSource",
+    "detail": "EconomicEvidenceSource interface {\n\tDrainEconomicEvidence() []AccountingEvidenceV2\n}"
+  },
+  {
+    "category": "type",
+    "name": "EconomicEvidenceV2",
+    "detail": "EconomicEvidenceV2 = AccountingEvidenceV2"
+  },
+  {
+    "category": "type",
+    "name": "EconomicObservation",
+    "detail": "EconomicObservation = metering.Observation"
+  },
+  {
+    "category": "type",
+    "name": "ErrorCode",
+    "detail": "ErrorCode string"
+  },
+  {
+    "category": "type",
+    "name": "EventKind",
+    "detail": "EventKind = aipapi.EventKind"
+  },
+  {
+    "category": "type",
+    "name": "EvidenceCoverage",
+    "detail": "EvidenceCoverage string"
+  },
+  {
+    "category": "type",
+    "name": "ExecuteStream",
+    "detail": "ExecuteStream interface {\n\tContext() context.Context\n\n\tRecv() (ClientFrame, error)\n\n\tSend(frame ServerFrame) error\n}"
+  },
+  {
+    "category": "type",
+    "name": "OpenManagedStream",
+    "detail": "OpenManagedStream func(ctx context.Context, inv Invocation, call aipapi.Call) (aipapi.ManagedEventStream, error)"
+  },
+  {
+    "category": "type",
+    "name": "OptionalExecuteStreamCloser",
+    "detail": "OptionalExecuteStreamCloser interface {\n\tClose() error\n}"
+  },
+  {
+    "category": "type",
+    "name": "OptionalNegotiatedStream",
+    "detail": "OptionalNegotiatedStream interface {\n\tNegotiation() Negotiation\n}"
+  },
+  {
+    "category": "type",
+    "name": "PartKind",
+    "detail": "PartKind string"
+  },
+  {
+    "category": "type",
+    "name": "ProcessSharing",
+    "detail": "ProcessSharing string"
+  },
+  {
+    "category": "type",
+    "name": "PromptCacheController",
+    "detail": "PromptCacheController interface {\n\tRenewPromptCache(context.Context, promptcache.RenewRequest) (promptcache.RenewResponse, error)\n\tReleasePromptCache(context.Context, promptcache.ReleaseRequest) error\n}"
+  },
+  {
+    "category": "type",
+    "name": "PromptCacheObservationSource",
+    "detail": "PromptCacheObservationSource interface{ promptcache.ObservationSource }"
+  },
+  {
+    "category": "type",
+    "name": "RawJSONState",
+    "detail": "RawJSONState int"
+  },
+  {
+    "category": "type",
+    "name": "Role",
+    "detail": "Role = aipapi.Role"
+  },
+  {
+    "category": "type",
+    "name": "SemanticExtensionPresence",
+    "detail": "SemanticExtensionPresence string"
+  },
+  {
+    "category": "type",
+    "name": "ServerFrameKind",
+    "detail": "ServerFrameKind string"
+  },
+  {
+    "category": "type",
+    "name": "Service",
+    "detail": "Service interface {\n\tDescribe(ctx context.Context) (PluginDescriptor, error)\n\n\tConfigure(ctx context.Context, req ConfigureRequest) (ConfiguredInstance, error)\n}"
+  },
+  {
+    "category": "type",
+    "name": "TerminalError",
+    "detail": "TerminalError interface {\n\terror\n\tTerminalPluginError() *PluginError\n}"
+  },
+  {
+    "category": "type",
+    "name": "TerminalStatus",
+    "detail": "TerminalStatus string"
+  },
+  {
+    "category": "type",
+    "name": "TokenCounter",
+    "detail": "TokenCounter interface {\n\tCountTokens(ctx context.Context, req CountTokensRequest) (CountTokensResponse, error)\n}"
+  },
+  {
+    "category": "type",
+    "name": "UsagePresence",
+    "detail": "UsagePresence = aipapi.UsagePresence"
+  },
+  {
+    "category": "var",
+    "name": "ErrAcceptedRequired",
+    "detail": "ErrAcceptedRequired"
+  },
+  {
+    "category": "var",
+    "name": "ErrAccountingEvidenceV2Conflict",
+    "detail": "ErrAccountingEvidenceV2Conflict"
+  },
+  {
+    "category": "var",
+    "name": "ErrAccountingEvidenceV2Unsupported",
+    "detail": "ErrAccountingEvidenceV2Unsupported"
+  },
+  {
+    "category": "var",
+    "name": "ErrConfigureBeforeNegotiate",
+    "detail": "ErrConfigureBeforeNegotiate"
+  },
+  {
+    "category": "var",
+    "name": "ErrDuplicateFeature",
+    "detail": "ErrDuplicateFeature"
+  },
+  {
+    "category": "var",
+    "name": "ErrEmptyFeatureName",
+    "detail": "ErrEmptyFeatureName"
+  },
+  {
+    "category": "var",
+    "name": "ErrEventAfterTerminal",
+    "detail": "ErrEventAfterTerminal"
+  },
+  {
+    "category": "var",
+    "name": "ErrExactOpenResponsesUnsupported",
+    "detail": "ErrExactOpenResponsesUnsupported"
+  },
+  {
+    "category": "var",
+    "name": "ErrIncompatibleMajor",
+    "detail": "ErrIncompatibleMajor"
+  },
+  {
+    "category": "var",
+    "name": "ErrIncompatibleMinor",
+    "detail": "ErrIncompatibleMinor"
+  },
+  {
+    "category": "var",
+    "name": "ErrInconsistentSecurityPosture",
+    "detail": "ErrInconsistentSecurityPosture"
+  },
+  {
+    "category": "var",
+    "name": "ErrInstanceBusy",
+    "detail": "ErrInstanceBusy"
+  },
+  {
+    "category": "var",
+    "name": "ErrInstanceExists",
+    "detail": "ErrInstanceExists"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidBounds",
+    "detail": "ErrInvalidBounds"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidCredentialContract",
+    "detail": "ErrInvalidCredentialContract"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidCredentialSlots",
+    "detail": "ErrInvalidCredentialSlots"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidDescriptor",
+    "detail": "ErrInvalidDescriptor"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidFrame",
+    "detail": "ErrInvalidFrame"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidInvocation",
+    "detail": "ErrInvalidInvocation"
+  },
+  {
+    "category": "var",
+    "name": "ErrInvalidRawJSON",
+    "detail": "ErrInvalidRawJSON"
+  },
+  {
+    "category": "var",
+    "name": "ErrMultipleTerminals",
+    "detail": "ErrMultipleTerminals"
+  },
+  {
+    "category": "var",
+    "name": "ErrNegotiationRequired",
+    "detail": "ErrNegotiationRequired"
+  },
+  {
+    "category": "var",
+    "name": "ErrOrderedItemsUnsupported",
+    "detail": "ErrOrderedItemsUnsupported"
+  },
+  {
+    "category": "var",
+    "name": "ErrOversizedMessage",
+    "detail": "ErrOversizedMessage"
+  },
+  {
+    "category": "var",
+    "name": "ErrOversizedRawJSON",
+    "detail": "ErrOversizedRawJSON"
+  },
+  {
+    "category": "var",
+    "name": "ErrPromptCacheUnsupported",
+    "detail": "ErrPromptCacheUnsupported"
+  },
+  {
+    "category": "var",
+    "name": "ErrProxyOwnedSessionUnsupported",
+    "detail": "ErrProxyOwnedSessionUnsupported"
+  },
+  {
+    "category": "var",
+    "name": "ErrSequenceGap",
+    "detail": "ErrSequenceGap"
+  },
+  {
+    "category": "var",
+    "name": "ErrTransportRetriesRequiredDisabled",
+    "detail": "ErrTransportRetriesRequiredDisabled"
+  },
+  {
+    "category": "var",
+    "name": "ErrUnknownEnum",
+    "detail": "ErrUnknownEnum"
+  },
+  {
+    "category": "var",
+    "name": "ErrUnknownEventKind",
+    "detail": "ErrUnknownEventKind"
+  },
+  {
+    "category": "var",
+    "name": "ErrUnknownFrameKind",
+    "detail": "ErrUnknownFrameKind"
+  },
+  {
+    "category": "var",
+    "name": "ErrUnknownNegotiationToken",
+    "detail": "ErrUnknownNegotiationToken"
+  },
+  {
+    "category": "var",
+    "name": "ErrUnknownRequiredFeature",
+    "detail": "ErrUnknownRequiredFeature"
+  },
+  {
+    "category": "var",
+    "name": "ErrUnsupportedPartKind",
+    "detail": "ErrUnsupportedPartKind"
+  }
+]

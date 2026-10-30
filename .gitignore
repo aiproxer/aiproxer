@@ -1,0 +1,140 @@
+# Binaries
+/bin/
+/dist/
+# Literal "%TEMP%" folder if env var was not expanded when building (Windows)
+/%TEMP%/
+*.exe
+*.dll
+*.so
+*.dylib
+# Common local name: go build -o aipstd ./cmd/aipstd
+/aipstd
+# Connector command builds (go build ./cmd/<name> from a connector module root)
+/connectors/*/aip-backend-*
+/connectors/codex/fake-codex-cli
+
+# Go build artifacts
+*.test
+# Windows: `go test -c` / package test binaries are named *.test.exe (not matched by *.test)
+*.test.exe
+*.out
+coverage.out
+coverage.html
+# Accidental cover profile dumps at repo root (e.g. mistyped -coverprofile=c)
+/c
+/coverage
+# Root-only: e.g. -coverprofile=cover_auth (does not match package dirs)
+/cover_*
+# Ad-hoc coverage output (file or directory at repo root)
+/tmp_coverage
+tmp_coverage
+
+# Go profiling & execution traces (see docs/alloc-profiling.md; pprof -http, go test -trace)
+# *.out above already ignores trace.out; keep suffix variants from tooling
+*.prof
+*.pprof
+trace.out.*
+
+# Local Go workspace (multi-module checkouts); remove these lines if the repo commits go.work
+go.work
+go.work.sum
+
+# Delve
+__debug_bin*
+
+# Local QA / race logs
+.tmp/
+
+# Ad-hoc logs and throwaway workspace at repo root (git add -f if a *.log fixture must be tracked)
+*.log
+/scratch/
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor / backup files
+*~
+*.swp
+*.swo
+\#*\#
+
+# Workspace files
+.idea/
+.vscode/
+
+# Local env/config overrides
+.env
+.env.*
+.envrc
+config/local.*
+
+# Python (optional local tooling / sibling scripts)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Project specific files
+.agents/
+.claude/
+.cursor/
+/codex-history.jsonl
+.letta/
+.opencode/
+/.pi/
+/.pi-subagents/
+
+# Cross-platform QA artifacts (Phase 9.4)
+.aip-crossplatform-matrix.json
+.aip-crossplatform-package-check/
+.aip-package-staging-test/
+.aip-package-staging/
+.aip-plugins/
+
+# Release gates report (Phase 9.5)
+.aip-release-gates-report.json
+
+# Local architecture/dev scratchpad (private, not for sharing)
+.dev/
+/.local/
+
+# Ignore unlisted root-level files; tracked top-level paths are listed in .release-files.
+/*
+!/.coderabbit.yaml
+!/.gitattributes
+!/.githooks/
+!/.github/
+!/.gitleaks.toml
+!/.golangci.yml
+!/.goreleaser.yaml
+!/.agents/
+!/.jules/
+!/.kiro/
+!/.release-files
+!/AGENTS.md
+!/CLAUDE.md
+!/VISION.md
+!/Makefile
+!/README.md
+!/.github/SECURITY.md
+!/api/
+!/cmd/
+!/config/
+!/config.yaml
+!/connector-support/
+!/connectors/
+!/docs/
+!/enterprise/
+!/go.mod
+!/go.sum
+!/internal/
+!/pkg/
+!/scripts/
+!/skills-lock.json
+!/specs/
+!/testdata/
+!/tools/
+!/.gitignore

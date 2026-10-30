@@ -1,0 +1,45 @@
+# Built-in OpenAI compatible backend without credentials (no auth headers).
+# Validate: go run ./cmd/aipstd check-config --config config/examples/custom-compatible-no-auth.yaml
+server:
+  address: "127.0.0.1:18093"
+
+routing:
+  max_attempts: 3
+  default_route: "local-openai:local-openai/model-a"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-legacy
+      enabled: true
+      config: {}
+  backends:
+    - id: local-openai
+      kind: custom-openai-legacy-compatible
+      enabled: true
+      config:
+        backend_prefix: local-openai
+        base_url: http://127.0.0.1:8080/v1
+        models:
+          source: inline
+          items:
+            - canonical_id: local-openai/model-a
+              native_id: model-a
+              display_name: Local OpenAI Model A
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}

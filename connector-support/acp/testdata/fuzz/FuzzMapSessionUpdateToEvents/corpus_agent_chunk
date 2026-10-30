@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"textDelta\":\"hi\"}}")

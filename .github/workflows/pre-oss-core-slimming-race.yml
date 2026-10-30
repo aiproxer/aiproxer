@@ -1,0 +1,79 @@
+# Targeted Linux race scan for the core-slimming surface (scheduled, not PR-gated).
+#
+# This job's package set is a strict subset of the nightly strict race gate in
+# race-fuzz-nightly.yml, which runs `bash scripts/race-check.sh --strict` over
+# every package in ./... under -race plus a dedicated archtest race scan. Race
+# coverage is therefore preserved on a schedule without charging every pull
+# request a 12-minute serial -p 2 -parallel 2 run.
+#
+# It previously fired on any pull request touching the slimming surface, which
+# made it the slowest check in a PR and blocked fast iteration on a check that
+# is not in main's required status-check set. Race evidence for a specific
+# revision is still one dispatch away: use the ref input below.
+name: Pre-OSS core slimming race
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to test"
+        required: false
+        default: ""
+        type: string
+  schedule:
+    # 05:23 UTC daily, deliberately offset from the 04:17 strict race/fuzz
+    # nightly so the two heavy race jobs never compete for the same runner pool.
+    - cron: "23 5 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pre-oss-core-slimming-race-${{ github.workflow }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Pin the exact revision the evidence describes: the dispatch ref when
+          # given, otherwise the commit that triggered this run.
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: race
+
+      - name: Run targeted Linux races
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -count=1 -race -p 2 -parallel 2 \
+            ./internal/core/runtime \
+            ./internal/core/largebody \
+            ./internal/core/execbackend \
+            ./internal/capabilityfacts \
+            ./internal/compactionfacts \
+            ./internal/infra/compactiondetect \
+            ./internal/plugins/frontends/frontendpipe \
+            ./internal/plugins/frontends/openailegacy \
+            ./internal/plugins/frontends/openairesponses \
+            ./internal/plugins/frontends/openresponses \
+            ./internal/plugins/backends/openaicompat \
+            ./internal/infra/runtimebundle \
+            ./internal/core/extensions \
+            ./internal/plugins/features/secretguard/... \
+            ./internal/standardplugins/featurehost/... \
+            ./internal/plugins/features/keepwarm/...

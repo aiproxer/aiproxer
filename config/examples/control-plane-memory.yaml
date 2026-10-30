@@ -1,0 +1,109 @@
+# Control-plane memory recording example.
+# Enables best-effort recording of auth, session, attempt, usage, policy, and audit
+# evidence into an in-memory event ledger. Query exposure and retention are off.
+# Memory store evidence is lost on process restart; use sqlite or postgres for durable evidence.
+# Same validation profile as openai-responses-stub.yaml; route default targets local stub.
+server:
+  address: "127.0.0.1:18081"
+
+routing:
+  max_attempts: 3
+  default_route: "stub-oar:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+control_plane:
+  enabled: true
+  store: memory
+  recording_policy: best_effort
+  redaction_default: standard
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: stub-oar
+      enabled: true
+      config:
+        text: "openai-responses smoke stub"
+        input_tokens: 1
+        output_tokens: 1
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}

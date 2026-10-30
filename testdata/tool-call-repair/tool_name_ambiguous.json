@@ -1,0 +1,36 @@
+{
+  "name": "tool_name_ambiguous",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getWeather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "Get-Weather",
+    "args_json": "{\"location\":\"NYC\"}"
+  },
+  "expect": {
+    "action": "unrepairable",
+    "args_json_unchanged": true,
+    "tool_name_unchanged": true,
+    "reason_code": "ambiguous_tool_name",
+    "must_not_mutate": true
+  }
+}

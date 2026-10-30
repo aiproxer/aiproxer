@@ -1,0 +1,82 @@
+{
+  "feature_name": "proxy-memory-model-policy",
+  "created_at": "2026-10-20T00:00:00Z",
+  "updated_at": "2026-10-27T00:00:00Z",
+  "language": "en",
+  "phase": "completed",
+  "spec_type": "brownfield_refinement",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "approval_note": "Approved by the owner via the parent session. The owner enabled all remaining tasks (\"Proceed with all remaining tasks!\", 2026-10-21) after the strong correction that no certification may be claimed for a non-existent integration. The approval covers the implementation of the tasks in this spec.",
+  "refines": [
+    "proxy-codex-memory"
+  ],
+  "related_specs": [
+    "proxy-memory-commercial"
+  ],
+  "related_issues": [
+    820,
+    1287,
+    1299
+  ],
+  "scope_notes": {
+    "split_reason": "proxy-codex-memory is at its owner-approved shrink-only ceiling, and the combined commercial + model-policy contract does not fit one spec's budget (.kiro/steering/delivery.md). The model-control half therefore lives here, next to .kiro/specs/proxy-memory-commercial/.",
+    "dependency": "Every end-to-end case in this spec needs the roles registered, so .kiro/specs/proxy-memory-commercial/ Requirement 1 (slice A) must land first: today the background phases are rejected before the backend is opened, so no model-control case has a subject.",
+    "budget_ownership": "This spec adds a composition-root file to an affected surface. The Requirement 11.5 convergence headroom and the 'Proxy memory' overlay cap are accounted for in design.md; any deepenings that exceed the measured headroom go to the owner as a separate budget approval, and no budget marker is widened to hide a delta."
+  },
+  "approved_scope": {
+    "scope": "All remaining tasks of this spec: the per-phase backend/model/reasoning-effort control, the per-phase allowed inventory and per-field locks, the enforcement against the final compiled actual target, the owner-scoped override store with its authenticated resource, and the freeze of the effective settings per claimed job.",
+    "approver": "owner, via the parent session",
+    "user_context": "Proceed with all remaining tasks!",
+    "parent_context": "Strong correction: do not certify a non-existent integration. No further routine approval pauses. Authorizes ALL commercial + model contract scope, not merges/closures/new billing engine. The parent approved all three flags and ready_for_implementation in both copied specs.",
+    "approved_at": "2026-10-21T10:11:10+02:00",
+    "excluded": "Outside the original broad hand-down scope: merges and issue closures, a new billing engine or ledger, new money arithmetic, any certification of the frozen billing-financial-safety-contracts spec, and any request-supplied account or unverified marker treated as financial authority. The Enterprise tree may reuse the existing monetary host integration and financial policy; the open-source tree keeps ports, call sites and no-op defaults and never imports enterprise/.",
+    "notes": "Base for implementation: 0b2d339ee, which carries the inherited unshipped memory feature and the archived runtime corrections (4e2d588fe, 0b2d339ee). A rebase onto main is not a precondition, and the land stays gated on the foundation reconciliation (#1287) and the owner merge authorization. Certification runs last, after the features are implemented; a required user-control guarantee that is not demonstrated blocks this slice readiness.",
+    "dependency_status": {
+      "roles": "implemented and archived in .kiro/specs/archive/proxy-memory-runtime-corrections (role 4e2d588fe) - not to be redone; the background phases execute, so the cases here have a subject"
+    }
+  },
+  "completed": true,
+  "completion": {
+    "implementation_prs": [
+      1413,
+      1414,
+      1566,
+      1567,
+      1419,
+      1420
+    ],
+    "merge_commits": {
+      "1413": "68b2e2c71f729a4d86ab0aa714c1dff136c043a4",
+      "1414": "9838b66b76a986f82bd91477f15df3b0dd08e695",
+      "1566": "866b38a52e6ddf31bacc49a2f40af1cfb31bab91",
+      "1567": "2cf51843e0f7d6eba5d665a4004a1657bc096b93",
+      "1419": "ab7426785fa9e592cd14c6bb8926c9b7aff144bd",
+      "1420": "04df06f0fb6c549917ed2ba25bf4bd50123ce4f6"
+    },
+    "superseded_prs": [
+      1389,
+      1415,
+      1417
+    ],
+    "merged_main_verified": true,
+    "remote_ci_verified": false,
+    "deferred": [
+      1569,
+      1568
+    ]
+  }
+}

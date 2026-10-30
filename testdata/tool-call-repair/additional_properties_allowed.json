@@ -1,0 +1,25 @@
+{
+  "name": "additional_properties_allowed",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"]
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"location\":\"NYC\",\"extra\":true}"
+  },
+  "expect": {
+    "action": "pass",
+    "args_json_unchanged": true,
+    "reason_code": "valid_pass_through",
+    "must_not_mutate": true
+  }
+}

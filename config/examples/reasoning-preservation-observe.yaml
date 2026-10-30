@@ -1,0 +1,143 @@
+# NO-KEY LOCAL STUB — config-validation dogfood only (issue #157).
+# action: observe — wiring proves check-config/routes/inventory; stub has no reasoning stream.
+# Behavioral E2E: TestPhase5_* (internal/core/runtime, reasoningpreservation).
+# Operator guide: docs/reasoning-output-preservation.md
+#
+# Validate: aipstd check-config|routes|inventory --config config/examples/reasoning-preservation-observe.yaml
+# inventory: participant stage posture only; outcome aggregates are BuildSafeInventory/telemetry API.
+server:
+  address: "127.0.0.1:18083"
+
+routing:
+  max_attempts: 3
+  default_route: "rp-observe-local:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: rp-observe-local
+      enabled: true
+      config:
+        text: "[reasoning-preservation observe] local stub"
+        input_tokens: 1
+        output_tokens: 1
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    - id: reasoning-output-preservation
+      enabled: true
+      config:
+        action: observe
+        use_builtin_catalog: false
+        rules:
+          - id: local-stub-observe
+            backend: rp-observe-local
+            enabled: true
+        on_ambiguous: log_skip
+        on_unrepresentable: reject
+        on_state_error: log_skip
+        state:
+          ttl: 1h
+          max_turns_per_session: 8
+          max_reasoning_bytes_per_turn: 4096
+          max_session_bytes: 32768
+        compression:
+          enabled: false
+        # To enable shadow compression, replace the block above with:
+        # compression:
+        #   enabled: true
+        #   mode: shadow
+        #   route: "openai-responses:small-model"
+        #   timeout: 8s
+        #   max_input_tokens: 12000
+        #   max_input_bytes: 1048576
+        #   max_output_tokens: 1500
+        #   max_output_bytes: 262144
+        #   max_surrogate_bytes: 131072
+        #   min_source_bytes: 4096
+        #   min_saved_bytes: 1024
+        #   min_savings_ratio: 0.3
+        #   max_pending_per_session: 8
+        #   max_surrogate_bytes_per_session: 524288
+        #   max_pending_total: 256
+        #   max_surrogate_bytes_total: 16777216
+        #   egress_policy_ref: "allowlist:reasoning-compression"

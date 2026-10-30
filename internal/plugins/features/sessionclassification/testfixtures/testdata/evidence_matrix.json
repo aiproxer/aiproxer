@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {"id":"requirements_local_evidence","reference":".kiro/specs/archive/coding-agent-session-classification/requirements.md#Requirement-3","description":"Requirements 3.1-3.10 define identity, tool-cluster, weak-signal, exclusion, and canonical taxonomy behavior."},
+    {"id":"requirements_matrix","reference":".kiro/specs/archive/coding-agent-session-classification/requirements.md#Requirement-12","description":"Requirements 12.1-12.3 require evidence-backed harness positives and ordinary technical-chat/Cline negatives."},
+    {"id":"design_shared_facts","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Shared-Client-Family-Facts","description":"Shared identity matching is bounded and exact; generic SDK identities are not coding-agent identities."},
+    {"id":"design_rule_a","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Rule-A-high-confidence-client-identity","description":"Rule A evidence codes and the high-confidence identity boundary."},
+    {"id":"design_rule_b","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Rule-B-distinctive-coding-tool-cluster","description":"Rule B requires canonical file read/search, local mutation, and OS-command categories."},
+    {"id":"design_rule_c","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Rule-C-corroborated-tool-plus-project-marker","description":"Rule C requires read/search plus local mutation and a recognized project marker; .git alone is not decisive."},
+    {"id":"design_explicit_negatives","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Explicit-negatives","description":"The stock heuristic ignores weak technical, model, web, one-tool, and generic SDK signals."},
+    {"id":"design_exclusions","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Exclusions","description":"Identity exclusions apply prospectively and never downgrade an established positive."},
+    {"id":"design_brownfield_fixtures","reference":".kiro/specs/archive/coding-agent-session-classification/design.md#Brownfield-fixture-matrix","description":"The acceptance matrix reuses root matcher, tool classification, compaction, and explicit-completion research."},
+    {"id":"codex_current_user_agent","reference":"https://github.com/openai/codex/blob/main/codex-rs/login/src/auth/default_client.rs#L42-L42","description":"Current Codex source defines the codex_cli_rs originator used by its client User-Agent."},
+    {"id":"codex_current_user_agent_builder","reference":"https://github.com/openai/codex/blob/main/codex-rs/login/src/auth/default_client.rs#L152-L178","description":"Current Codex source builds the versioned codex_cli_rs User-Agent."},
+    {"id":"codex_current_user_agent_header","reference":"https://github.com/openai/codex/blob/main/codex-rs/login/src/auth/default_client.rs#L459-L460","description":"Current Codex source inserts the constructed value into the HTTP User-Agent header."},
+    {"id":"roo_current_user_agent","reference":"https://github.com/RooCodeInc/Roo-Code/blob/main/src/api/providers/openai-native.ts#L95-L103","description":"Current Roo OpenAI-native provider emits a versioned roo-code User-Agent."},
+    {"id":"opencode_root_identity_fixture","reference":"internal/plugins/features/codexclientcompat/plugin_test.go#L26-L35","description":"The root compatibility tests positively match opencode/1.2.26 from extension.agent; classification fixtures pass the proven token through the accepted ClientUserAgent field."},
+    {"id":"opencode_root_identity_matcher","reference":"internal/plugins/features/codexclientcompat/bridge_opencode.go#L10-L16","description":"The root OpenCode matcher reads bounded agent identity candidates."},
+    {"id":"pi_root_identity_fixture","reference":"internal/plugins/features/codexclientcompat/plugin_test.go#L108-L120","description":"The root compatibility tests positively match the Pi value from extension.user_agent; classification fixtures pass the proven token through the accepted ClientUserAgent field."},
+    {"id":"pi_root_identity_matcher","reference":"internal/plugins/features/codexclientcompat/bridge_pi.go#L18-L33","description":"The root Pi matcher recognizes bounded stable identity markers."},
+    {"id":"droid_root_identity_matcher","reference":"internal/plugins/features/codexclientcompat/bridge_droid.go#L19-L43","description":"The root Droid matcher recognizes Factory CLI identity tokens from agent candidates; classification fixtures pass the proven token through the accepted ClientUserAgent field."},
+    {"id":"droid_tool_only_negative","reference":"internal/plugins/features/codexclientcompat/plugin_test.go#L52-L62","description":"A Droid-like tool list alone is not enough for the existing root matcher."},
+    {"id":"hermes_root_identity_fixture","reference":"internal/plugins/features/codexclientcompat/plugin_test.go#L715-L724","description":"The root compatibility tests positively match hermes-agent/1.0 NousResearch from extension.agent; classification fixtures pass the proven token through the accepted ClientUserAgent field."},
+    {"id":"hermes_root_identity_matcher","reference":"internal/plugins/features/codexclientcompat/bridge_hermes.go#L13-L27","description":"The root Hermes matcher recognizes bounded stable identity markers."},
+    {"id":"cline_ambiguous_user_agent_research","reference":".kiro/specs/archive/coding-agent-session-classification/research.md#User-Agent-quality-differs-materially-by-coding-harness","description":"Cline may expose underlying Anthropic/JS or OpenAI/JS identities rather than a stable Cline-specific User-Agent."},
+    {"id":"cline_user_agent_discussion","reference":"https://github.com/cline/cline/discussions/8377","description":"Cline discussion documenting inconsistent and SDK-like User-Agent behavior."},
+    {"id":"tool_name_survey","reference":".kiro/specs/archive/tool-call-classification/research.md#External-Harness-Tool-Name-Survey","description":"The archived survey records cross-harness tool names and aliases that informed canonical tool classification."},
+    {"id":"canonical_tool_classifier","reference":"pkg/aipapi/tool_classification.go#L10-L69","description":"ClassifyToolName owns the exact name-to-category mapping and ignores descriptions and arguments."},
+    {"id":"explicit_completion_research","reference":".kiro/specs/archive/agent-loop-explicit-completion-protocol/research.md#Cline","description":"Cline and Roo use attempt_completion as a completion signal; this alone is not a client identity rule."},
+    {"id":"compaction_agent_research","reference":".kiro/specs/archive/compaction-event-detection/research.md#Agent-Rule-Families","description":"The compaction survey records prompt/summary signatures, including Aider, which are outside session identity evidence."}
+  ],
+  "harnessIdentitySupport": [
+    {
+      "harness": "codex",
+      "status": "high_confidence",
+      "identityField": "user_agent",
+      "examples": ["codex_cli_rs/1.2.3"],
+      "sourceRefs": ["codex_current_user_agent", "codex_current_user_agent_builder", "codex_current_user_agent_header", "design_rule_a"],
+      "reason": "Current Codex source emits a versioned codex_cli_rs identity, so the family token is supported as a high-confidence client identity."
+    },
+    {
+      "harness": "roo_code",
+      "status": "high_confidence",
+      "identityField": "user_agent",
+      "examples": ["roo-code/1.2.3"],
+      "sourceRefs": ["roo_current_user_agent", "design_rule_a"],
+      "reason": "Current Roo source emits a versioned roo-code identity on relevant OpenAI and Codex traffic."
+    },
+    {
+      "harness": "opencode",
+      "status": "high_confidence",
+      "identityField": "user_agent",
+      "examples": ["opencode/1.2.26"],
+      "sourceRefs": ["opencode_root_identity_fixture", "opencode_root_identity_matcher", "design_shared_facts"],
+      "reason": "The root matcher proves this stable identity from extension.agent. The classification fixture uses the same value in the accepted user_agent input field."
+    },
+    {
+      "harness": "pi",
+      "status": "high_confidence",
+      "identityField": "user_agent",
+      "examples": ["@mariozechner/pi-coding-agent/0.55.3"],
+      "sourceRefs": ["pi_root_identity_fixture", "pi_root_identity_matcher", "design_shared_facts"],
+      "reason": "The root matcher proves this stable identity from extension.user_agent. The classification fixture uses the same value in the accepted user_agent input field."
+    },
+    {
+      "harness": "factory_droid",
+      "status": "high_confidence",
+      "identityField": "user_agent",
+      "examples": ["factory-cli/1.2.3"],
+      "sourceRefs": ["droid_root_identity_matcher", "droid_tool_only_negative", "design_shared_facts"],
+      "reason": "The root matcher accepts the distinctive factory-cli identity and rejects a Droid-like tool list without identity evidence. The classification fixture uses the accepted user_agent input field."
+    },
+    {
+      "harness": "hermes",
+      "status": "high_confidence",
+      "identityField": "user_agent",
+      "examples": ["hermes-agent/1.0 NousResearch"],
+      "sourceRefs": ["hermes_root_identity_fixture", "hermes_root_identity_matcher", "design_shared_facts"],
+      "reason": "The root matcher proves this stable identity from extension.agent. The classification fixture uses the same value in the accepted user_agent input field."
+    },
+    {
+      "harness": "cline",
+      "status": "ambiguous",
+      "identityField": "user_agent",
+      "examples": ["Anthropic/JS", "OpenAI/JS"],
+      "sourceRefs": ["cline_ambiguous_user_agent_research", "cline_user_agent_discussion", "requirements_local_evidence"],
+      "reason": "These SDK-like identities are shared and do not establish that the client is Cline; each remains unknown without independent decisive evidence."
+    },
+    {
+      "harness": "aider",
+      "status": "unsupported_by_user_agent_alone",
+      "identityField": "user_agent",
+      "examples": [],
+      "sourceRefs": ["compaction_agent_research", "design_explicit_negatives"],
+      "reason": "The surveyed Aider evidence is a prompt/summary compaction signature, not a supported stable User-Agent identity. V1 does not inspect those prompt signatures, so User-Agent alone is unsupported."
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "codex_stable_identity_positive",
+      "harness": "codex",
+      "identityField": "user_agent",
+      "identityValue": "codex_cli_rs/1.2.3",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.codex"],
+      "sourceRefs": ["codex_current_user_agent", "codex_current_user_agent_builder", "codex_current_user_agent_header", "design_rule_a", "requirements_matrix"],
+      "reason": "The versioned Codex User-Agent is a supported high-confidence identity and is independently sufficient."
+    },
+    {
+      "id": "roo_stable_identity_positive",
+      "harness": "roo_code",
+      "identityField": "user_agent",
+      "identityValue": "roo-code/1.2.3",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.roo"],
+      "sourceRefs": ["roo_current_user_agent", "design_rule_a", "requirements_matrix"],
+      "reason": "The versioned Roo User-Agent is a supported high-confidence identity and is independently sufficient."
+    },
+    {
+      "id": "opencode_stable_identity_positive",
+      "harness": "opencode",
+      "identityField": "user_agent",
+      "identityValue": "opencode/1.2.26",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.opencode"],
+      "sourceRefs": ["opencode_root_identity_fixture", "opencode_root_identity_matcher", "design_rule_a"],
+      "reason": "The existing root matcher fixture demonstrates this stable agent identity; the source field is recorded explicitly for later canonicalization."
+    },
+    {
+      "id": "pi_stable_identity_positive",
+      "harness": "pi",
+      "identityField": "user_agent",
+      "identityValue": "@mariozechner/pi-coding-agent/0.55.3",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.pi"],
+      "sourceRefs": ["pi_root_identity_fixture", "pi_root_identity_matcher", "design_rule_a"],
+      "reason": "The existing root matcher fixture demonstrates a stable Pi User-Agent identity."
+    },
+    {
+      "id": "droid_stable_identity_positive",
+      "harness": "factory_droid",
+      "identityField": "user_agent",
+      "identityValue": "factory-cli/1.2.3",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.droid"],
+      "sourceRefs": ["droid_root_identity_matcher", "design_rule_a"],
+      "reason": "The distinctive factory-cli agent identity is supported; this positive does not rely on the Droid tool list alone."
+    },
+    {
+      "id": "hermes_stable_identity_positive",
+      "harness": "hermes",
+      "identityField": "user_agent",
+      "identityValue": "hermes-agent/1.0 NousResearch",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.hermes"],
+      "sourceRefs": ["hermes_root_identity_fixture", "hermes_root_identity_matcher", "design_rule_a"],
+      "reason": "The existing root matcher fixture demonstrates a stable Hermes identity."
+    },
+    {
+      "id": "cline_anthropic_sdk_ua_unknown",
+      "harness": "cline",
+      "identityField": "user_agent",
+      "identityValue": "Anthropic/JS",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["cline_ambiguous_user_agent_research", "cline_user_agent_discussion", "requirements_local_evidence"],
+      "reason": "Anthropic/JS is an underlying SDK identity shared by clients and cannot identify Cline by itself."
+    },
+    {
+      "id": "cline_openai_sdk_ua_unknown",
+      "harness": "cline",
+      "identityField": "user_agent",
+      "identityValue": "OpenAI/JS",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["cline_ambiguous_user_agent_research", "cline_user_agent_discussion", "requirements_local_evidence"],
+      "reason": "OpenAI/JS is a generic underlying SDK identity and cannot identify Cline by itself."
+    },
+    {
+      "id": "generic_sdk_with_distinctive_tools_positive",
+      "harness": "cline",
+      "identityField": "user_agent",
+      "identityValue": "Anthropic/JS",
+      "toolEvidence": [
+        {"name":"Read","expectedCategory":"file_read"},
+        {"name":"Grep","expectedCategory":"file_search"},
+        {"name":"Edit","expectedCategory":"file_edit"},
+        {"name":"Bash","expectedCategory":"os_command"}
+      ],
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["tooling.distinct_coding_cluster"],
+      "sourceRefs": ["cline_ambiguous_user_agent_research", "design_rule_b", "tool_name_survey", "canonical_tool_classifier"],
+      "reason": "The generic SDK identity remains non-evidence, while the current turn's canonical read, search, edit, and OS-command categories form the independent decisive cluster."
+    },
+    {
+      "id": "absent_ua_with_distinctive_tools_positive",
+      "toolEvidence": [
+        {"name":"Read","expectedCategory":"file_read"},
+        {"name":"Grep","expectedCategory":"file_search"},
+        {"name":"Edit","expectedCategory":"file_edit"},
+        {"name":"Bash","expectedCategory":"os_command"}
+      ],
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["tooling.distinct_coding_cluster"],
+      "sourceRefs": ["design_rule_b", "tool_name_survey", "canonical_tool_classifier"],
+      "reason": "A missing User-Agent does not block an independently decisive canonical tool cluster."
+    },
+    {
+      "id": "read_search_edit_without_marker_unknown",
+      "toolEvidence": [
+        {"name":"Read","expectedCategory":"file_read"},
+        {"name":"Grep","expectedCategory":"file_search"},
+        {"name":"Edit","expectedCategory":"file_edit"}
+      ],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_rule_b", "design_rule_c", "canonical_tool_classifier"],
+      "reason": "Read/search plus one local mutation lacks both the OS-command category required by Rule B and the project marker required by Rule C."
+    },
+    {
+      "id": "git_marker_is_not_decisive_unknown",
+      "toolEvidence": [{"name":"Read","expectedCategory":"file_read"}, {"name":"Edit","expectedCategory":"file_edit"}],
+      "projectMarkers": [".git"],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_rule_c", "requirements_local_evidence", "canonical_tool_classifier"],
+      "reason": "Generic .git is explicitly not a decisive project marker, so read plus edit remains weak evidence."
+    },
+    {
+      "id": "project_marker_cluster_positive",
+      "toolEvidence": [
+        {"name":"read_file","expectedCategory":"file_read"},
+        {"name":"search_files","expectedCategory":"file_search"},
+        {"name":"write_file","expectedCategory":"file_edit"}
+      ],
+      "projectMarkers": ["go.mod"],
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["tooling.project_marker_cluster"],
+      "sourceRefs": ["design_rule_c", "tool_name_survey", "canonical_tool_classifier"],
+      "reason": "Canonical read/search and mutation categories are corroborated by the recognized Go project marker go.mod."
+    },
+    {
+      "id": "single_bash_unknown",
+      "toolEvidence": [{"name":"bash","expectedCategory":"os_command"}],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_explicit_negatives", "canonical_tool_classifier"],
+      "reason": "A lone generic shell tool does not form a distinctive coding-tool cluster."
+    },
+    {
+      "id": "single_web_search_unknown",
+      "toolEvidence": [{"name":"web_search","expectedCategory":"web_access"}],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_explicit_negatives", "canonical_tool_classifier"],
+      "reason": "A web lookup tool alone is not coding-agent evidence."
+    },
+    {
+      "id": "single_read_file_unknown",
+      "toolEvidence": [{"name":"read_file","expectedCategory":"file_read"}],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_explicit_negatives", "canonical_tool_classifier"],
+      "reason": "One file-read category without search, mutation, command, identity, or marker evidence remains unknown."
+    },
+    {
+      "id": "single_grep_unknown",
+      "toolEvidence": [{"name":"grep","expectedCategory":"file_search"}],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_explicit_negatives", "canonical_tool_classifier"],
+      "reason": "One file-search category without other decisive evidence remains unknown."
+    },
+    {
+      "id": "technical_prose_unknown",
+      "weakSignals": ["technical_prose", "technical_words"],
+      "weakPrompt": "Please debugGo and explain the bug in this repository.",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["requirements_local_evidence", "design_explicit_negatives"],
+      "reason": "Programming discussion, including ordinary words such as code, bug, and repository, is not inspected as classification evidence."
+    },
+    {
+      "id": "source_filename_unknown",
+      "weakSignals": ["source_filename"],
+      "weakPrompt": "Please review main.go and explain the build error.",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["requirements_local_evidence", "design_explicit_negatives"],
+      "reason": "Mentioning main.go or another source filename alone is not classification evidence."
+    },
+    {
+      "id": "code_fence_unknown",
+      "weakSignals": ["markdown_code_fence"],
+      "weakPrompt": "Can you explain this snippet?\n```go\nfmt.Println(\"hello\")\n```",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["requirements_local_evidence", "design_explicit_negatives"],
+      "reason": "A Markdown code fence without independent decisive evidence does not promote."
+    },
+    {
+      "id": "programming_language_name_unknown",
+      "weakSignals": ["programming_language_name"],
+      "weakPrompt": "I am learning Rust ownership and trait bounds.",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["requirements_local_evidence", "design_explicit_negatives"],
+      "reason": "Programming-language names such as Rust alone do not indicate a coding-agent client."
+    },
+    {
+      "id": "model_name_unknown",
+      "weakSignals": ["model_name"],
+      "weakPrompt": "Would gpt-5-codex be suitable for this code question?",
+      "modelName": "gpt-5-codex",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["requirements_local_evidence", "design_explicit_negatives"],
+      "reason": "A model name such as gpt-5-codex is not client identity evidence."
+    },
+    {
+      "id": "prompt_compaction_marker_unknown",
+      "weakSignals": ["prompt_compaction_marker"],
+      "weakPrompt": "[CONTEXT SUMMARY]: The earlier conversation was compacted. Continue with the current task.",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["design_explicit_negatives", "compaction_agent_research"],
+      "reason": "Compaction prompt markers belong to the separate compaction research surface and are not scanned by V1 session classification."
+    },
+    {
+      "id": "cline_attempt_completion_unknown",
+      "harness": "cline",
+      "identityField": "user_agent",
+      "identityValue": "Anthropic/JS",
+      "toolEvidence": [{"name":"attempt_completion","expectedCategory":"unknown"}],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["cline_ambiguous_user_agent_research", "explicit_completion_research", "canonical_tool_classifier"],
+      "reason": "Cline's attempt_completion is a task-lifecycle tool name, while the UA remains a generic SDK identity and the tool name maps to no coding category."
+    },
+    {
+      "id": "assistant_action_description_names_unknown",
+      "toolEvidence": [
+        {"name":"assistant_action","expectedCategory":"unknown","description":"Read Grep Edit Bash are examples of actions this general assistant tool can perform."}
+      ],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["requirements_local_evidence", "design_explicit_negatives", "canonical_tool_classifier"],
+      "reason": "Canonical tool evidence classifies the exact name only; coding-tool words in an arbitrary description are not additional categories."
+    },
+    {
+      "id": "excluded_identity_prospective_unknown",
+      "harness": "codex",
+      "identityField": "user_agent",
+      "identityValue": "codex_cli_rs/1.2.3",
+      "ignoredUserAgentPrefixes": ["codex_cli_rs/"],
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["codex_current_user_agent", "design_exclusions", "requirements_local_evidence"],
+      "reason": "A configured case-insensitive prefix exclusion prevents this prospective identity-only match."
+    },
+    {
+      "id": "exclusion_preserves_prior_positive",
+      "harness": "codex",
+      "identityField": "user_agent",
+      "identityValue": "codex_cli_rs/1.2.3",
+      "ignoredUserAgentPrefixes": ["codex_cli_rs/"],
+      "priorClassification": "coding_agent",
+      "expectedClassification": "coding_agent",
+      "expectedEvidenceCodes": ["client_family.codex"],
+      "sourceRefs": ["codex_current_user_agent", "design_exclusions", "requirements_local_evidence"],
+      "reason": "The exclusion applies before a prospective Rule A match and cannot revoke the already-established positive classification."
+    },
+    {
+      "id": "aider_no_stable_ua_unknown",
+      "harness": "aider",
+      "identityField": "user_agent",
+      "expectedClassification": "unknown",
+      "expectedEvidenceCodes": [],
+      "sourceRefs": ["compaction_agent_research", "design_shared_facts", "design_explicit_negatives"],
+      "reason": "Research coverage of Aider compaction does not establish a stable UA identity. Prompt signatures are outside V1 evidence, so absence of supported UA evidence stays unknown."
+    }
+  ]
+}

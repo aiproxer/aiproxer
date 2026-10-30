@@ -1,0 +1,23 @@
+{
+  "feature_name": "bun-database-abstraction",
+  "created_at": "2026-04-25T23:54:00.4338420+02:00",
+  "updated_at": "2026-04-26T00:21:49.5768517+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

@@ -1,0 +1,116 @@
+[
+  {
+    "id": 1,
+    "name": "constructor-injection-not-globals",
+    "description": "Tests that dependencies are injected via constructors, not global variables or init()",
+    "prompt": "I have a UserService that needs a database connection and a logger. What's the best way to set this up in Go? I was thinking of using a package-level var for the database.",
+    "trap": "Without the skill, the model may accept the global variable approach or use init() for setup. The skill explicitly forbids globals and init() for service setup.",
+    "assertions": [
+      {"id": "1.1", "text": "Uses constructor injection (NewUserService taking dependencies as parameters)"},
+      {"id": "1.2", "text": "Explicitly advises against package-level variables for service dependencies"},
+      {"id": "1.3", "text": "Explains why globals are problematic (untestable, hidden dependencies, or coupling)"},
+      {"id": "1.4", "text": "Does NOT use init() for service initialization"},
+      {"id": "1.5", "text": "Returns a concrete struct pointer from the constructor, not an interface"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "interface-defined-at-consumer",
+    "description": "Tests that interfaces are defined where consumed, not where implemented",
+    "prompt": "I'm building a Go service that uses a UserStore. Should I define the UserStore interface in the same package as the PostgreSQL implementation or somewhere else? Show me the correct pattern.",
+    "trap": "Without the skill, the model often defines the interface in the implementation package (next to the struct). The skill requires interfaces to be defined at the consumption site.",
+    "assertions": [
+      {"id": "2.1", "text": "Defines the interface in the consuming package (e.g. service package), not the implementation package"},
+      {"id": "2.2", "text": "Explains the principle: accept interfaces, return structs"},
+      {"id": "2.3", "text": "The implementation package returns a concrete struct pointer"},
+      {"id": "2.4", "text": "The consumer depends on its own locally-defined interface"},
+      {"id": "2.5", "text": "Does NOT have the implementation package import the consumer's interface"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "manual-di-for-small-projects",
+    "description": "Selects DI from graph and lifecycle needs",
+    "prompt": "I'm building a small Go REST API with about 5 services: config, database, user repository, user service, and HTTP handler. What DI approach should I use?",
+    "trap": "Choosing DI by a fixed service-count threshold",
+    "assertions": [
+      {"id": "4.1", "text": "Recommends manual constructor injection for a project with only 5 services"},
+      {"id": "4.2", "text": "Does NOT recommend a DI library as the primary approach"},
+      {"id": "4.3", "text": "Shows wiring in main() with explicit constructor calls in dependency order"},
+      {"id": "4.4", "text": "Initializes infrastructure first, then repositories, then services, then transport"},
+      {"id": "4.5", "text": "Selects libraries from graph/lifecycle/debugging needs rather than service-count thresholds"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "di-library-selection-judgment",
+    "description": "Tests correct DI library recommendation based on project characteristics",
+    "prompt": "I'm building a large Go microservice with 40+ services, complex lifecycle management (health checks, graceful shutdown), and I want compile-time type safety. My team is comfortable with Go generics. Which DI library should I use?",
+    "trap": "Generic provider APIs do not make a runtime DI graph compile-time safe. The recommendation must distinguish type-parameter convenience from graph validation and lifecycle behavior.",
+    "assertions": [
+      {"id": "5.1", "text": "Explains that generic container APIs still resolve graph failures at runtime unless the graph is generated or hand-wired"},
+      {"id": "5.2", "text": "Explains why uber-go/fx is a valid alternative but uses reflection (runtime errors, not compile-time)"},
+      {"id": "5.3", "text": "Explains why google/wire lacks built-in lifecycle management (no health checks, no shutdown)"},
+      {"id": "5.4", "text": "Checks the selected library version go.mod before claiming a minimum Go version"},
+      {"id": "5.5", "text": "Discusses at least 3 DI library options from the decision table"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "wire-build-constraint-and-codegen",
+    "description": "Tests that existing google/wire code uses the wireinject build constraint while noting Wire's archived status",
+    "prompt": "Set up google/wire for a Go application with Config, Database, UserStore, and UserService. Show the wire.go file and explain what happens when I run wire.",
+    "trap": "Without the skill, the model may omit the build constraint or present archived Wire as a current default without explaining generated-code trade-offs.",
+    "assertions": [
+      {"id": "6.1", "text": "Includes //go:build wireinject build constraint in the wire.go file"},
+      {"id": "6.2", "text": "Uses wire.Build with all provider functions listed"},
+      {"id": "6.3", "text": "Shows wire.Bind for binding interface to implementation"},
+      {"id": "6.4", "text": "Explains that wire generates wire_gen.go with plain constructor calls"},
+      {"id": "6.5", "text": "Mentions that wire_gen.go must not be edited manually and that the upstream Wire repository is archived/read-only"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "fx-lifecycle-hooks-pattern",
+    "description": "Tests proper uber-go/fx lifecycle hook usage for startup/shutdown",
+    "prompt": "Set up a database connection using uber-go/fx that connects on startup and cleanly closes on shutdown.",
+    "trap": "Without the skill, the model may open and close the connection manually instead of using fx.Lifecycle hooks. The skill requires OnStart/OnStop hooks.",
+    "assertions": [
+      {"id": "7.1", "text": "Uses fx.Lifecycle parameter in the provider function"},
+      {"id": "7.2", "text": "Registers OnStart hook for establishing the database connection"},
+      {"id": "7.3", "text": "Registers OnStop hook for closing the database connection"},
+      {"id": "7.4", "text": "Uses lc.Append(fx.Hook{...}) pattern"},
+      {"id": "7.5", "text": "OnStart and OnStop take context.Context as parameter"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "testing-with-di-mock-injection",
+    "description": "Tests that DI enables testing by injecting mocks at the interface boundary",
+    "prompt": "Write a test for a UserService that depends on a UserStore interface. The test should verify that GetUser returns the correct user when found and an error when not found. Don't use any DI library.",
+    "trap": "Without the skill, the model may test with a real database or skip the mock pattern. The skill requires mocking at the interface boundary.",
+    "assertions": [
+      {"id": "8.1", "text": "Creates a mock implementation of the UserStore interface"},
+      {"id": "8.2", "text": "Injects the mock into UserService via the constructor (NewUserService)"},
+      {"id": "8.3", "text": "Tests both the success path (user found) and the error path (not found)"},
+      {"id": "8.4", "text": "Does NOT use a real database connection in the test"},
+      {"id": "8.5", "text": "The mock is defined in the test file, not as a package-level or global variable"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "dependency-depth-evidence",
+    "description": "Graph depth alone does not prove an architecture defect",
+    "prompt": "My Go application has this dependency chain: Config -> Database -> UserRepo -> UserService -> NotificationService -> OrderService -> PaymentService -> APIHandler. Is this a good architecture?",
+    "trap": "Flattening legitimate orchestration without examining responsibilities and ownership",
+    "assertions": [{"id": "9.1", "text": "Inspects graph depth and responsibilities rather than treating depth as a defect"}, {"id": "9.2", "text": "Demonstrates a direction or responsibility problem before restructuring"}, {"id": "9.3", "text": "Retains legitimate orchestration rather than forcing every service to repositories"}, {"id": "9.4", "text": "Provides a minimal fix for demonstrated coupling or lifecycle failures"}]
+  },
+  {
+    "id": 11,
+    "name": "lazy-vs-eager-initialization",
+    "description": "Initialization follows readiness and resource ownership",
+    "prompt": "When using a DI container in Go, should all my services be created at application startup? I have a database pool, a cache client, and some request processing services.",
+    "trap": "Assuming lazy loading or transient stateless services are always preferable",
+    "assertions": [{"id": "11.1", "text": "Chooses eager/lazy startup from readiness, failure reporting, cost, and optionality"}, {"id": "11.2", "text": "Chooses lifetimes from ownership and sharing rather than stateful/stateless labels"}, {"id": "11.3", "text": "Recognizes required resources may need eager validation before serving"}, {"id": "11.4", "text": "Checks library/provider semantics instead of imposing a lazy policy"}]
+  }
+]

@@ -1,0 +1,74 @@
+# Disabled local single-user examples. Nothing here launches Claude or provisions credentials.
+# Install guide: docs/claude-agent-acp-backend.md. Enable only ONE instance after consent.
+server:
+  address: "127.0.0.1:18081"
+access:
+  mode: single_user
+# The connector discovers its models at runtime, so there is no default model to
+# synthesize. Naming the route here is optional: with no routing.default_route
+# the default route is the model the enabled instance designated as its default
+# ("aipstd routes" shows it). Name it to pin one model and its effort. Change
+# the instance id to the row you enable, and the model to one the enabled
+# instance actually serves.
+routing:
+  default_route: "claude-acp:anthropic/claude-sonnet-5.5?reasoning_effort=high"
+plugins:
+  backend_discovery:
+    enabled: true
+    paths: [/opt/aip/plugins/claudeagentacp]
+    instances:
+      claude-agent-api:
+        kind: claudeagentacp
+        secret_refs:
+          api_key: {env: AIP_CLAUDE_API_KEY}
+        execution_env: [HOME, PATH, TMPDIR]
+      claude-agent-token:
+        kind: claudeagentacp
+        secret_refs:
+          claude_oauth_token: {env: AIP_CLAUDE_SUBSCRIPTION_TOKEN}
+        execution_env: [HOME, PATH, TMPDIR]
+      claude-acp:
+        kind: claudeagentacp
+        secret_refs:
+          X-Route: {env: AIP_CLAUDE_GATEWAY_ROUTE} # gateway source: one ref per header name
+        execution_env: [HOME, PATH, TMPDIR]
+  backends:
+    - id: claude-agent-api
+      kind: claudeagentacp
+      enabled: false
+      config:
+        executable: /opt/claude-agent-acp/runtime/node_modules/.bin/claude-agent-acp
+        default_workspace: /absolute/path/to/workspace
+        credential_source: api_key # default; opaque Configure Secrets name: api_key
+        admin_policy: refuse # default rejects ALL sources before runtime exec
+        permission_policy: bypass # default: full OS-user tool access; no sandbox
+        turn_wait_seconds: 30 # how long a turn waits for the previous turn of the same conversation
+        max_runtimes: 8 # live agent processes of this instance; the oldest idle one is retired
+    - id: claude-agent-token
+      kind: claudeagentacp
+      enabled: false
+      config:
+        executable: /opt/claude-agent-acp/runtime/node_modules/.bin/claude-agent-acp
+        default_workspace: /absolute/path/to/workspace
+        credential_source: subscription_token # opaque Configure Secrets: claude_oauth_token
+        admin_policy: refuse # change to honor only with explicit operator consent
+        permission_policy: deny
+    - id: claude-acp
+      kind: claudeagentacp
+      enabled: false
+      config:
+        executable: /opt/claude-agent-acp/runtime/node_modules/.bin/claude-agent-acp
+        default_workspace: /absolute/path/to/workspace
+        credential_source: gateway # operator-owned Anthropic-protocol gateway
+        gateway:
+          base_url: https://claude-gw.example.com # https, or http on loopback only
+          headers:
+            - name: X-Route # values come ONLY from secret_refs; never in YAML
+        admin_policy: refuse # honor consents to potential organisation/server policy
+        permission_policy: bypass # default; deny disables tools and declines approvals
+# The route above names the claude-acp instance. For the alternate API/token
+# rows use claude-agent-api: or claude-agent-token: instead. Routes select an
+# instance ID, never the factory kind claudeagentacp.
+# Models and effort are runtime-discovered; do not add manual models config (rejected).
+# No credential values belong in config or argv. Env references are captured only
+# for an enabled, authorized verified instance at startup; changes need restart.

@@ -1,0 +1,1656 @@
+{
+  "schema": "golip.spec.migration-inventory/v1",
+  "feature": "cursor-sdk-standalone",
+  "purpose": "Migration evidence only. Enumerates every active Cursor SDK reference at the implementation baseline with its source hash, destination mapping, category, retirement state, and planned deletion batch. This file is not read at runtime and is not a plugin registry, manifest, or dependency lock.",
+  "generated_by_task": "tasks.md 1.1",
+  "requirements_covered": ["6.1", "6.6"],
+  "design_anchor": {
+    "file_structure_plan_row": ".kiro/specs/cursor-sdk-standalone/migration-inventory.json",
+    "data_models_bullet": "migration-inventory.json records source path/hash, destination path, category, retirement state, and deletion batch. It is migration evidence, not a runtime registry.",
+    "integration_notes_step": 1
+  },
+
+  "baseline": {
+    "repository": "github.com/matdev83/go-llm-interactive-proxy",
+    "worktree": "go-llm-interactive-proxy-spec-cursor-sdk-standalone",
+    "branch": "spec/cursor-sdk-standalone",
+    "commit": "14cdd0e9491453eef385c88d2250fa5a6610b8af",
+    "commit_subject": "perf(dev): select affected packages for local test feedback (#707)",
+    "commit_committed_at": "2026-10-01T14:47:14+02:00",
+    "merge_base_origin_main": "14cdd0e9491453eef385c88d2250fa5a6610b8af",
+    "observed_at": "2026-10-01",
+    "hash_kind": "git-blob-sha1",
+    "hash_note": "Every source_hash is a git object id (40 hex) resolved as `git rev-parse <commit>:<path>`. source_kind=tree entries are git tree object ids. Hashes pin the exact content this inventory describes.",
+    "untracked_at_observation": [".kiro/specs/cursor-sdk-standalone/"],
+    "tracked_source_edits_at_observation": "none (only the untracked spec directory; all source_hash values are therefore resolvable at the recorded commit)",
+    "go_work_file_present": false,
+    "go_work_note": "No go.work exists in the worktree. connectors/cursorsdk resolves root and ACP through explicit `replace` directives in its own go.mod, so `GOWORK=off` behaves identically to the default today."
+  },
+
+  "connector_measurement": {
+    "root": "connectors/cursorsdk",
+    "tree_hash": "ec087394afc5b1a9b8b6fecf4a36942038859f68",
+    "total_files": 170,
+    "go_files_total": 125,
+    "go_test_files": 59,
+    "go_implementation_files": 66,
+    "non_go_files": 45,
+    "file_manifest_sha256": "75602ddd891c243cfb598af95d72d5df4f9e5237d50512489c01ae09782b0ec8",
+    "file_manifest_algorithm": "sha256 over the 170 lines of `<git object sha1><two spaces><forward-slash path>` for every file under connectors/cursorsdk at the baseline commit, sorted ascending by ordinal line order, each line LF-terminated, encoded UTF-8 with no BOM.",
+    "file_manifest_reproduce_powershell": "$rows = git ls-tree -r 14cdd0e9491453eef385c88d2250fa5a6610b8af connectors/cursorsdk | ForEach-Object { if ($_ -match '^\\d+\\s+\\w+\\s+([0-9a-f]{40})\\t(.+)$') { \"$($Matches[1])  $($Matches[2])\" } }; [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(((($rows | Sort-Object) -join \"`n\") + \"`n\")))).ToLowerInvariant()",
+    "file_manifest_reproduce_python": "python -c \"import hashlib,subprocess; rows=[f'{m.split()[2]}  {p}' for m,p in (l.split(chr(9),1) for l in subprocess.run(['git','ls-tree','-r','14cdd0e9491453eef385c88d2250fa5a6610b8af','connectors/cursorsdk'],capture_output=True,text=True,check=True).stdout.splitlines())]; rows.sort(); print(hashlib.sha256(('\\n'.join(rows)+'\\n').encode('utf-8')).hexdigest())\"",
+    "file_manifest_reproduce_validator": "pwsh -NoProfile -File \"$env:TEMP\\opencode\\validate-inventory.ps1\" -RepoRoot \"C:\\Users\\Mateusz\\source\\repos\\go-llm-interactive-proxy-spec-cursor-sdk-standalone\"   # check B8 recomputes this digest",
+    "file_manifest_reproduce_expected": "75602ddd891c243cfb598af95d72d5df4f9e5237d50512489c01ae09782b0ec8",
+    "file_manifest_correction_note": "Corrected during remediation round 1. The earlier recorded value 3974d127eca5affbb667efab29b7a20479d5b67026e14c3e97f0a3d115f32fbb did not equal the digest of the documented method over the baseline tree. It matches neither the LF-terminated digest (75602ddd...), the CRLF-terminated digest (8554e588...), nor the unterminated digest (77338bf0...), so it was a transcription error rather than a method variant. The two independent recomputations recorded in verification_evidence both produce 75602ddd..., which is now the recorded value.",
+    "design_cross_check": "Matches the measured baseline stated in design.md Integration & Migration Notes step 5 (59 test Go files, 66 non-test Go files).",
+    "destinations": {
+      "cmd/lip-backend-cursorsdk/": "connectors/cursorsdk/cmd/lip-backend-cursorsdk/",
+      "internal/product/": "connectors/cursorsdk/internal/product/",
+      "internal/service/": "connectors/cursorsdk/internal/service/",
+      "bridge-node/": "connectors/cursorsdk/bridge-node/",
+      "manifest/template.backendplugin.json": "connectors/cursorsdk/manifest/template.backendplugin.json",
+      "release.yaml": "connectors/cursorsdk/release.yaml",
+      "go.mod": "connectors/cursorsdk/go.mod",
+      "go.sum": "connectors/cursorsdk/go.sum"
+    },
+    "destination_rule": "design.md File Structure Plan: preserve existing structure beneath connectors/cursorsdk while moving its contents to the new repository root. Only module-relative imports and monorepo assumptions are rewritten (tasks.md 2.1).",
+    "new_plugin_paths_not_present_at_baseline": [
+      "cmd/lip-cursor-sdk-bridge/ (tasks.md 3.1)",
+      "scripts/package-plugin.sh|ps1 (tasks.md 3.2)",
+      "scripts/verify-package.sh|ps1",
+      "compatibility.json (tasks.md 3.3)",
+      "docs/installation.md, docs/migration.md, docs/packaging.md, README.md, LICENSE",
+      "config/examples/cursor-sdk-experimental.yaml"
+    ]
+  },
+
+  "pins": {
+    "cursor_sdk": "1.0.23",
+    "undici": "6.28.1",
+    "node_ci_version": "22.22.3",
+    "node_engine_floor": ">=22.13",
+    "npm_install_manifest": "bridge-node/package.json",
+    "evidence": [
+      {
+        "path": "connectors/cursorsdk/bridge-node/package.json",
+        "source_hash": "80e107487710697e320232dc8d90a46f1a243eb9",
+        "fact": "dependencies.@cursor/sdk = \"1.0.23\" (exact pin, no range operator); overrides.undici = \"6.28.1\"; engines.node = \">=22.13\""
+      },
+      {
+        "path": "connectors/cursorsdk/bridge-node/package-lock.json",
+        "source_hash": "f997323a4a56b6869dccbceaf38b46ab9bbc4e18",
+        "fact": "lockfile resolves the @cursor/sdk 1.0.23 tree (node_modules/@cursor/sdk) and the undici 6.28.1 tree (node_modules/undici resolved from undici-6.28.1.tgz), pinning the effect of the package.json overrides.undici = 6.28.1 declaration that check C2 verifies."
+      },
+      {
+        "path": "connectors/cursorsdk/internal/product/testdata/fixtures/sdk_setting_sources_1.0.23.txt",
+        "source_hash": "0c95ef6b46bc67223a9e6ebbebbb0ff02f27c937",
+        "source_kind": "blob",
+        "fact": "SDK 1.0.23 setting-source evidence fixture; the version appears in the fixture name and is preserved as a contract baseline"
+      },
+      {
+        "path": ".github/workflows/cursor-sdk-platform.yml",
+        "source_hash": "1ec70edd046edb14a448d7304efb74dbeb7098d0",
+        "fact": "bridge-node-tests job pins actions/setup-node with node-version 22.22.3 and cache-dependency-path connectors/cursorsdk/bridge-node/package-lock.json"
+      }
+    ],
+    "migration_rule": "requirements.md Boundary Context: SDK 1.0.23 with the Undici 6.28.1 security override. Any later SDK migration is a separately reviewed change. tasks.md 2.2 requires both pins to move unchanged."
+  },
+
+  "destination_repository": {
+    "repository_full_name": "matdev83/go-lip-cursorsdk",
+    "status": "proposed-not-provisioned",
+    "provisioned": false,
+    "provisioning_evidence": "`gh repo view matdev83/go-lip-cursorsdk` -> GraphQL: Could not resolve to a Repository with the name 'matdev83/go-lip-cursorsdk'. (repository). Read-only check performed while authenticated; no repository was created.",
+    "namespace_owner": {
+      "account": "matdev83",
+      "type": "User",
+      "authenticated_at_observation": true,
+      "repositories_visible": 49,
+      "similarly_named_repositories": ["hermes-cursor-dispatcher"],
+      "note": "No repository named go-lip-cursorsdk exists under the authenticated namespace."
+    },
+    "provisioning_permission": "unconfirmed",
+    "publication_permission": "unconfirmed",
+    "permission_gap": "The destination repository does not exist, so repository creation rights, default visibility, branch-protection rules, required status contexts, and module-publication routing for the new module path cannot be verified or asserted from the API. design.md Components and Interfaces / Public module baseline treats tagging, releases, and repository provisioning as explicit delivery operations requiring authorization and permissions, and states that failure blocks cutover.",
+    "authorization_required_before": [
+      "tasks.md 1.3 (provision standalone plugin repository skeleton)",
+      "any external write to the destination repository",
+      "the cutover flow after 'Publish certified independent release'"
+    ],
+    "external_writes_performed": false,
+    "module_publication_baseline": {
+      "root_module": "github.com/matdev83/go-llm-interactive-proxy",
+      "root_module_version_required_by_cursor": "v0.0.0",
+      "root_module_replaced_in_cursor_go_mod": true,
+      "acp_module": "github.com/matdev83/go-llm-interactive-proxy/connector-support/acp",
+      "acp_module_version_required_by_cursor": "v0.0.0",
+      "acp_module_replaced_in_cursor_go_mod": true,
+      "acp_sibling_replace": true,
+      "root_go_mod_requires_cursor_module": false,
+      "root_go_mod_note": "The root production import graph does not depend on Cursor (design.md Existing Architecture Analysis); internal/archtest/cursor_sdk_external_gates_test.go enforces this.",
+      "published_semver_tags_in_repo": [],
+      "local_only_tags_in_repo": ["rescue-snapshot/mixed-pre-separation-20260710", "rescue/pre-split-mixed-worktree"],
+      "published_version_available": false,
+      "consequence": "No downloadable root or ACP semver tag exists at the baseline, so an out-of-monorepo plugin build cannot resolve host contracts yet. This is the measured gap that tasks.md 1.2 must close; this inventory records it rather than assuming a version."
+    }
+  },
+
+  "identity_and_posture_to_preserve": {
+    "source": ["connectors/cursorsdk/release.yaml", "connectors/cursorsdk/manifest/template.backendplugin.json"],
+    "plugin_id": "io.golip.backend.cursorsdk",
+    "factory_kind": "cursorsdk",
+    "route_prefix": "cursorsdk",
+    "module": "github.com/matdev83/go-llm-interactive-proxy/connectors/cursorsdk",
+    "command": "./cmd/lip-backend-cursorsdk",
+    "manifest_template": "manifest/template.backendplugin.json",
+    "version": "0.1.0",
+    "build_id": "localdev",
+    "tag": "cursorsdk-v0.1.0",
+    "profiles": ["full"],
+    "published_root_module": "github.com/matdev83/go-llm-interactive-proxy",
+    "replace_policy": "development-replace-to-monorepo-root",
+    "private_companions": ["bridge-node"],
+    "manifest_schema": "golip.backendplugin.manifest/v1",
+    "protocol_major": 1,
+    "protocol_min_minor": 0,
+    "protocol_max_minor": 0,
+    "platforms": [
+      {"os": "windows", "arch": "amd64"},
+      {"os": "windows", "arch": "arm64"},
+      {"os": "linux", "arch": "amd64"},
+      {"os": "linux", "arch": "arm64"}
+    ],
+    "exports": [
+      {
+        "kind": "cursorsdk",
+        "credential_mode": "static",
+        "access_scope": "local_only",
+        "process_sharing": "per_instance",
+        "execution_class": "agent_runtime"
+      }
+    ],
+    "multi_user_approval": "must not be granted by extraction (design.md Architecture Pattern & Boundary Map, access posture)",
+    "darwin": "not a production platform; macOS fake-bridge/lifecycle coverage is development evidence only"
+  },
+
+  "batches": {
+    "batch-1": {
+      "name": "Cursor test and verification ownership transfer",
+      "design_basis": "design.md Integration & Migration Notes step 5, first delivery",
+      "tasks_md": ["6.1"],
+      "go_files": 59,
+      "go_file_basis": "all *_test.go under connectors/cursorsdk at the baseline commit",
+      "host_go_file_budget": 41,
+      "change_size_gate": 100,
+      "budget_derivation": "100 changed-Go-file gate minus 59 transferred Cursor test files leaves 41 for in-tree Cursor-only workflow/QA expectation removals in the same delivery.",
+      "post_condition": "External ownership of Cursor test and bridge-verification evidence, with a completely buildable in-tree implementation fallback still present in the host.",
+      "must_remain_buildable": "The 66 in-tree Cursor implementation Go files continue to build; no partially buildable module is introduced."
+    },
+    "batch-2": {
+      "name": "Remaining implementation removal and host guard finalization",
+      "design_basis": "design.md Integration & Migration Notes step 5, second delivery",
+      "tasks_md": ["6.2"],
+      "go_files": 66,
+      "go_file_basis": "non-test *.go under connectors/cursorsdk at the baseline commit",
+      "host_go_file_budget": 34,
+      "change_size_gate": 100,
+      "budget_derivation": "100 changed-Go-file gate minus 66 remaining Cursor implementation files leaves 34 for module/release metadata, active enumerations, and the host inventory/absence-guard changes. Split further if host guard changes exceed budget.",
+      "post_condition": "Host tree with no active Cursor source; historical archived specifications retained."
+    },
+    "gate": {
+      "rule": "AGENTS.md source-change gate: at most 100 modified *.go files per commit or PR, measured on staged paths or the branch against its merge base.",
+      "override": "Admin only: LIP_ALLOW_LARGE_CHANGE=1 for one command, `git config lip.allowLargeChange true`, or the `allow-large-change` PR label. --no-verify is prohibited because it also skips secret scanning.",
+      "qa_guard": "`go test ./internal/qa` fails when the worktree has more than 100 dirty *.go files, with no override."
+    }
+  },
+
+  "categories": [
+    {
+      "name": "dependency-coupling",
+      "definition": "Module, build, lint, or configuration state that resolves, compiles, or declares the in-tree Cursor connector or its npm packages. Removing it changes what the host builds or resolves, not what it asserts."
+    },
+    {
+      "name": "tooling-coupling",
+      "definition": "CI lanes, cache lanes, Makefile targets, helper scripts, and entry points whose behaviour is keyed to Cursor source paths or to invoking Node/npm. Removal changes how the host is verified and run."
+    },
+    {
+      "name": "policy-fixture",
+      "definition": "Host-owned inventories, absence guards, and policy regressions that name cursorsdk. The name is a data value in a generic host rule; removal requires substituting or retiring the entry while keeping the generic invariant meaningful."
+    },
+    {
+      "name": "contract-fixture",
+      "definition": "Captured SDK and protocol evidence (sanitized model inventories, frame sequences, invalid-frame corpora, setting-source records) that exists to prove provider and stream semantics. Removal requires the same evidence to exist externally first."
+    },
+    {
+      "name": "active-documentation",
+      "definition": "Live operator or contributor documentation that currently instructs readers to build, install, or verify Cursor support in this repository. It must be repointed at the standalone plugin rather than deleted."
+    },
+    {
+      "name": "historical-documentation",
+      "definition": "Provenance that records what the integration used to be: archived specifications, ADRs, and steering. It is retained unchanged as migration evidence and is explicitly not an executable dependency."
+    }
+  ],
+
+  "archived_spec_evidence": {
+    "note": "Aggregate counts for the .kiro/specs/archive retention set (requirements.md 6.6). Every archived specification that mentions Cursor has its own machine-checkable references[] entry carrying the archived path, the git tree object id, and per-spec counts; this object only summarises those entries and never substitutes for them.",
+    "enumeration_method": "Enumerate .kiro/specs/archive recursively at the baseline commit, read each file, and count the files that match archived_spec_evidence.match_pattern; group the matches by the third path segment (the specification directory name).",
+    "match_pattern": "cursorsdk|cursor-sdk|cursor_sdk|@cursor/sdk|cursor sdk (case-insensitive)",
+    "record_field": "references[].counts.cursordk_reference_files",
+    "additional_specs": 8,
+    "additional_matching_files": 27,
+    "additional_total_files": 155,
+    "record_ids": [
+      "archive-agent-runtime-routing-composition-safety",
+      "archive-backend-connector-plugin-architecture",
+      "archive-bulk-inference-provider-expansion",
+      "archive-extensible-usage-economics-reconciliation",
+      "archive-runtime-architecture-convergence-and-shrinkage",
+      "archive-usage-economics-b-leg-multimodal-refinement",
+      "archive-versioned-runtime-reloadable-proxy-configuration",
+      "archive-windows-task-reliability"
+    ],
+    "owning_spec_record_id": "archive-cursor-sdk-backend-spec",
+    "owning_spec_matching_files": 9,
+    "enumeration_note": "An earlier revision of this inventory claimed nine additional specifications while listing eight. Eight is correct: excluding the cursor-sdk-backend archive (which owns its own entry) exactly eight archived specifications mention Cursor, together holding 27 of their 155 files. Across all nine archived specifications including cursor-sdk-backend, 36 files match.",
+    "retention_rule": "Retain, never delete. Every entry above carries retirement=retain and deletion_batch=retain; no reference in this inventory declares a delete retirement for historical-documentation, and the external validator enforces this as a non-failing invariant."
+  },
+
+  "references": [
+    {
+      "id": "connector-source-tree",
+      "source_path": "connectors/cursorsdk",
+      "source_hash": "ec087394afc5b1a9b8b6fecf4a36942038859f68",
+      "source_kind": "tree",
+      "destination_path": "(repository root of matdev83/go-lip-cursorsdk)",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "counts": {"total_files": 170, "go_files_total": 125, "go_test_files": 59, "go_implementation_files": 66, "non_go_files": 45},
+      "reason": "Aggregate Cursor connector source. Transferred wholesale; 59 test files retire in batch-1 and the remaining implementation plus metadata in batch-2. Sub-entries below carry the exact per-area mapping.",
+      "evidence": "git ls-tree -r 14cdd0e9491453eef385c88d2250fa5a6610b8af connectors/cursorsdk => 170 files",
+      "planned_task": "2.1, 2.2 (relocation), 6.1/6.2 (deletion)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-cmd",
+      "source_path": "connectors/cursorsdk/cmd",
+      "source_hash": "d22c2382b869d954ebb394218be1cfbb53ee909c",
+      "source_kind": "tree",
+      "destination_path": "cmd/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Public-ABI bootstrap command lip-backend-cursorsdk. Preserved as the outer plugin executable; the packaged default bridge resolution becomes plugin-local in tasks.md 2.3.",
+      "evidence": "connectors/cursorsdk/cmd/lip-backend-cursorsdk/{main.go,pipe_stub.go,pipe_windows.go}",
+      "planned_task": "2.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-internal-tree",
+      "source_path": "connectors/cursorsdk/internal",
+      "source_hash": "1f3eb8651f8de335fac118c40891b3a1645aa3d1",
+      "source_kind": "tree",
+      "destination_path": "internal/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "reason": "Plugin-private Go packages. They may import their own internal/ tree in the standalone repository; only module-relative imports and monorepo assumptions are rewritten.",
+      "evidence": "git tree object for connectors/cursorsdk/internal at the baseline commit",
+      "planned_task": "2.1, 6.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-service-package",
+      "source_path": "connectors/cursorsdk/internal/service",
+      "source_hash": "e6216c14c7838fa1a4a170d1097b002461ca708c",
+      "source_kind": "tree",
+      "destination_path": "internal/service/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "reason": "backendplugin.Service entry point. Design requires preserving Service.Describe/Configure and ConfiguredInstance Resolve/ListModels/Execute/Close plus the existing protocol DTOs and negotiated features.",
+      "evidence": "internal/service/{service.go,config.go,execute_nil_test.go}",
+      "planned_task": "2.1, 6.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-product-package",
+      "source_path": "connectors/cursorsdk/internal/product",
+      "source_hash": "a5b18567de8d1078b7d242310f29d5ab0fffbdca",
+      "source_kind": "tree",
+      "destination_path": "internal/product/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "reason": "Provider adapter, bridge process ownership, lifecycle, diagnostics, protocol, comparison tooling, and fakebridge. Carries the Cursor-specific goroutine and lint exceptions recorded separately below.",
+      "evidence": "git tree object for connectors/cursorsdk/internal/product at the baseline commit",
+      "planned_task": "2.1, 6.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-bridge-node",
+      "source_path": "connectors/cursorsdk/bridge-node",
+      "source_hash": "c8364ae9c0fe09fc7fead40c337c3df126c8a6a2",
+      "source_kind": "tree",
+      "destination_path": "bridge-node/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "counts": {"total_files": 33, "typescript_files": 26, "typescript_test_files": 10, "typescript_implementation_files": 16, "non_typescript_files": 7},
+      "reason": "TypeScript NDJSON SDK bridge: sources, tests, npm manifests, tsconfig, and the executable shim. Bridge verification ownership transfers in batch-1; the whole Node tree is removed from the host in batch-2 so the standard distribution carries no npm manifests.",
+      "evidence": "git ls-tree -r 14cdd0e9491453eef385c88d2250fa5a6610b8af connectors/cursorsdk/bridge-node => 33 files: 26 TypeScript under src/ (10 *.test.ts, 16 non-test) plus 7 non-TypeScript (package.json, package-lock.json, tsconfig.json, tsconfig.build.json, bin/lip-cursor-sdk-bridge.js, README.md, .gitignore). Recomputable as counts.typescript_files + counts.non_typescript_files == counts.total_files.",
+      "planned_task": "2.2, 6.1 (verification ownership), 6.2 (removal)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "bridge-npm-manifest",
+      "source_path": "connectors/cursorsdk/bridge-node/package.json",
+      "source_hash": "80e107487710697e320232dc8d90a46f1a243eb9",
+      "source_kind": "blob",
+      "destination_path": "bridge-node/package.json",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "npm dependency manifest pinning @cursor/sdk 1.0.23 and the undici 6.28.1 override. requirements.md 1.4 requires the host to exclude npm dependency manifests after migration.",
+      "evidence": "dependencies.@cursor/sdk = 1.0.23; overrides.undici = 6.28.1; engines.node = >=22.13",
+      "planned_task": "2.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "bridge-npm-lockfile",
+      "source_path": "connectors/cursorsdk/bridge-node/package-lock.json",
+      "source_hash": "f997323a4a56b6869dccbceaf38b46ab9bbc4e18",
+      "source_kind": "blob",
+      "destination_path": "bridge-node/package-lock.json",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Production npm lock carrying the resolved SDK tree and security override. Must move unchanged (tasks.md 2.2) and must not be regenerated during extraction.",
+      "evidence": "cache-dependency-path in .github/workflows/cursor-sdk-platform.yml resolves this exact path",
+      "planned_task": "2.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "bridge-readme",
+      "source_path": "connectors/cursorsdk/bridge-node/README.md",
+      "source_hash": "1a722eb110992d0737cd489eed028c6d263b9298",
+      "source_kind": "blob",
+      "destination_path": "bridge-node/README.md",
+      "category": "active-documentation",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Companion build and operator instructions (npm ci, typecheck, test, build, live-probe). Moves to the plugin repository; the host copy must not survive as an in-tree npm instruction.",
+      "evidence": "README lines 34-37, 41, 55, 60 document the npm sequence",
+      "planned_task": "2.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-go-mod",
+      "source_path": "connectors/cursorsdk/go.mod",
+      "source_hash": "ee33afbac9a44771051aa1d436305b4c2606f75f",
+      "source_kind": "blob",
+      "destination_path": "go.mod",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Module metadata. Requires root v0.0.0 and ACP v0.0.0 with two sibling `replace` directives; the standalone module must instead pin real released versions and carry no replaces (tasks.md 2.1).",
+      "evidence": "replace github.com/matdev83/go-llm-interactive-proxy => ../.. and replace .../connector-support/acp => ../../connector-support/acp",
+      "planned_task": "1.2 (tags), 2.1 (repin), 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-go-sum",
+      "source_path": "connectors/cursorsdk/go.sum",
+      "source_hash": "ea1d6e46f7bb2ef841c1635349740c3534039b4f",
+      "source_kind": "blob",
+      "destination_path": "go.sum",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Module checksums. Regenerated only against published root/ACP versions once tasks.md 1.2 selects real tags.",
+      "evidence": "git blob object for connectors/cursorsdk/go.sum at the baseline commit",
+      "planned_task": "2.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-release-yaml",
+      "source_path": "connectors/cursorsdk/release.yaml",
+      "source_hash": "7ca2b30dceb056f3ffc840c0737eea3a65573313",
+      "source_kind": "blob",
+      "destination_path": "release.yaml",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Release metadata (plugin id, factory kind, module, command, manifest template, version, tag, profiles, private companions). Becomes the plugin's independent release input; the module path and replace policy fields must be rewritten for the external module.",
+      "evidence": "schema golip.connector.release/v1; tag cursorsdk-v0.1.0; replace_policy development-replace-to-monorepo-root",
+      "planned_task": "2.1, 3.3, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-manifest-template",
+      "source_path": "connectors/cursorsdk/manifest/template.backendplugin.json",
+      "source_hash": "32dfd6a234f0ce5133dc559c245c8f40cd4f17a0",
+      "source_kind": "blob",
+      "destination_path": "manifest/template.backendplugin.json",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Closed host manifest template. Identity, platform claims, and export posture are preserved; design forbids widening the manifest or adding host fields for packaging evidence.",
+      "evidence": "plugin_id io.golip.backend.cursorsdk; protocol 1.0-1.0; 4 platform entries; single cursorsdk export",
+      "planned_task": "2.1, 3.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-manifest-posture-test",
+      "source_path": "connectors/cursorsdk/manifest_posture_parity_test.go",
+      "source_hash": "ac1b3921a299f8d72565cc6f5921356643a3f129",
+      "source_kind": "blob",
+      "destination_path": "manifest_posture_parity_test.go",
+      "category": "contract-fixture",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Regression pinning manifest identity and export posture. Verification ownership transfers to the plugin project's CI in batch-1; the file is removed from the host with the rest of the 59 test files.",
+      "evidence": "Connectors/cursorsdk/manifest_posture_parity_test.go is one of the 59 baseline *_test.go files",
+      "planned_task": "6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-sdk-contract-fixtures",
+      "source_path": "connectors/cursorsdk/internal/product/testdata",
+      "source_hash": "f9f6a6d29558d0d3f249d48ae1498f7d8630eed4",
+      "source_kind": "tree",
+      "destination_path": "internal/product/testdata/",
+      "category": "contract-fixture",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Sanitized model inventories, protocol frame corpora (valid ndjson, invalid frames, method and event-sequence tables), the SDK contract document, and the 1.0.23 setting-source record. requirements.md 6.2 requires the certification to preserve SDK contract fixtures, so these must exist externally before the host copy is deleted.",
+      "evidence": "models_sanitized.json, models_sdk_variants_missing_id.json, protocol/{event_sequences,invalid_frames,methods}.json, protocol/valid_frames.ndjson, sdk_contract.json, sdk_setting_sources_1.0.23.txt",
+      "planned_task": "4.1 (preserve), 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-protocol-package",
+      "source_path": "connectors/cursorsdk/internal/product/protocol",
+      "source_hash": "47833c503fc16f08e0ec3811b4f5b0c7e1572b68",
+      "source_kind": "tree",
+      "destination_path": "internal/product/protocol/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "reason": "Private NDJSON frame codec and its fuzz targets. Protocol wire semantics are preserved exactly; no new RPC methods are introduced.",
+      "evidence": "FuzzDecodeLine and FuzzMapBridgeEvent are registered against this package in scripts/fuzz-targets.tsv",
+      "planned_task": "2.1, 6.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-fakebridge-package",
+      "source_path": "connectors/cursorsdk/internal/product/fakebridge",
+      "source_hash": "3472d4d1ff0ba21e35ac00be51e14d8b0836ad23",
+      "source_kind": "tree",
+      "destination_path": "internal/product/fakebridge/",
+      "category": "contract-fixture",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "reason": "Hermetic fake bridge harness that replaces the Node runtime in lifecycle and platform tests. It is the substitute evidence that keeps macOS coverage meaningful without advertising Darwin production support.",
+      "evidence": "fake-cursor-sdk-bridge command plus harness.go/script.go/build_exe.go and their subprocess tests",
+      "planned_task": "4.1, 6.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-comparison-tooling",
+      "source_path": "connectors/cursorsdk/internal/product/comparison",
+      "source_hash": "dc71920246ec60e1494fc173ae0c8c95c87219ec",
+      "source_kind": "tree",
+      "destination_path": "internal/product/comparison/",
+      "category": "dependency-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1+batch-2",
+      "reason": "ACP-vs-SDK comparison matrix, redaction, and report tooling, including the comparison report command. Redaction behaviour is part of requirements.md 5.3 and must survive extraction.",
+      "evidence": "redact.go/redact_test.go plus cmd/report/main.go",
+      "planned_task": "2.1, 6.1, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "connector-coexistence-test",
+      "source_path": "connectors/cursorsdk/internal/product/coexist",
+      "source_hash": "04c7b316c4d2f4fd0234bfc5b3d5deb5d6e9e42a",
+      "source_kind": "tree",
+      "destination_path": "internal/product/coexist/",
+      "category": "contract-fixture",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Model-registry coexistence regression proving the Cursor product model path does not collide with hosted registry entries. Requirements.md 4.4 session-isolation evidence depends on it.",
+      "evidence": "modelregistry_coexistence_test.go",
+      "planned_task": "4.1, 6.1",
+      "verify_against_baseline": true
+    },
+
+    {
+      "id": "acp-sibling-replace",
+      "source_path": "connector-support/acp/go.mod",
+      "source_hash": "f27535110dab128d6029ff19eb48c6102f6306eb",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "dependency-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "not-planned",
+      "reason": "Not Cursor-owned and not deleted. ACP requires root v0.0.0 and carries `replace ... => ../..`, which blocks out-of-monorepo resolution. tasks.md 1.2 must republish ACP as connector-support/acp/vX.Y.Z pinned to a real root tag and drop the sibling replace in the tag content.",
+      "evidence": "connector-support/acp/go.mod: require github.com/matdev83/go-llm-interactive-proxy v0.0.0; replace ... => ../..",
+      "planned_task": "1.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "golangci-paralleltest-exception",
+      "source_path": ".golangci.yml",
+      "source_hash": "c411ac05693e7ee34f72957db09617e455b9b19e",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "dependency-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Source-specific lint exception keyed to the in-tree Cursor test path. The exception becomes dead once the path is gone; generic paralleltest rules and the other connector exceptions stay.",
+      "evidence": "lines 56-57: `- path: ^connectors/cursorsdk/internal/product/.*_test\\.go$` with linters paralleltest",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "config-bundled-source-assumption",
+      "source_path": "config/config.yaml",
+      "source_hash": "a44746e6726cc9a60b4dd31763c73396cd08d2ac",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "dependency-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Shipped default config comments the Cursor backend as an in-tree bundled-source experiment and tells operators to install the bridge manually with npm. The assumption must go; the example pointer moves to the plugin repository.",
+      "evidence": "line 47 and lines 499-511 (commented cursorsdk block, bridge_executable, Node >=22.13, @cursor/sdk 1.0.23)",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "config-cursor-example",
+      "source_path": "config/examples/cursor-sdk-experimental.yaml",
+      "source_hash": "485215c20168049df7a9fb74f3f53697844df59e",
+      "source_kind": "blob",
+      "destination_path": "config/examples/cursor-sdk-experimental.yaml",
+      "category": "active-documentation",
+      "retirement": "relocate",
+      "deletion_batch": "batch-2",
+      "reason": "Optional Cursor configuration example. design.md Go-LIP modifications moves the full example to the plugin repository; the host copy is removed rather than kept as a stale local-build instruction.",
+      "evidence": "lines 1-14 instruct building/installing connectors/cursorsdk and bridge-node from this repository",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "fuzz-target-enumeration",
+      "source_path": "scripts/fuzz-targets.tsv",
+      "source_hash": "422831a4b2d0fbadf448762332a519aa51f4e5a7",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "dependency-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Host fuzz registry names the two Cursor fuzz targets by module-relative package path. Removing the enumeration prevents make test-fuzz from resolving a deleted package; the plugin owns those fuzz targets afterwards.",
+      "evidence": "lines 65-66: FuzzDecodeLine -> ./internal/product/protocol, FuzzMapBridgeEvent -> ./internal/product, module connectors/cursorsdk",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "adhoc-goroutines-sh",
+      "source_path": "scripts/check-adhoc-goroutines.sh",
+      "source_hash": "e9f60cfb94feb6f98ee4ce0d269f0b69cc393b53",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "dependency-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Reviewed-owner allowlist naming the three Cursor goroutine-owning files. The allowlist entries die with the files; the generic allowlist for host and other connectors is preserved.",
+      "evidence": "line 57 lists bridge_process.go, reap.go, fakebridge/harness.go",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "adhoc-goroutines-ps1",
+      "source_path": "scripts/check-adhoc-goroutines.ps1",
+      "source_hash": "05ec038afa7260d429bcc2a36edbe8157334d535",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "dependency-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Windows twin of the reviewed-owner allowlist; must change together with the shell variant so the two stay in agreement.",
+      "evidence": "lines 56-58 list the same three Cursor files",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+
+    {
+      "id": "workflow-cursor-sdk-platform",
+      "source_path": ".github/workflows/cursor-sdk-platform.yml",
+      "source_hash": "1ec70edd046edb14a448d7304efb74dbeb7098d0",
+      "source_kind": "blob",
+      "destination_path": ".github/workflows/{verify,release}.yml (relocated split, plugin repository)",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Only host workflow that installs Node and runs npm. It owns the cursorsdk Go cache lane, the 3-OS fake-bridge platform smoke, and the `bridge-node-tests` job whose status context is referenced by host QA and CI-performance documentation. Retiring it requires first inspecting required status contexts and replacing any host-relevant invariant.",
+      "evidence": "bridge-node-tests job (setup-node 22.22.3, npm ci, npm test, npm run typecheck) and platform-smoke matrix ubuntu/macos/windows calling `make test-cursor-sdk-platform`",
+      "planned_task": "5.2 (retire, after required-check inspection), 6.1 (unrequire)",
+      "required_check_name": "bridge-node-tests",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "dependabot-cursor-directory",
+      "source_path": ".github/dependabot.yml",
+      "source_hash": "1448fb6de29266ee687fb590c587ac3cc0b667f8",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "tooling-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Host Dependabot update directory list includes /connectors/cursorsdk. requirements.md 2.5 moves SDK and JavaScript dependency maintenance to the plugin's own workflow; the host list drops this entry but keeps every other connector directory.",
+      "evidence": "line 25: `- /connectors/cursorsdk` (immediately after /connectors/cursorcliacp, which stays)",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "go-cache-lane-policy",
+      "source_path": ".github/actions/go-cache/policy.json",
+      "source_hash": "61765b80faafe17546cc0a70d9c4a97fb5440ac8",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "tooling-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Shared composite cache identity includes a cursorsdk lane sized for the Cursor workflow. Retiring the workflow must retire the lane in the same change or the composite and the prune script disagree.",
+      "evidence": "lines 42-45: lane cursorsdk, build_mib 768, job platform-smoke, workflow 'Cursor SDK Platform Smoke'",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "go-cache-maintenance-lanes",
+      "source_path": ".github/workflows/go-cache-maintenance.yml",
+      "source_hash": "4a92498d208a67a98be90c527249554cc028eaca",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "tooling-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Cache-maintenance lane list names 'Cursor SDK Platform Smoke'. Removing the workflow without editing this list leaves a dangling workflow name.",
+      "evidence": "line 7 workflows: [...] includes 'Cursor SDK Platform Smoke'",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "prune-go-caches-pattern",
+      "source_path": "scripts/prune-go-caches.py",
+      "source_hash": "cdef141f26bc9e2a063eaca9d16c4f608a3e5c1a",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "tooling-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Cache-prune name patterns hardcode the cursorsdk lane in both the legacy and current forms. scripts/test_prune_go_caches.py exercises these patterns, so the two must change together.",
+      "evidence": "line 10 legacy `cursorsdk` alternation; line 14 current `cursorsdk` alternation",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "makefile-cursor-targets",
+      "source_path": "Makefile",
+      "source_hash": "7228ea09d1f3515ead7302a1d483c0980469221b",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "tooling-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Four Cursor targets (test-cursor-sdk-live, test-cursor-sdk-live-bridge, test-cursor-sdk-platform, test-cursor-sdk-comparison-report) plus their help text, .PHONY entries, and the Windows/POSIX script dispatchers. The help line also has an encoding defect (mojibake) that disappears with the target.",
+      "evidence": "line 1 .PHONY; lines 86-89 help; lines 303-328 target recipes; line 101 isolated-root-qa mentions Node; line 674 names cursor-sdk-backend only as a Kiro spec example",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "makefile-scope-sh",
+      "source_path": "scripts/makefile-scope.sh",
+      "source_hash": "bcd56cb5e340287800ba6afd13acaa1d640e74b3",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "tooling-coupling",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Makefile-change relevance scope defines a cursorsdk pattern consumed by the Cursor workflow's changes job, and the script's own self-test builds a synthetic test-cursor-sdk-platform target to prove the scope.",
+      "evidence": "line 18 doc table; line 31 case arm; lines 94-137 self-test fixture cases",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-live-sh",
+      "source_path": "scripts/test-cursor-sdk-live.sh",
+      "source_hash": "f412e20a4a83383bd9d63b8b8b316469e940c3c2",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-live.sh",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Opt-in live Node scenario driver (invokes `npm run live-scenarios`). Host copy is removed; plugin keeps it with plugin-root paths. Live provider evidence stays credential-gated and opt-in in both places.",
+      "evidence": "line 18 `npm run live-scenarios`",
+      "planned_task": "2.2, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-live-ps1",
+      "source_path": "scripts/test-cursor-sdk-live.ps1",
+      "source_hash": "b1bfd7db5aebece97fe1c6828304333eee3b8e9f",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-live.ps1",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Windows twin of the live Node scenario driver; the pair must move and be removed together so the two platforms cannot drift.",
+      "evidence": "line 19 `npm run live-scenarios`",
+      "planned_task": "2.2, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-live-bridge-sh",
+      "source_path": "scripts/test-cursor-sdk-live-bridge.sh",
+      "source_hash": "1946fe959832f79b47d4ee630cb6ad72d1dce29d",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-live-bridge.sh",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Opt-in Go-to-Node live bridge lifecycle driver using the cursdk_live_bridge build tag. It is the host's only script that requires a live Node process for Cursor work.",
+      "evidence": "names CURSOR_SDK_LIVE and cursorsdk_live_bridge; build tag selected only by this script",
+      "planned_task": "2.2, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-live-bridge-ps1",
+      "source_path": "scripts/test-cursor-sdk-live-bridge.ps1",
+      "source_hash": "03f064dd28405b4fde301ddd16990b92d30ad65d",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-live-bridge.ps1",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Windows twin of the live bridge lifecycle driver, including the documented Windows credential handling (User/Machine environment copied to Process for the run only).",
+      "evidence": "names CURSOR_SDK_LIVE and cursorsdk_live_bridge",
+      "planned_task": "2.2, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-platform-sh",
+      "source_path": "scripts/test-cursor-sdk-platform.sh",
+      "source_hash": "e6f5136c4e7269d1bcac0995c75eb74f47bfaa25",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-platform.sh",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Current-OS fake-bridge platform smoke invoked by the Cursor workflow. Verification ownership transfers to the plugin's independent workflow; host copy is removed.",
+      "evidence": "invoked as `make test-cursor-sdk-platform` by .github/workflows/cursor-sdk-platform.yml",
+      "planned_task": "2.2, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-platform-ps1",
+      "source_path": "scripts/test-cursor-sdk-platform.ps1",
+      "source_hash": "00e7761ec889036812ce9fdbfe28c31e180ef872",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-platform.ps1",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Windows twin of the platform smoke; the same `make test-cursor-sdk-platform` target dispatches to it.",
+      "evidence": "Makefile line 321 dispatches test-cursor-sdk-platform.ps1 on Windows",
+      "planned_task": "2.2, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-comparison-sh",
+      "source_path": "scripts/test-cursor-sdk-comparison-report.sh",
+      "source_hash": "604731e096d6dae3a719edda7da5df281c212800",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-comparison-report.sh",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Offline ACP-vs-SDK matrix report driver advertised in README; synthetic or blocked offline, no credentials. Relocates with the comparison tooling.",
+      "evidence": "Makefile line 328 dispatches it; README line 120 advertises `make test-cursor-sdk-comparison-report`",
+      "planned_task": "2.1, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "script-cursor-comparison-ps1",
+      "source_path": "scripts/test-cursor-sdk-comparison-report.ps1",
+      "source_hash": "082315cacb2018f45d6345e9fb1e68a378496474",
+      "source_kind": "blob",
+      "destination_path": "scripts/test-cursor-sdk-comparison-report.ps1",
+      "category": "tooling-coupling",
+      "retirement": "relocate",
+      "deletion_batch": "batch-1",
+      "reason": "Windows twin of the comparison report driver; the pair must move together.",
+      "evidence": "Makefile line 326 dispatches it",
+      "planned_task": "2.1, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "release-gates-workflow-comment",
+      "source_path": ".github/workflows/backend-plugin-release-gates.yml",
+      "source_hash": "b2a7b65da070e8c7d56c084166873869030a97bb",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "active-documentation",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Comment-only reference: it states that backend-plugin parity coverage remains in the Cursor SDK smoke workflow. The comment becomes misleading once that workflow is gone, but no behaviour depends on it.",
+      "evidence": "lines 5-6 name 'Cursor SDK Platform Smoke' among the focused parity workflows",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+
+    {
+      "id": "qa-ci-iteration-speed",
+      "source_path": "internal/qa/ci_iteration_speed_contract_test.go",
+      "source_hash": "5ce9684af5309154663d5d9f9ab26203b90ce906",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "QA contract asserting the Cursor path filter and the presence of cursor-sdk-platform.yml. It must stop demanding a retired workflow while still asserting the generic host boundary.",
+      "evidence": "line 78 path-filter pattern 'cursor-sdk|cursorsdk'; line 91 expected workflow file; line 101 workflow list",
+      "planned_task": "5.1 (no-Node guard), 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "qa-development-iteration",
+      "source_path": "internal/qa/development_iteration_contract_test.go",
+      "source_hash": "8c49462aea653fd6a6704b4a255a7cfeee71a170",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "QA contract enumerating the standard workflow set, including cursor-sdk-platform.yml in two lists. Obsolete dedicated-lane expectations are removed; the generic development lane assertions stay.",
+      "evidence": "line 20 standard workflow list; line 69 main-branch push lane list",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "qa-main-push-lane-scope",
+      "source_path": "internal/qa/main_push_lane_scope_test.go",
+      "source_hash": "db9acfc9942e284a408249de0403a75f697ab642",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Table-driven lane-scope case pinning the Cursor workflow's path filter to connectors/cursorsdk/example.go. The case must be removed or replaced with a generic scope case; the surrounding generic cases stay.",
+      "evidence": "line 24 test row {cursor-sdk-platform.yml, changes, filter, cursorsdk, connectors/cursorsdk/example.go, true, true}",
+      "planned_task": "5.2, 6.1",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "qa-remote-ci-performance",
+      "source_path": "internal/qa/remote_ci_performance_contract_test.go",
+      "source_hash": "6f491aa952f04f4639b70d0689fe401b3fcacce9",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-1",
+      "reason": "Hard-codes the bridge-node-tests job identity, its always() condition, and its needs list from the Cursor workflow. Retiring that workflow without editing this contract leaves a test reading a deleted file.",
+      "evidence": "lines 149-150 read('cursor-sdk-platform.yml').Jobs['bridge-node-tests'] with name/if/needs assertions",
+      "planned_task": "5.1, 5.2, 6.1",
+      "verify_against_baseline": true
+    },
+
+    {
+      "id": "contracttest-family-census",
+      "source_path": "pkg/lipsdk/backendplugin/contracttest/coverage.go",
+      "source_hash": "85cd372483297493dfa25c87f3bb753030517e16",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "In-tree family census entry keyed to module path connectors/cursorsdk. design.md requires removing the Cursor entry while preserving the generic contract coverage other families depend on.",
+      "evidence": "line 31 {ModulePath: \"connectors/cursorsdk\", Family: \"acp-sdk\", Subject: \"cursorsdk\"}",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archtest-cursor-sdk-external-gates",
+      "source_path": "internal/archtest/cursor_sdk_external_gates_test.go",
+      "source_hash": "30eb846bd97872f303cb260d8d6406bfd13dc85f",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Presence-based gates: it requires connectors/cursorsdk/go.mod, release.yaml, the manifest template, and bridge-node/package.json to exist, while forbidding the SDK in the root module and standard bundles. The presence assertions must become absence/external-boundary regressions; the root-module and bundle-absence invariants must survive.",
+      "evidence": "TestCursorSDK_connectorModulePresent (lines 35-46) asserts four in-tree files; TestCursorSDK_rootPackageJSONHasNoCursorSDK; TestCursorSDK_standardDistributionDoesNotMandateCursorSDK",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archtest-cursorsdk-boundaries",
+      "source_path": "internal/archtest/cursorsdk_boundaries_test.go",
+      "source_hash": "d5c566ec068043308ffd9abc939dcc19bef23f74",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Two invariants: @cursor/sdk imports must stay under the in-tree bridge-node/, and core must not import the concrete connector. The first must be re-expressed against the external boundary; the second is a generic host rule and must be preserved.",
+      "evidence": "TestCursorSDKNpmImportsStayInsideBridgeBoundary walks connectors/cursorsdk; TestCoreAndProviderBoundaryDoNotImportCursorSDKBackend scans host import paths",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archtest-backend-multi-user-policy",
+      "source_path": "internal/archtest/backend_multi_user_policy_test.go",
+      "source_hash": "d152c4e0f82b5ea887fdd979fa011351311d47ad",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "cursorsdk is NOT multi-user eligible and is not listed as such. The single occurrence is one member of the agent-runtime census-coverage kind list in TestFirstPartyCensus_AgentRuntimeExportsAreCovered, whose invariant is that every agent runtime the host ships must declare access_scope=local_only and execution_class=agent_runtime, so the default-deny invariant cannot pass vacuously. TestFirstPartyCensus_ApprovalsExcludePersonalAndAgentFactories fails if any agent runtime appears in the multi-user approval set, and TestFirstPartyCensus_PostureInvariantsHold freezes local_only for every agent runtime and rejects unknown posture values. Net posture: an agent runtime that is invisible to the census, drifts off local_only, or is approved for multi_user fails closed. After extraction the line is removed because the connector is external, but the census coverage, local_only, and approval-exclusion invariants must remain in force for every remaining agent runtime; extraction must never be used to grant Cursor multi-user approval.",
+      "evidence": "line 122 \"cursorsdk\" inside the census-coverage kind list at lines 117-125 (TestFirstPartyCensus_AgentRuntimeExportsAreCovered); access_scope=local_only assertion at lines 131-133 and execution_class=agent_runtime assertion at lines 134-136; approval exclusion at lines 236-238 in TestFirstPartyCensus_ApprovalsExcludePersonalAndAgentFactories; posture freeze in TestFirstPartyCensus_PostureInvariantsHold at lines 97-106. `rg -n -i cursorsdk internal/archtest/backend_multi_user_policy_test.go` returns exactly one hit (line 122); there is no multi-user eligibility list naming cursorsdk in this file.",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archtest-authority-fixture",
+      "source_path": "internal/archtest/testdata/backend_multi_user_policy/authority/connector_recreates_multi_user_authority.go.txt",
+      "source_hash": "21154a0cff9ab1c5d9b5f5b70d6e56a2964f71bb",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Cursor-named synthetic authority fixture. design.md asks for a generic external-plugin fixture where practical so the regression keeps testing authority recreation without a Cursor dependency.",
+      "evidence": "line 9 var multiUserEligibilityTable = map[string]bool{\"cursorsdk\": true}",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "standardplugins-backend-prefix-inventory",
+      "source_path": "internal/standardplugins/backend_prefix_inventory_test.go",
+      "source_hash": "6c189ef2dc2584424c1e229aa0211f256c261ce3",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "First-party route-prefix inventory with a cursorsdk case building the backend from a test YAML subtree. Removing the case must not weaken the generic prefix-uniqueness and discovery assertions.",
+      "evidence": "line 111 case \"cursorsdk\":",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "standardplugins-multi-user-backend-policy",
+      "source_path": "internal/standardplugins/multi_user_backend_policy_test.go",
+      "source_hash": "45a48bb303ade084556afece15223a305d41f556",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "First-party multi-user backend policy listing cursorsdk among ACP-family kinds. Removing it must preserve the default-deny posture for the remaining families.",
+      "evidence": "line 21 \"cursorsdk\" in the policy list; line 97 kind iteration [acp agycliacp cursorcliacp geminicliacp cursorsdk]",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "standardplugins-standard-bundle-posture",
+      "source_path": "internal/standardplugins/standard_bundle_posture_test.go",
+      "source_hash": "a7abc3561b6e6d83fda4c1528e90ed32bea2e167",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Standard bundle posture census containing a cursorsdk key. Removing the key must not imply promotion into EssentialBackendBundle or StandardBackendBundle.",
+      "evidence": "line 35 \"cursorsdk\": {} in the expected standard-bundle inventory map",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "providerprofiles-expected-inventory",
+      "source_path": "internal/providerprofiles/expected_inventory_test.go",
+      "source_hash": "cbefdfbbe5a2e91c60ea4a0c2964fa1f35a0e395",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Declarative compatible-provider expected inventory includes cursorsdk. design.md requires compatible-provider growth to stay data-driven, so this is a data value rather than a code dependency; the entry is removed with the connector.",
+      "evidence": "line 54 \"cursorsdk\": true,",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "providerprofiles-catalog-population",
+      "source_path": "internal/providerprofiles/catalog_population_test.go",
+      "source_hash": "ef6f05b15cf6ac9e6ad14b99477083e95791ab4f",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Catalog population census mirroring the expected inventory; must be updated in the same change so the two cannot disagree.",
+      "evidence": "line 2078 \"cursorsdk\": true,",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "runtimebundle-discovered-factories-absence-guard",
+      "source_path": "internal/infra/runtimebundle/discovered_factories_test.go",
+      "source_hash": "49261581355261e6836ae5bbc7b6be09f7fd0714",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "The discovered_factories absence guard asserts that a `case \"cursor-sdk\"` branch is not compiled into the host. Its stated purpose is to detect accidental in-tree registration, so it may stay meaningful as an absence regression once the connector is external; it must not be deleted outright without replacing the invariant.",
+      "evidence": "line 396 searches discovered factories source for the literal `case \"cursor-sdk\"`",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "routing-execution-composition-label",
+      "source_path": "internal/core/routing/execution_composition_test.go",
+      "source_hash": "e827ecad35786cf1c51cd22c12565ccb3dd80978",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "NOT a Cursor SDK dependency. `cursor_sdk` is a synthetic map key and alias-replacement label inside a generic execution-composition test; no Cursor code, module, or config is involved. Recorded so a blanket keyword scan does not mistake it for coupling. Not listed in the design File Structure Plan.",
+      "evidence": "lines 385, 391, 395 use \"cursor_sdk\" only as a test label alongside default_inf and gpt-4o",
+      "in_design_plan": false,
+      "planned_task": "no change required; excluded from the 5.1/5.2 reference scans to avoid a false positive",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "runtimebundle-candidate-lifecycle-comment",
+      "source_path": "internal/infra/runtimebundle/candidate_concurrent_lifecycle_test.go",
+      "source_hash": "cf83445170359236275bad22ce5d2ad3696de581",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "policy-fixture",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Comment-only mention. The doc comment cites 'candidacy compile + cursor SDK close/rollback' as an example of where ProcessServices survival is already covered. No assertion depends on Cursor; the comment may need rewording only because the cited test moves out of tree. Not listed in the design File Structure Plan.",
+      "evidence": "line 17 comment text; no cursorsdk identifier in the test body",
+      "in_design_plan": false,
+      "planned_task": "no behaviour change; comment may be reworded in 5.2 if maintainers want to drop a dangling example",
+      "verify_against_baseline": true
+    },
+
+    {
+      "id": "doc-cursor-sdk-backend",
+      "source_path": "docs/cursor-sdk-backend.md",
+      "source_hash": "ef47e728574d6286765ac11e9c2cbea996ac5586",
+      "source_kind": "blob",
+      "destination_path": "https://github.com/matdev83/go-lip-cursorsdk (docs/installation.md, docs/migration.md)",
+      "category": "active-documentation",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "The active in-tree operator guide, including the local `npm ci` build sequence, PATH/bridge_executable instructions, live-command invocations, and workflow references. requirements.md 6.6 requires active build and installation instructions to be replaced with the standalone plugin's documented location, and 6.4/6.5 require install and rollback content to exist there.",
+      "evidence": "lines 30-34 npm ci/typecheck/test/build; line 37 PATH guidance; lines 129-134 test and workflow table; lines 156-170 live commands",
+      "planned_task": "5.2, 6.2, 6.3",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "doc-readme-connector-tables",
+      "source_path": "README.md",
+      "source_hash": "61a65151fc4a3d2197473f7fdfbae8427f233fb2",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "active-documentation",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Advertises the experimental cursorsdk connector, the manual bridge install, exact @cursor/sdk 1.0.23, Node >=22.13, the cursor-sdk-backend guide, the example config, and the comparison-report make target. Replaced by an external install/migration pointer with no local npm instructions; the separate cursorcliacp line is untouched.",
+      "evidence": "lines 33, 120, 128, 146",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "doc-backend-plugins-authoring",
+      "source_path": "docs/backend-plugins/authoring.md",
+      "source_hash": "a4a2239b0f7912538a5667cbc4b954cceef83204",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "active-documentation",
+      "retirement": "modify-in-place",
+      "deletion_batch": "batch-2",
+      "reason": "Generic authoring guidance that names Cursor SDK agents as an agent_runtime example and describes private Node/Python bridge directories. design.md requires adding external-repository authoring and module-publication rules; the generic rules stay.",
+      "evidence": "line 15 agent_runtime examples; line 70 private bridge directory guidance",
+      "planned_task": "5.2, 6.2",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "doc-backend-plugins-operator",
+      "source_path": "docs/backend-plugins/operator.md",
+      "source_hash": "422af0a16d95d537ca2e46a359d5a46ac3d0916f",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "active-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Generic operator policy prose that cites Cursor SDK as an example of local_only agent runtimes and of non-composable execution classes. No build, install, or path instruction depends on it, and the file is not in the design File Structure Plan. Flagged for maintainer review rather than edited opportunistically.",
+      "evidence": "line 140 local_only/credential_mode rationale; line 218 composition restriction for agent_runtime",
+      "in_design_plan": false,
+      "planned_task": "5.2 (review only)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "doc-remote-ci-performance",
+      "source_path": "docs/remote-ci-performance.md",
+      "source_hash": "a426a2f70cbc2c59d1e026005214afc53edae3a3",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "active-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Prose describing the independent bridge-node-tests status context. It describes a required check that will be retired, so the sentence will need rewording, but the file carries no Cursor build or install instruction and is not in the design File Structure Plan. Flagged for maintainer review.",
+      "evidence": "line 110 mentions the independent bridge-node-tests status",
+      "in_design_plan": false,
+      "planned_task": "5.2 (review only)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "adr-hybrid-backend-model",
+      "source_path": "docs/adr/0008-hybrid-backend-connector-plugins.md",
+      "source_hash": "cd9f9f8920e070bda1c39c3b6a88d047c20a2425",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Accepted ADR defining the hybrid backend model. It carries no cursorsdk reference at the baseline. design.md asks only for a clarification that optional executable modules may live in external repositories; no inventory snapshot is to be added.",
+      "evidence": "no cursorsdk/cursor-sdk/@cursor/sdk match in this file at the baseline commit",
+      "in_design_plan": true,
+      "planned_task": "5.2 (clarification only)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "steering-tech",
+      "source_path": ".kiro/steering/tech.md",
+      "source_hash": "a4d29cd81441a9f96846ffac41763a4e103289eb",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Durable project memory for the hybrid backend model and dependency isolation. Carries no cursorsdk reference at the baseline; design.md asks only for a clarification that optional executable modules may be external. Per AGENTS.md, no changelog, timestamp, or history footer may be added.",
+      "evidence": "no cursorsdk/cursor-sdk/@cursor/sdk match in this file at the baseline commit",
+      "in_design_plan": true,
+      "planned_task": "5.2 (clarification only)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "steering-structure",
+      "source_path": ".kiro/steering/structure.md",
+      "source_hash": "df4fefdc8d60070404edd4696ee1864ae53bb1e0",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Package zone map. Section 5 describes optional executable backends under connectors/ with no cursorsdk-specific content at the baseline; the zone rule stays and is not narrowed to a cursorsdk inventory.",
+      "evidence": "section 5 'Optional executable backends — connectors/ and connector-support/' carries no cursorsdk reference",
+      "in_design_plan": true,
+      "planned_task": "5.2 (clarification only)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "agents-md",
+      "source_path": "AGENTS.md",
+      "source_hash": "af466f58063f63aa65d3f6abe457e5b557c886bc",
+      "source_kind": "blob",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "Agent rules restate the hybrid backend rule and reference ADR 0008 without naming cursorsdk at the baseline. No cursorsdk inventory may be added here; the pointer to the external plugin is documentation work, not a code dependency.",
+      "evidence": "Architecture Guardrails cite ADR 0008; no cursorsdk match at the baseline commit",
+      "in_design_plan": true,
+      "planned_task": "5.2 (clarification only)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-cursor-sdk-backend-spec",
+      "source_path": ".kiro/specs/archive/cursor-sdk-backend",
+      "source_hash": "27e7a9dbcab5e7f04fb13bafd4d60dbe7e23c480",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 9, "cursordk_reference_files": 9},
+      "reason": "The completed specification that produced the in-tree integration. requirements.md 6.6 requires historical specifications and provenance to be retained while active instructions are replaced. Retained verbatim; it is also the provenance source the external plugin repository must copy.",
+      "evidence": "9 files, all 9 matching the Cursor pattern: AGENTS.md, design.md, file-plan.md, packaging.md, requirements.md, research.md, spec.json, tasks.md, validation-checklist.md. Re-resolve with git rev-parse 14cdd0e9491453eef385c88d2250fa5a6610b8af:.kiro/specs/archive/cursor-sdk-backend",
+      "planned_task": "retain (6.2 confirms retention)",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-agent-runtime-routing-composition-safety",
+      "source_path": ".kiro/specs/archive/agent-runtime-routing-composition-safety",
+      "source_hash": "b5918b77715946b67210ecca1d290e4534c1e6d7",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 8, "cursordk_reference_files": 7},
+      "reason": "Archived specification that established the agent-runtime routing and composition-safety rules the Cursor connector was built under. Its Cursor mentions are historical provenance for the agent_runtime execution class, not an executable dependency. Retained verbatim.",
+      "evidence": "7 of 8 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-backend-connector-plugin-architecture",
+      "source_path": ".kiro/specs/archive/backend-connector-plugin-architecture",
+      "source_hash": "8839f0b22237d8abc00ac416cd7f4da00730f246",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 12, "cursordk_reference_files": 4},
+      "reason": "Archived specification that defined the hybrid connector-plugin architecture (ADR 0008 lineage) the Cursor connector is an instance of. Its Cursor mentions are historical provenance for that architecture, not an executable dependency. Retained verbatim.",
+      "evidence": "4 of 12 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-bulk-inference-provider-expansion",
+      "source_path": ".kiro/specs/archive/bulk-inference-provider-expansion",
+      "source_hash": "b4177bc1a6e4c515fcde994c940b17d6da9f9b93",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 5, "cursordk_reference_files": 2},
+      "reason": "Archived specification whose provider-expansion enumeration happens to include the in-tree Cursor connector. Historical enumeration provenance only; nothing in it resolves or builds at runtime. Retained verbatim.",
+      "evidence": "2 of 5 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-extensible-usage-economics-reconciliation",
+      "source_path": ".kiro/specs/archive/extensible-usage-economics-reconciliation",
+      "source_hash": "057c91e277abcbbb3b0fa4895d8b7b4299ce80b1",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 20, "cursordk_reference_files": 2},
+      "reason": "Archived specification that used the Cursor connector as a worked example when reconciling usage and economics semantics. Its Cursor mentions are historical design provenance and are not imported by any runtime package. Retained verbatim.",
+      "evidence": "2 of 20 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-runtime-architecture-convergence-and-shrinkage",
+      "source_path": ".kiro/specs/archive/runtime-architecture-convergence-and-shrinkage",
+      "source_hash": "77ff9fe03edf4869d1d139d68fd2b13d8a7a906d",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 22, "cursordk_reference_files": 3},
+      "reason": "Archived specification that drove runtime shrinkage and recorded Cursor connector shrink decisions. The Cursor mentions are historical shrink provenance; the generic architecture rules that survive are already in ADR 0008 and .kiro/steering/tech.md. Retained verbatim.",
+      "evidence": "3 of 22 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-usage-economics-b-leg-multimodal-refinement",
+      "source_path": ".kiro/specs/archive/usage-economics-b-leg-multimodal-refinement",
+      "source_hash": "3f9ac8817e637f3501a97d9f426f6166d993ae74",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 77, "cursordk_reference_files": 5},
+      "reason": "Archived specification that cited the Cursor connector when refining B-leg multimodal usage accounting. Historical accounting provenance; no runtime import. Retained verbatim.",
+      "evidence": "5 of 77 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-versioned-runtime-reloadable-proxy-configuration",
+      "source_path": ".kiro/specs/archive/versioned-runtime-reloadable-proxy-configuration",
+      "source_hash": "73ede1ed7fa73b0f20f3cf754c0883f3738ef333",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 6, "cursordk_reference_files": 1},
+      "reason": "Archived specification that named the Cursor connector while defining versioned runtime reload. The single Cursor mention is historical design provenance. Retained verbatim.",
+      "evidence": "1 of 6 archived files matches the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "archive-windows-task-reliability",
+      "source_path": ".kiro/specs/archive/windows-task-reliability",
+      "source_hash": "e2fb0f2fc19a57ad8b8805098e656a1532571e48",
+      "source_kind": "tree",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "counts": {"total_files": 5, "cursordk_reference_files": 3},
+      "reason": "Archived specification that recorded Windows-specific reliability findings against the Cursor bridge and its Node companion. Historical platform-reliability provenance; the Cursor launcher scripts it describes are active-documentation entries (script-cursor-*-sh/ps1) handled in batch-1, not archive deletions. Retained verbatim.",
+      "evidence": "3 of 5 archived files match the Cursor pattern recorded in archived_spec_evidence.match_pattern; tree object re-resolves at the baseline commit",
+      "planned_task": "retain",
+      "verify_against_baseline": true
+    },
+    {
+      "id": "spec-cursor-sdk-standalone",
+      "source_path": ".kiro/specs/cursor-sdk-standalone",
+      "source_hash": null,
+      "source_kind": "aggregate",
+      "destination_path": null,
+      "category": "historical-documentation",
+      "retirement": "retain",
+      "deletion_batch": "retain",
+      "reason": "This active specification, untracked at the observation point. Retained as the planning record that authorises the migration; it also carries no runtime dependency.",
+      "evidence": "requirements.md, design.md, tasks.md, spec.json, research.md, migration-inventory.json (this file)",
+      "planned_task": "retain",
+      "verify_against_baseline": false
+    }
+  ],
+
+  "planned_host_additions": {
+    "note": "Design File Structure Plan rows that add new host files. They carry no Cursor reference at the baseline and do not exist yet, so they are deliberately absent from references[] rather than listed with an invented hash. Verified absent with Test-Path at the baseline commit.",
+    "paths": [
+      {
+        "path": "scripts/check-node-independence.py",
+        "design_row": "Go-LIP modifications",
+        "purpose": "Host no-Node verification entry script that asserts neither node nor npm is available, runs the build/unit/quality/comprehensive/packaging/CLI/non-Cursor smoke set, and records command exit statuses without downloading tools.",
+        "planned_task": "5.1",
+        "exists_at_baseline": false
+      },
+      {
+        "path": ".github/workflows/node-independence.yml",
+        "design_row": "Go-LIP modifications",
+        "purpose": "CI lane that runs the no-Node verification in an image without Node or npm and fails if either tool is invoked.",
+        "planned_task": "5.1",
+        "exists_at_baseline": false
+      },
+      {
+        "path": "internal/qa/node_independence_contract_test.go",
+        "design_row": "Go-LIP modifications",
+        "purpose": "Narrow QA regression auditing active build/workflow/module inventories for Cursor source paths and Node setup/install commands, while excluding historical specs and generic private-bridge examples.",
+        "planned_task": "5.1",
+        "exists_at_baseline": false
+      },
+      {
+        "path": "docs/backend-plugins/authoring.md (new external-repository section)",
+        "design_row": "Go-LIP modifications",
+        "purpose": "Authoring rules for connectors maintained in their own repository: required publication of the host module and ACP support module, no sibling replaces, GOWORK=off resolution.",
+        "planned_task": "5.2",
+        "exists_at_baseline": false,
+        "modifies_existing_reference": "doc-backend-plugins-authoring"
+      }
+    ]
+  },
+
+  "excluded_scopes": [
+    {
+      "id": "cursorcliacp-is-a-distinct-connector",
+      "paths": [
+        "internal/standardplugins/essential_install_test.go",
+        "internal/standardplugins/identity_transport_test.go"
+      ],
+      "source_hashes": {
+        "internal/standardplugins/essential_install_test.go": "afd39de53a84bbfaef73793a01ff8be82ef90c69",
+        "internal/standardplugins/identity_transport_test.go": "b56e01d8f0553e27ac6bebb48a18a86cb3b81686"
+      },
+      "why_excluded": "design.md line 121 assumed these two reference the distinct cursorcliacp connector and are out of scope unless the generated inventory proves otherwise. This inventory confirms the assumption: both files mention 'cursorcliacp' only and contain zero matches for cursorsdk, cursor-sdk, cursor_sdk, @cursor/sdk, or 'cursor sdk'. They are therefore NOT Cursor SDK references and require no change. cursorcliacp is also listed in .github/dependabot.yml and in the archtest authority list and stays untouched (tasks.md 5.2).",
+      "verification": "rg -n -i 'cursorsdk|cursor-sdk|cursor_sdk|@cursor/sdk|cursor sdk' => no matches in either file; rg -n -i 'cursor' => cursorcliacp only"
+    },
+    {
+      "id": "generic-bridge-name-examples",
+      "paths": ["tools/backendplugin/tools_test.go"],
+      "source_hashes": {"tools/backendplugin/tools_test.go": "6b829a90d12c065c59f585f5b5ccaec15fc480f9"},
+      "why_excluded": "'bridge-node' here is a synthetic companion directory name in generic plugin-packaging tests (companion nesting, symlink-escape rejection). No Cursor code, module, npm package, or config is referenced. design.md Host independence guard states that generic private-bridge examples are not executable dependencies and are not forbidden by blanket keyword scans.",
+      "verification": "rg matches are confined to writeSyntheticConnectorWithCompanions fixtures at lines 317-389"
+    },
+    {
+      "id": "cursor-named-makefile-example",
+      "paths": ["Makefile"],
+      "source_hashes": {"Makefile": "7228ea09d1f3515ead7302a1d483c0980469221b"},
+      "partial_overlap_with": "makefile-cursor-targets",
+      "why_excluded": "Makefile line 674 names 'cursor-sdk-backend' only as an example SPEC value for the kiro-spec-check target, and line 101 mentions Node in the generic isolated-root-qa description. Neither is Cursor coupling. Only the four test-cursor-sdk-* targets, their help text, and the .PHONY entries are in scope."
+    },
+    {
+      "id": "root-module-has-no-cursor-dependency",
+      "paths": ["go.mod", "go.sum"],
+      "why_excluded": "The root production import graph does not depend on Cursor. go.mod has no cursorsdk require and no replace pointing at it; go.sum therefore has no Cursor module entries. Enforced today by internal/archtest/cursor_sdk_external_gates_test.go (TestCursorSDK_rootGoModHasNoCursorsdkModule) and preserved as an external-boundary regression after extraction."
+    }
+  ],
+
+  "observations": [
+    {
+      "id": "other-node-tooling-in-the-host",
+      "finding": "The host still contains a second Node toolchain that is not Cursor-owned: tools/openresponses-compliance/ (package.json + package-lock.json), .github/workflows/openresponses-official-compliance.yml (setup-node + `npm ci --ignore-scripts`), scripts/test-openresponses-compliance.{sh,ps1}, and internal/integration/openresponses/compliance_official_test.go (opt-in, requires npm ci). connectors/geminicliacp also emits an 'npm install -g @google/gemini-cli' operator message.",
+      "impact": "requirements.md 1.2 demands that default unit, quality, and comprehensive verification complete without Node or npm, and 1.3/6.3 demand no-Node evidence. The Cursor workflow is not the only Node consumer, so the no-Node lane and the narrow active-reference regression in tasks.md 5.1 must account for these paths rather than assuming Cursor is the sole blocker.",
+      "in_cursor_inventory": false,
+      "recorded_because": "The same inventory work surfaces it; it is out of this spec's Cursor boundary and is not modified here."
+    },
+    {
+      "id": "required-check-reconciliation",
+      "finding": "The bridge-node-tests job in .github/workflows/cursor-sdk-platform.yml always reports a status so the check is never bypassed, and internal/qa/remote_ci_performance_contract_test.go plus docs/remote-ci-performance.md both depend on that status context existing.",
+      "impact": "Retiring the workflow without first inspecting repository rulesets and required status contexts would leave pull requests blocked on a deleted required job. design.md Integration & Migration Notes step 4 and tasks.md 5.2/6.1 both require that inspection first.",
+      "in_cursor_inventory": false,
+      "recorded_because": "It constrains the ordering of the deletion batches recorded above."
+    },
+    {
+      "id": "host-go-file-budget",
+      "finding": "The 59/66 split is measured from disk at the baseline commit: 125 Go files under connectors/cursorsdk, 59 matching *_test.go and 66 not.",
+      "impact": "The two sequential deliveries stay inside the 100-changed-Go-file gate: 59 + up to 41 in the first, 66 + up to 34 in the second. If deleting the transferred tests also affects generic contract coverage, batches must be rebalanced rather than a gate bypassed.",
+      "in_cursor_inventory": false,
+      "recorded_because": "It is the arithmetic that makes the recorded deletion batches legal."
+    },
+    {
+      "id": "references-not-in-design-plan",
+      "finding": "Five Cursor-naming files are outside the design File Structure Plan: docs/backend-plugins/operator.md, docs/remote-ci-performance.md, internal/core/routing/execution_composition_test.go, internal/infra/runtimebundle/candidate_concurrent_lifecycle_test.go, and tools/backendplugin/tools_test.go (the last excluded as a generic example).",
+      "impact": "The first four are marked in_design_plan=false and retirement=retain so they are not edited opportunistically. If maintainers decide operator.md or remote-ci-performance.md should be reworded, that is a scope revision, not an implicit edit.",
+      "in_cursor_inventory": true,
+      "recorded_because": "design.md states the remaining glob rows are ownership areas, not permission for opportunistic edits."
+    },
+    {
+      "id": "sdk-setting-source-fixture-hash",
+      "finding": "The SDK 1.0.23 evidence fixture connectors/cursorsdk/internal/product/testdata/fixtures/sdk_setting_sources_1.0.23.txt is inside the aggregated connectors/cursorsdk/internal/product tree, so its per-file blob id is recorded under pins.evidence rather than as its own reference entry.",
+      "impact": "Both claims are independently checkable: the fixture blob id is recorded in pins.evidence and the parent tree hash a5b18567de8d1078b7d242310f29d5ab0fffbdca plus the connector file manifest digest 75602ddd891c243cfb598af95d72d5df4f9e5237d50512489c01ae09782b0ec8 pin the whole set. Re-resolve the parent with `git rev-parse 14cdd0e9491453eef385c88d2250fa5a6610b8af:connectors/cursorsdk/internal/product`; recompute the manifest digest with connector_measurement.file_manifest_reproduce_powershell.",
+      "in_cursor_inventory": true,
+      "recorded_because": "Keeps one clear responsibility per entry: pins own the version evidence, references own the move/deletion plan."
+    }
+  ],
+
+  "verification_commands": {
+    "note": "Exact, copy-pasteable commands. Nothing here is a placeholder. The validator deliberately lives outside the repository because tasks.md 1.1 is not allowed to add tooling files to the repo; it is recreated from the behaviour described in validation_contract if the temp directory is cleared.",
+    "inventory_validator": "pwsh -NoProfile -File \"$env:TEMP\\opencode\\validate-inventory.ps1\" -RepoRoot \"C:\\Users\\Mateusz\\source\\repos\\go-llm-interactive-proxy-spec-cursor-sdk-standalone\"",
+    "inventory_validator_script_path": "%TEMP%\\opencode\\validate-inventory.ps1",
+    "whitespace": "git diff --check",
+    "worktree_scope": "git status --porcelain",
+    "json_parse": "python -m json.tool .kiro/specs/cursor-sdk-standalone/migration-inventory.json > $null",
+    "manifest_digest": "connector_measurement.file_manifest_reproduce_powershell (inlined in that field; also mirrored as file_manifest_reproduce_python)",
+    "hash_reresolution": "git rev-parse 14cdd0e9491453eef385c88d2250fa5a6610b8af:connectors/cursorsdk/bridge-node/package.json",
+    "hash_reresolution_note": "Replace the path with any other references[].source_path to re-resolve its recorded source_hash. tree entries resolve the same way.",
+    "archive_enumeration": "git grep -I -l -i -E 'cursorsdk|cursor-sdk|cursor_sdk|@cursor/sdk|cursor sdk' 14cdd0e9491453eef385c88d2250fa5a6610b8af -- .kiro/specs/archive",
+    "archive_note": "One hit line per archived file that mentions Cursor; the grouping by specification and the per-spec totals recorded in archived_spec_evidence and in each archive entry's counts are derived from exactly this output.",
+    "policy_posture_check": "rg -n -i 'cursorsdk' internal/archtest/backend_multi_user_policy_test.go",
+    "validation_contract": "The validator must (a) parse this JSON, (b) recompute connector_measurement.tree_hash, total_files, go_files_total, go_test_files, go_implementation_files, non_go_files and file_manifest_sha256 from the baseline tree rather than reading them back, (c) re-resolve every references[].source_hash with verify_against_baseline=true and confirm source_kind matches the git object type, (d) confirm the recorded version pins by reading package.json, package-lock.json and .github/workflows/cursor-sdk-platform.yml at the baseline commit, (e) confirm every archived-spec record's tree hash, total_files and cursordk_reference_files and independently sweep .kiro/specs/archive for any archived specification mentioning Cursor that has no record, (f) assert the batch arithmetic (59 + 41 = 100, 66 + 34 = 100), (g) assert the retain-never-delete historical retention rule, and (h) assert that no unspecified angle-bracket placeholder token remains in any verification command."
+  },
+
+  "validation_contract": {
+    "schema": "golip.spec.migration-inventory/v1",
+    "purpose": "This inventory is migration evidence, not a runtime registry. It carries no Go code and no in-repo test harness, so its contract is asserted by the external validator named in verification_commands.inventory_validator and enumerated in verification_commands.validation_contract.",
+    "json_must": [
+      "parse as UTF-8 JSON with no BOM",
+      "declare schema, feature, purpose, generated_by_task, requirements_covered, design_anchor",
+      "use only the declared category names in categories[].name",
+      "use only retirement values relocate | modify-in-place | retain",
+      "use only deletion_batch values batch-1 | batch-2 | batch-1+batch-2 | not-planned | retain",
+      "give every references[] entry a unique id, a non-empty evidence string, and a planned_task",
+      "give every references[] entry with verify_against_baseline=true a non-null source_hash that re-resolves at baseline.commit with the declared source_kind",
+      "contain no unspecified angle-bracket placeholder token in any verification command"
+    ],
+    "batch_plan_invariant": "batch-1.go_files == connector_measurement.go_test_files (59) and batch-2.go_files == connector_measurement.go_implementation_files (66); each batch's go_files + host_go_file_budget == change_size_gate (100).",
+    "retention_invariant": "Every historical-documentation entry has retirement=retain and deletion_batch=retain, and no entry anywhere declares a delete retirement. requirements.md 6.6 makes retention mandatory, not discretionary.",
+    "provisioning_invariant": "destination_repository.status stays proposed-not-provisioned with provisioned=false and external_writes_performed=false until a repository actually exists; the permission_gap stays recorded rather than being assumed away."
+  },
+
+  "verification_evidence": {
+    "chronology_statement": "Everything under current_verification was re-run and re-captured during remediation round 1, after the recorded file_manifest_sha256 was corrected and the archive enumeration was restructured. It is presented as CURRENT verification evidence only. It is NOT the original RED run for this task and must not be read as one.",
+    "original_red_run": {
+      "status": "no transcript exists",
+      "fact": "The first revision of this inventory referenced an unspecified validator and captured no command output, so there is no original RED transcript to reproduce or quote.",
+      "action_taken": "No original output is claimed, reconstructed, or paraphrased here. A fresh run was performed instead and is recorded verbatim under current_verification. Any account of the original run exists only in the implementer's session history and in review feedback, not in this file.",
+      "negative_controls_status": "The four negative controls under current_verification.negative_controls were all executed fresh on this date. None of them is offered as an original-run artefact."
+    },
+    "current_verification": {
+      "performed_on": "2026-10-01",
+      "worktree": "C:\\Users\\Mateusz\\source\\repos\\go-llm-interactive-proxy-spec-cursor-sdk-standalone",
+      "branch": "spec/cursor-sdk-standalone",
+      "baseline": "14cdd0e9491453eef385c88d2250fa5a6610b8af",
+      "platform": "win32, PowerShell 7, git for Windows, Python 3.10.11",
+      "commands": [
+        {
+          "id": "CV1",
+          "command": "python -m json.tool .kiro/specs/cursor-sdk-standalone/migration-inventory.json",
+          "result": "exit 0, file parses as JSON",
+          "asserts": "JSON validity of this file"
+        },
+        {
+          "id": "CV2",
+          "command": "pwsh -NoProfile -File \"$env:TEMP\\opencode\\validate-inventory.ps1\" -RepoRoot \"C:\\Users\\Mateusz\\source\\repos\\go-llm-interactive-proxy-spec-cursor-sdk-standalone\"",
+          "result": "exit 0, 'checks run: 59', 'RESULT: PASS', 0 failures",
+          "asserts": "JSON schema/feature/requirements fields; connector tree hash, file counts and manifest digest recomputed from the baseline tree; version pins read out of package.json, package-lock.json and the Cursor workflow at the baseline commit; every references[].source_hash re-resolved and source_kind matched against the git object type; every references[].counts block matched against the tree; per-archive tree hashes, total_files and cursordk_reference_files matched; an independent sweep of all 586 .kiro/specs/archive files confirming every archived spec mentioning Cursor has its own record; the retain-never-delete historical retention rule; batch arithmetic 59+41=100 and 66+34=100; provisioning honesty (proposed-not-provisioned, provisioned=false, no external writes); absence of placeholder tokens in verification commands"
+        },
+        {
+          "id": "CV3",
+          "command": "connector_measurement.file_manifest_reproduce_powershell (inlined in that field)",
+          "result": "75602ddd891c243cfb598af95d72d5df4f9e5237d50512489c01ae09782b0ec8, identical to the recorded connector_measurement.file_manifest_sha256",
+          "asserts": "the manifest digest recomputes to the recorded value by the documented command"
+        },
+        {
+          "id": "CV4",
+          "command": "connector_measurement.file_manifest_reproduce_python (inlined in that field)",
+          "result": "75602ddd891c243cfb598af95d72d5df4f9e5237d50512489c01ae09782b0ec8, from a second independent implementation in a different language",
+          "asserts": "CV3 is not an artefact of one shell's line-ending or sort behaviour"
+        },
+        {
+          "id": "CV5",
+          "command": "git diff --check",
+          "result": "exit 0, no output",
+          "asserts": "no whitespace errors",
+          "caveat": "git diff --check inspects tracked changes only, and this file is untracked, so this command alone cannot see it. It was therefore repeated with the file staged as intent-to-add (git add -N -- <path>; git diff --check -- <path>; git reset), which also returned exit 0 with no output, and complemented by a byte-level check in CV6."
+        },
+        {
+          "id": "CV6",
+          "command": "byte-level read of .kiro/specs/cursor-sdk-standalone/migration-inventory.json",
+          "result": "no CR byte present (LF-only); no UTF-8 BOM; 0 lines with trailing whitespace; 0 lines containing a tab; file ends with exactly one LF; 1656 lines",
+          "asserts": "whitespace hygiene of the untracked file that git diff --check cannot reach"
+        },
+        {
+          "id": "CV7",
+          "command": "git status --porcelain",
+          "result": "single line: '?? .kiro/specs/cursor-sdk-standalone/'",
+          "asserts": "task 1.1 touched nothing else: no tracked file is modified and no new tooling file was added to the repository. The validator lives outside the repository at %TEMP%\\opencode\\validate-inventory.ps1."
+        },
+        {
+          "id": "CV8",
+          "command": "Select-String -Path <this file> for the four conventional unfinished-work marker words",
+          "pattern_note": "Neither the marker pattern nor the credential pattern used by CV8 and CV9 is spelled out in this file, because spelling them out would make the very scans they describe report self-matches. Both patterns are the conventional ones for their purpose.",
+          "result": "0 matches",
+          "asserts": "no unfinished-work marker is left in the evidence"
+        },
+        {
+          "id": "CV9",
+          "command": "Select-String -Path <this file> for common credential shapes (provider key prefixes, PEM private-key headers, and the conventional secret-bearing field names)",
+          "result": "7 matches, all benign English prose, no credential value. Line 202 is batches.gate.override describing the repository's own pre-commit scan; the other six are the English nouns 'secret' and 'token' used in the wording of verification_commands.validation_contract, validation_contract.json_must, and this CV8/CV9 pair, which describe the scan rather than carry a credential.",
+          "asserts": "no secret material is recorded; the only hits are the words describing this very scan"
+        },
+        {
+          "id": "CV10",
+          "command": "git grep -I -l -i -E 'cursorsdk|cursor-sdk|cursor_sdk|@cursor/sdk|cursor sdk' 14cdd0e9491453eef385c88d2250fa5a6610b8af -- .kiro/specs/archive",
+          "result": "36 matching files across 9 archived specifications: cursor-sdk-backend 9, agent-runtime-routing-composition-safety 7, usage-economics-b-leg-multimodal-refinement 5, backend-connector-plugin-architecture 4, runtime-architecture-convergence-and-shrinkage 3, windows-task-reliability 3, bulk-inference-provider-expansion 2, extensible-usage-economics-reconciliation 2, versioned-runtime-reloadable-proxy-configuration 1",
+          "asserts": "the archived_spec_evidence totals (8 additional specs, 27 additional matching files, 36 including cursor-sdk-backend, 155 additional files in total) are the enumeration, not an estimate"
+        },
+        {
+          "id": "CV11",
+          "command": "rg -n -i 'cursorsdk' internal/archtest/backend_multi_user_policy_test.go",
+          "result": "exactly one hit: line 122 \"cursorsdk\", inside the census-coverage kind list at lines 117-125 of TestFirstPartyCensus_AgentRuntimeExportsAreCovered",
+          "asserts": "the archtest-backend-multi-user-policy entry no longer mis-describes cursorsdk as a multi-user-eligible connector; the recorded description is the agent-runtime census/local_only/default-deny invariant that the file actually enforces"
+        }
+      ],
+      "negative_controls": [
+        {
+          "id": "NC1",
+          "kind": "missing-file control",
+          "command": "pwsh -NoProfile -File \"$env:TEMP\\opencode\\validate-inventory.ps1\" -RepoRoot <root> -Inventory \".kiro/specs/cursor-sdk-standalone/does-not-exist.json\"",
+          "expected": "non-zero exit and an explicit missing-inventory failure",
+          "observed": "exit 1, 'FAIL  inventory file exists: .kiro/specs/cursor-sdk-standalone/does-not-exist.json', 'RESULT: FAIL (missing inventory; negative control exercised)'",
+          "proves": "the validator does not silently pass when the inventory is absent; it fails closed"
+        },
+        {
+          "id": "NC2",
+          "kind": "tampered-digest control",
+          "command": "a temporary copy of this file with file_manifest_sha256 reverted to the superseded value 3974d127eca5affbb667efab29b7a20479d5b67026e14c3e97f0a3d115f32fbb",
+          "expected": "the digest check fails",
+          "observed": "exit 1, 'FAIL  B8 file_manifest_sha256 recomputed', 'checks run: 59 / failures: 1 / RESULT: FAIL'",
+          "proves": "the digest is recomputed from the baseline tree and compared, not echoed back; the corrected value is a real assertion and the superseded value would be rejected"
+        },
+        {
+          "id": "NC3",
+          "kind": "tampered-count control",
+          "command": "a temporary copy of this file with archived_spec_evidence.additional_specs changed from 8 to 9 (the originally reported, incorrect count)",
+          "expected": "the archive-count check fails",
+          "observed": "exit 1, 'FAIL  E6 recorded additional_specs == number of per-spec records', 'checks run: 59 / failures: 1 / RESULT: FAIL'",
+          "proves": "the corrected count of eight is enforced against the per-spec records, and the original nine-spec claim cannot be reintroduced silently"
+        },
+        {
+          "id": "NC4",
+          "kind": "retention-rule control",
+          "command": "a temporary copy of this file with the archive-windows-task-reliability entry switched to retirement=modify-in-place and deletion_batch=batch-2",
+          "expected": "the retain-never-delete rule check fails",
+          "observed": "exit 1, 'FAIL  F2 every historical entry is retain/retain (never delete)', 'checks run: 59 / failures: 1 / RESULT: FAIL'",
+          "proves": "requirements.md 6.6 retention is an enforced invariant of this inventory, not merely prose"
+        }
+      ],
+      "negative_control_honesty_note": "All four controls were run fresh on this date against the corrected file. They demonstrate the validator bites; they are not, and are not presented as, the original RED-phase failures."
+    }
+  },
+
+  "scope_statement": {
+    "written_by_task": "1.1",
+    "remediation_round": 1,
+    "files_written": [".kiro/specs/cursor-sdk-standalone/migration-inventory.json"],
+    "connector_source_modified": false,
+    "host_code_modified": false,
+    "ci_modified": false,
+    "external_writes_performed": false,
+    "blocking_prerequisites_left_open": [
+      "Destination repository matdev83/go-lip-cursorsdk is not provisioned (blocks tasks.md 1.3).",
+      "No published root or ACP semver tag exists (blocks independent resolution, tasks.md 1.2).",
+      "Repository rulesets and required status contexts for bridge-node-tests are uninspected (blocks tasks.md 5.2/6.1)."
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+# Lab/dev discovery: explicit paths only (no implicit home plugin root).
+plugins:
+  backend_discovery:
+    enabled: true
+    development_mode: true
+    strict: false
+    paths:
+      - .aip-plugins/full/localstub
+  backends:
+    - kind: local-stub
+      id: lab-stub
+      enabled: true
+      config:
+        text: "[operator] development discovery"

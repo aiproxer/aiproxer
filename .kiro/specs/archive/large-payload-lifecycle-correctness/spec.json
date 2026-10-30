@@ -1,0 +1,67 @@
+{
+  "feature_name": "large-payload-lifecycle-correctness",
+  "created_at": "2026-10-13T18:16:01Z",
+  "updated_at": "2026-10-14T21:11:19Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "spec_type": "brownfield_refinement",
+  "baseline": {
+    "commit": "10ed7ca12e2a7b30fc4d8f19d7b0dc27fca33e36",
+    "audit_commit": "8a041a2ad9c9c2c0d0bf8ee57005fe66f7479d6c"
+  },
+  "approval_mode": "explicit_user_approval; implementation_authorized",
+  "completed": true,
+  "implementation_complete": true,
+  "validation": {
+    "brownfield_gap_analysis": "performed",
+    "requirements_review": "repaired",
+    "design_review": "GO_after_one_repair_pass",
+    "task_graph": "PASS_after_design_alignment_recheck",
+    "final_sanity_review": "PASS",
+    "artifact_checks": "PASS; budgets_traceability_graph_file_plan_whitespace",
+    "repository_kiro_checker": "PASS",
+    "implementation_tests": "PASS; full make test on merged main",
+    "production_release": "implementation_merged; fast path remains default-off and not production-enabled"
+  },
+  "delivery": {
+    "prs": [
+      {
+        "number": 1064,
+        "merge_commit": "383bb36b7c535140e2ad29d9647b25fc1ac8477b"
+      },
+      {
+        "number": 1067,
+        "merge_commit": "ce590fb66b64975858187768aac8dbafffaab7d8"
+      },
+      {
+        "number": 1069,
+        "merge_commit": "9db3d930578cab199b2ca1e038a0b5d31157b776"
+      },
+      {
+        "number": 1081,
+        "merge_commit": "9a44bf40394cca8f0a11587b4b0a65c578212fee"
+      }
+    ],
+    "followups": [
+      {
+        "number": 1088,
+        "title": "isolate backend provisioning staging test from shared temp root"
+      }
+    ]
+  }
+}

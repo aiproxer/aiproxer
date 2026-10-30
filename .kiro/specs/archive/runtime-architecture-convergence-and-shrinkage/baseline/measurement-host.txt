@@ -1,0 +1,9 @@
+reviewed_sha=e80198596ba8d130589e6061e8f5c31af340084b
+measured_at_utc=2026-07-25T21:15:52Z
+go_version=go version go1.26.5 linux/amd64
+uname=Linux v1 6.17.0-1018-oracle #18~24.04.1-Ubuntu SMP Mon Jun 22 18:35:24 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+lscpu_model=AMD EPYC 9J14 96-Core Processor
+nproc=2
+GOMAXPROCS_unset_default_used_by_go_test=yes
+benchstat_installed=yes
+benchstat_path=/home/ubuntu/go/bin/benchstat

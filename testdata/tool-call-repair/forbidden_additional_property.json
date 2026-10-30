@@ -1,0 +1,26 @@
+{
+  "name": "forbidden_additional_property",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"location\":\"NYC\",\"extra\":true}"
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"location\":\"NYC\"}",
+    "require_schema_valid": true,
+    "reason_code": "additional_property_removed"
+  }
+}

@@ -1,0 +1,155 @@
+[
+  {
+    "id": 1,
+    "name": "stdlib-first-json",
+    "description": "Tests whether the model prefers standard library encoding/json over third-party JSON libraries for basic use cases",
+    "prompt": "I need to parse JSON in my Go project. What library should I use?",
+    "trap": "Without the skill, the model might immediately recommend jsoniter or another third-party JSON library instead of starting with encoding/json from the standard library",
+    "assertions": [
+      {"id": "1.1", "text": "Recommends encoding/json from the standard library as the first option"},
+      {"id": "1.2", "text": "Only suggests third-party alternatives (jsoniter, etc.) for specific performance needs"},
+      {"id": "1.3", "text": "Explains that the standard library is sufficient for most JSON use cases"},
+      {"id": "1.4", "text": "If mentioning alternatives, presents them as options for measured performance requirements, not as default recommendations"},
+      {"id": "1.5", "text": "Does NOT recommend a third-party library without first considering stdlib"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "pgx-over-lib-pq",
+    "description": "Tests whether the model compares PostgreSQL drivers by feature fit, compatibility, and measured workload needs",
+    "prompt": "I'm starting a new Go project that needs to connect to PostgreSQL. Which driver should I use?",
+    "trap": "Without the skill, the model recommends a driver by tutorial popularity or an unsupported fixed performance claim instead of checking project requirements and release status.",
+    "assertions": [
+      {"id": "2.1", "text": "Compares pgx and lib/pq against the project's PostgreSQL, compatibility, and feature requirements"},
+      {"id": "2.2", "text": "Does not claim a fixed speed advantage without a benchmark for the target workload"},
+      {"id": "2.3", "text": "Notes pgx-native features such as COPY or LISTEN when those features matter"},
+      {"id": "2.4", "text": "Checks release status and module compatibility before choosing a driver"},
+      {"id": "2.5", "text": "Makes a conditional recommendation rather than treating one driver as universally best"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "chi-for-minimal-router",
+    "description": "Tests whether the model recommends chi for lightweight routing needs instead of full frameworks",
+    "prompt": "I need a simple HTTP router for my Go REST API. It just needs path parameters and middleware support. I want to stay close to net/http. What should I use?",
+    "trap": "Go 1.22+ ServeMux covers path parameters and method routing; a third-party router should add a concrete requirement.",
+    "assertions": [
+      {"id": "3.1", "text": "Checks Go-version-compatible net/http ServeMux first and compares chi only for additional routing/middleware needs"},
+      {"id": "3.2", "text": "Explains that chi is lightweight and composes well with net/http"},
+      {"id": "3.3", "text": "Notes that chi has minimal dependencies"},
+      {"id": "3.4", "text": "Prefers a net/http-compatible solution for the stated requirement without mandating a framework or dependency"},
+      {"id": "3.5", "text": "Does NOT recommend a full framework (Gin, Echo, Fiber) as the primary choice when the user explicitly wants to stay close to net/http"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "slog-over-external-loggers",
+    "description": "Tests whether the model considers log/slog (Go 1.21+) before recommending external logging libraries",
+    "prompt": "I need structured logging in my Go 1.22 project. What library should I use?",
+    "trap": "Without the skill, the model jumps to zap or zerolog without mentioning that Go 1.21+ has log/slog in the standard library",
+    "assertions": [
+      {"id": "4.1", "text": "Mentions log/slog as the standard library option for structured logging (available since Go 1.21)"},
+      {"id": "4.2", "text": "Presents slog as a viable option, not just an afterthought"},
+      {"id": "4.3", "text": "If recommending external libraries (zap, zerolog), explains what specific value they add over slog"},
+      {"id": "4.4", "text": "Does NOT skip standard library consideration entirely"},
+      {"id": "4.5", "text": "May mention zap/zerolog for specific use cases (zero-allocation hot paths, etc.)"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "sqlc-vs-orm-decision",
+    "description": "Tests whether the model presents sqlc as an alternative to ORMs when the user values type safety and compile-time checks",
+    "prompt": "I want to interact with my PostgreSQL database in Go. I want maximum type safety and want the compiler to catch SQL errors. What should I use?",
+    "trap": "Without the skill, the model recommends GORM (most popular ORM) which uses runtime reflection, missing sqlc which generates type-safe code from SQL at compile time",
+    "assertions": [
+      {"id": "5.1", "text": "Recommends sqlc (github.com/sqlc-dev/sqlc) as a primary option for compile-time SQL safety"},
+      {"id": "5.2", "text": "Explains that sqlc generates type-safe Go code from SQL with no runtime reflection"},
+      {"id": "5.3", "text": "Mentions that GORM uses runtime reflection which does not catch SQL errors at compile time"},
+      {"id": "5.4", "text": "May also mention ent as a code-generated alternative"},
+      {"id": "5.5", "text": "Does NOT recommend only GORM when the user explicitly asks for compile-time safety"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "rate-limiter-stdlib-first",
+    "description": "Tests whether the model recommends golang.org/x/time/rate before third-party rate limiters",
+    "prompt": "I need to add rate limiting to my Go HTTP API. What should I use?",
+    "trap": "Without the skill, the model recommends a third-party rate limiter without mentioning the official golang.org/x/time/rate package",
+    "assertions": [
+      {"id": "6.1", "text": "Recommends golang.org/x/time/rate as the standard/official option"},
+      {"id": "6.2", "text": "Explains that it implements a token bucket algorithm"},
+      {"id": "6.3", "text": "May mention third-party alternatives (Tollbooth/limiter) for HTTP middleware integration"},
+      {"id": "6.4", "text": "Does NOT skip the official x/time/rate package entirely"},
+      {"id": "6.5", "text": "Explains when third-party middleware might be preferred (e.g., per-IP limiting, distributed rate limiting)"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "franz-go-for-kafka",
+    "description": "Tests current Kafka client evaluation by compatibility and operating requirements",
+    "prompt": "I need a Kafka client for my Go application. What library should I use?",
+    "trap": "Popularity and modern/legacy labels do not establish client correctness or performance.",
+    "assertions": [
+      {"id": "7.1", "text": "Compares viable Kafka clients, including franz-go when appropriate, against protocol features and supported Go versions"},
+      {"id": "7.2", "text": "Verifies maintenance and API facts, and avoids unmeasured performance promises"},
+      {"id": "7.3", "text": "Makes a conditional choice from project needs rather than treating client branding as evidence"},
+      {"id": "7.4", "text": "Uses current primary source module paths and compatibility information for alternatives"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "check-maintenance-before-recommending",
+    "description": "Tests whether the model checks maintenance status before recommending a library",
+    "prompt": "I need a logging library for my Go project. Someone suggested Logrus. Should I use it?",
+    "trap": "Without the skill, the model recommends Logrus without checking current maintenance, release, security, and structured-logging fit.",
+    "assertions": [
+      {"id": "8.1", "text": "Checks Logrus's current maintenance and release status rather than relying on a stale label"},
+      {"id": "8.2", "text": "Compares alternatives such as log/slog, zap, or zerolog by concrete requirements"},
+      {"id": "8.3", "text": "Explains why a maintained alternative may be preferable for a new project"},
+      {"id": "8.4", "text": "Does NOT unconditionally recommend Logrus without a current maintenance/security check"},
+      {"id": "8.5", "text": "Prioritizes maturity and maintenance status in the recommendation"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "avoid-unnecessary-wrappers",
+    "description": "Tests that the model warns against libraries that just wrap stdlib without adding value",
+    "prompt": "I found a Go library that provides helper functions for HTTP request handling, basically wrapping net/http with slightly more convenient syntax. Should I add it to my project?",
+    "trap": "Without the skill, the model evaluates only the convenience factor without considering the anti-pattern of wrapping stdlib without real value",
+    "assertions": [
+      {"id": "9.1", "text": "Warns against using libraries that wrap standard library functionality without adding meaningful value"},
+      {"id": "9.2", "text": "Explains that more dependencies increase attack surface and maintenance burden"},
+      {"id": "9.3", "text": "Recommends evaluating whether net/http itself is sufficient"},
+      {"id": "9.4", "text": "Mentions the anti-pattern of adding dependencies for marginal convenience"},
+      {"id": "9.5", "text": "Suggests considering the library's dependency footprint relative to the value it provides"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "testcontainers-for-integration",
+    "description": "Tests whether the model recommends testcontainers-go for integration testing with real services",
+    "prompt": "I need to write integration tests for my Go service that connects to PostgreSQL and Redis. I want to test against real instances, not mocks. What should I use?",
+    "trap": "Without the skill, the model suggests Docker Compose or manual test setup scripts instead of testcontainers-go which provides programmatic container lifecycle management",
+    "assertions": [
+      {"id": "10.1", "text": "Recommends testcontainers-go (golang.testcontainers.org) for programmatic integration testing"},
+      {"id": "10.2", "text": "Explains that testcontainers-go spins up real Docker containers within tests"},
+      {"id": "10.3", "text": "Shows or describes how containers are started and stopped within test lifecycle"},
+      {"id": "10.4", "text": "Compares programmatic containers with existing Compose/service fixtures by isolation, readiness, cleanup and CI support instead of declaring one universally better"},
+      {"id": "10.5", "text": "May also mention go-sqlmock as a complementary tool for unit-level database testing"}
+    ]
+  },
+  {
+    "id": 11,
+    "name": "slices-maps-packages-go121",
+    "description": "Tests whether the model recommends the standard library slices/maps packages (Go 1.21+) instead of external utility libraries for basic operations",
+    "prompt": "I need utility functions for slice operations in my Go 1.22 project — things like contains, sort, filter, and reverse. What should I use?",
+    "trap": "Without the skill, the model recommends a third-party utility library for basic operations that the standard library slices package already provides since Go 1.21",
+    "assertions": [
+      {"id": "11.1", "text": "Recommends the standard library slices package (Go 1.21+) for Contains, Sort, Reverse, and similar operations"},
+      {"id": "11.2", "text": "Does NOT recommend only external libraries for basic slice operations that slices package covers"},
+      {"id": "11.3", "text": "May mention a third-party library for functional operations (Map, Filter, Reduce) not in stdlib slices"},
+      {"id": "11.4", "text": "Distinguishes stdlib helpers from transforms that can be written as ordinary loops; external libraries are optional for Map/Filter/GroupBy"},
+      {"id": "11.5", "text": "Applies the 'standard library first' principle"}
+    ]
+  }
+]

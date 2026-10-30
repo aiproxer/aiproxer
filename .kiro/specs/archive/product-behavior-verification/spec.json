@@ -1,0 +1,23 @@
+{
+  "feature_name": "product-behavior-verification",
+  "created_at": "2026-10-22T10:29:20Z",
+  "updated_at": "2026-10-29T00:00:00Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

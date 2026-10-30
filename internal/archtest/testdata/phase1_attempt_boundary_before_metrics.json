@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "feature": "runtime-attempt-publication-ownership-convergence",
+  "phase": "1-freeze-baseline",
+  "metrics": {
+    "coordinator_fan_out_goroutines": 1,
+    "cross_owner_access_sites": 12,
+    "state_copy_surface_sites": 5,
+    "cleanup_site_count": 9
+  }
+}

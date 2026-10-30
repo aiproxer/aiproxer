@@ -1,0 +1,24 @@
+{
+  "feature_name": "turn-recv-terminal-ownership-simplification",
+  "created_at": "2026-08-19T01:42:00+02:00",
+  "updated_at": "2026-08-20T09:24:12+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Simplify Go-LIP's request receive and terminal execution architecture by decomposing the current retryRecvStream distributed God object into explicit private owners for current-attempt resources, retry/recovery state, response-event processing, and logical-turn terminal settlement. Preserve EventStream behavior, pre/post-commit failover, A/B-leg lifecycle, usage authority, billing, metering, secure-session recording, model-view pinning, interleaved thinking, tool repair, prompt-cache observations, extension hooks, and exact terminal semantics. The goal is structural deletion and reduced mutable ownership/coupling, not file splitting, interface proliferation, or a renamed universal TurnContext. This is architecture simplification tranche 1 and intentionally leaves request preparation/candidate-open state-bag convergence to the chronologically following request-attempt-pipeline-state-simplification specification."
+}

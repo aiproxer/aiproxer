@@ -1,0 +1,15 @@
+# Production-shaped discovery (paths are OS defaults; adjust to your install root).
+plugins:
+  backend_discovery:
+    enabled: true
+    development_mode: false
+    strict: true
+    paths:
+      - /opt/AIProxer/plugins
+      # macOS: /Library/Application Support/AIProxer/plugins
+      # Windows: C:/Program Files/AIProxer/plugins
+  backends:
+    - kind: local-stub
+      id: prod-stub
+      enabled: false
+      config: {}

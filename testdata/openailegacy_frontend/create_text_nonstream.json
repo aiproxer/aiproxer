@@ -1,0 +1,10 @@
+{
+  "model": "gpt-4o-mini",
+  "stream": false,
+  "messages": [
+    {
+      "role": "user",
+      "content": "ping"
+    }
+  ]
+}

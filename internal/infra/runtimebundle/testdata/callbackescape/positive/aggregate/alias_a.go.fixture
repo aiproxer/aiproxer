@@ -1,0 +1,6 @@
+package escapepos
+
+import rb "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimebundle"
+
+// HostCB is a package-wide alias of an owner-pointer callback (file a).
+type HostCB = func(*rb.Host) int

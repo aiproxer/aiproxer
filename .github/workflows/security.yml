@@ -1,0 +1,95 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Weekly schedule / manual runs get their own group so a main push cannot
+  # cancel the vulnerability evidence mid-run; only superseded PR and merge-queue
+  # runs are cancelled (see ci.yml for the same rule).
+  group: security-${{ github.head_ref || github.ref_name }}${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '-scheduled' || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+
+jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate CI scope matcher
+        shell: bash
+        run: bash scripts/ci-scope.sh --self-test
+
+      - name: Classify changed files
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          bash scripts/ci-scope.sh --outputs "${BASE_SHA:-}" HEAD >> "$GITHUB_OUTPUT"
+
+  govulncheck:
+    name: Go vulnerability check
+    needs: changes
+    if: always() && !cancelled()
+    # Required status check: keep the job present on non-Go PRs, but only run
+    # vulnerability tooling when the canonical scope classifier finds Go-relevant
+    # inputs. This avoids spec metadata (for example .kiro/specs/**/spec.json)
+    # accidentally enabling a full Go vulnerability scan.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "Security scope detection failed; refusing to bypass Go vulnerability analysis." >&2
+          exit 1
+
+      - name: Check out repository
+        if: needs.changes.result == 'success' && needs.changes.outputs.go == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.go == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.go == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Scan dependencies and reachable code
+        if: needs.changes.result == 'success' && needs.changes.outputs.go == 'true'
+        run: go tool govulncheck ./...
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.go != 'true'
+        shell: bash
+        run: |
+          echo "Go vulnerability check bypassed: no Go-relevant changes detected."

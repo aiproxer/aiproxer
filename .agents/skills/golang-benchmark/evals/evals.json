@@ -1,0 +1,129 @@
+[
+  {
+    "id": 1,
+    "name": "valid-b-loop-benchmark",
+    "description": "Checks benchmark setup, b.Loop, and observable results",
+    "prompt": "Write a Go 1.24 benchmark for hashing a 1 MiB fixture. Loading the fixture belongs in setup, and the hash result must not be optimized away.",
+    "trap": "A benchmark must measure the intended operation, not fixture loading or dead code; b.Loop is preferred when the module supports it.",
+    "assertions": [
+      {"id": "1.1", "text": "Loads or constructs the fixture before the measured loop"},
+      {"id": "1.2", "text": "Uses b.Loop for a Go 1.24+ module or explains the legacy b.N alternative"},
+      {"id": "1.3", "text": "Keeps the result observable when the compiler could remove the work"},
+      {"id": "1.4", "text": "Keeps inputs, setup, and allocation behavior comparable between variants"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "benchmark-statistics",
+    "description": "Checks repeated runs and cautious benchstat interpretation",
+    "prompt": "Compare two JSON encoders and decide whether a small benchstat difference is real.",
+    "trap": "A single run or a favorable rerun is not a statistical basis for a performance claim.",
+    "assertions": [
+      {"id": "2.1", "text": "Runs repeated measurements with a documented count and stable workload"},
+      {"id": "2.2", "text": "Uses benchstat on raw results and interprets p-values, spread, and confidence intervals together"},
+      {"id": "2.3", "text": "Rejects retry-until-significant or cherry-picked samples"},
+      {"id": "2.4", "text": "Reports an effect only when it is statistically and operationally meaningful"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "compile-versus-benchmark-time",
+    "description": "Checks the distinction between test benchmark timing and command latency",
+    "prompt": "Should I precompile with go test -c because I am comparing two Go benchmarks? I also care about CLI startup latency.",
+    "trap": "testing.B benchmark timing excludes compilation; precompilation is useful for a separate command/startup measurement.",
+    "assertions": [
+      {"id": "3.1", "text": "States that ordinary ns/op benchmark timing excludes compilation"},
+      {"id": "3.2", "text": "Uses go test -c or another harness only for the command/startup question"},
+      {"id": "3.3", "text": "Separates binary build time, process startup, and steady-state operation in the report"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "profile-selection",
+    "description": "Checks choosing pprof profiles for the question",
+    "prompt": "A service has high allocation rate, rising live memory, and high p99 latency with low CPU. Which Go diagnostics should I collect?",
+    "trap": "CPU, allocation, in-use, blocking, goroutine, and trace data answer different questions; one profile does not prove a leak or explain all latency.",
+    "assertions": [
+      {"id": "4.1", "text": "Uses alloc_objects or alloc_space for allocation rate/bytes and inuse profiles for live retention"},
+      {"id": "4.2", "text": "Treats increasing inuse data as a retention/leak suspect requiring comparable snapshots and controlled load"},
+      {"id": "4.3", "text": "Uses trace, goroutine, block, or mutex evidence for off-CPU wait and contention"},
+      {"id": "4.4", "text": "Correlates profiles with traffic, deploys, and service metrics"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "pprof-navigation",
+    "description": "Checks flat versus cumulative profile navigation",
+    "prompt": "pprof shows runtime.mallocgc and memmove at the top. How do I find the application code responsible?",
+    "trap": "Runtime functions are often symptoms of application allocation or copying; optimizing the runtime symbol itself is not the next step.",
+    "assertions": [
+      {"id": "5.1", "text": "Explains flat versus cumulative cost"},
+      {"id": "5.2", "text": "Uses top -cum, list, peek, or caller/callee navigation to reach application code"},
+      {"id": "5.3", "text": "Connects allocation/copying cost to a measured call path before changing code"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "compiler-diagnostics",
+    "description": "Checks cautious use of escape, inline, and assembly diagnostics",
+    "prompt": "A hot function allocates unexpectedly and I want to know why. Which compiler diagnostics should I use?",
+    "trap": "Compiler diagnostics explain decisions but do not prove that removing an escape or forcing a shape improves the workload.",
+    "assertions": [
+      {"id": "6.1", "text": "Uses go build -gcflags=-m or -m -m to inspect escape and inline decisions"},
+      {"id": "6.2", "text": "Treats receiver choice, inlining, and escape behavior as compiler/workload dependent"},
+      {"id": "6.3", "text": "Uses objdump or SSA output only for a specific measured question"},
+      {"id": "6.4", "text": "Validates any change with correctness and benchmark evidence"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "trace-for-waiting",
+    "description": "Checks trace selection for high latency and low CPU",
+    "prompt": "The service has high p99 latency but low CPU utilization and an uninformative CPU profile. What should I inspect?",
+    "trap": "Low on-CPU time with high wall time suggests blocking, scheduling, queueing, or downstream wait rather than a CPU arithmetic hotspot.",
+    "assertions": [
+      {"id": "7.1", "text": "Uses execution trace, blocking profiles, goroutine state, and downstream timing"},
+      {"id": "7.2", "text": "Explains that a CPU profile does not show all off-CPU waiting"},
+      {"id": "7.3", "text": "Checks deadlines, queue capacity, locks, channels, and external calls without guessing the cause"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "ci-regression-gates",
+    "description": "Checks reproducible benchmark regression gates",
+    "prompt": "How should a CI job detect benchmark regressions on noisy shared runners?",
+    "trap": "A fixed universal percentage is either too sensitive or too permissive; gate policy should follow observed variance and release risk.",
+    "assertions": [
+      {"id": "8.1", "text": "Separates benchmark jobs from correctness tests and records raw results"},
+      {"id": "8.2", "text": "Uses a stable runner or isolation where the decision warrants it"},
+      {"id": "8.3", "text": "Calibrates thresholds from baseline variance and uses reviewable suspected-regression reporting"},
+      {"id": "8.4", "text": "Avoids silently failing or accepting a change based on one noisy run"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "runtime-diagnostics",
+    "description": "Checks runtime metrics and diagnostics without stale assumptions",
+    "prompt": "I need GC and scheduler diagnostics in production without changing application logic. What can I enable and how should I interpret it?",
+    "trap": "GODEBUG and runtime metrics are version-sensitive diagnostics; an environment variable does not dynamically change a running process unless the application implements reload.",
+    "assertions": [
+      {"id": "9.1", "text": "Checks the installed Go release's documented GODEBUG settings"},
+      {"id": "9.2", "text": "Captures diagnostics briefly with an overhead and privacy plan"},
+      {"id": "9.3", "text": "Interprets GC CPU, heap, pause, scheduler, and goroutine data relative to workload"},
+      {"id": "9.4", "text": "Does not call one metric a proof of a leak or universal health threshold"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "safe-profile-endpoints",
+    "description": "Checks operational safety of pprof and trace capture",
+    "prompt": "How should I expose pprof and trace data while investigating one production instance?",
+    "trap": "Profiles can disclose source, request, and runtime information; public unauthenticated debug endpoints are an operational vulnerability.",
+    "assertions": [
+      {"id": "10.1", "text": "Binds debug endpoints to a protected listener or route with authentication and network restriction"},
+      {"id": "10.2", "text": "Limits capture duration, size, retention, and sensitive labels"},
+      {"id": "10.3", "text": "Targets a controlled instance or collector rather than enabling unreviewed fleet-wide capture"},
+      {"id": "10.4", "text": "Records the Go release, workload, flags, and cleanup/rollback steps"}
+    ]
+  }
+]

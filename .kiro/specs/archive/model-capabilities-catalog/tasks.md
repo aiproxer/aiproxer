@@ -1,0 +1,163 @@
+# Implementation Plan
+
+- [x] 1. Establish catalog configuration and typed contracts
+- [x] 1.1 Add operator configuration for catalog usage, updates, cache, source, diagnostics, and overrides
+  - Add typed settings for enabling catalog usage, enabling external updates, update timing, source location, local cache location, diagnostics path, model overrides, and backend/model overrides.
+  - Validate invalid durations, malformed source locations, invalid diagnostics paths, and malformed override keys with field-specific errors.
+  - Treat startup validation as the required path; if runtime reload support later covers this config, it must reuse the same validation outcome.
+  - Done when valid sample configurations load and invalid catalog configurations fail before runtime build.
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.6, 5.1, 5.2, 10.2_
+  - _Boundary: ModelCatalogConfig_
+- [x] 1.2 Define source-neutral model facts and diagnostic enums
+  - Add internal representations for tri-state capabilities, optional limits, fact source, match kind, snapshot metadata, and eligibility reasons.
+  - Define consumer-owned snapshot source/cache ports used by the core catalog runtime, without HTTP or filesystem details.
+  - Ensure unknown capability and unknown limit states are distinct from explicit unsupported values.
+  - Done when core catalog unit tests can construct facts for catalog, model override, backend/model override, backend declaration, no-match, and ambiguous-match cases, and fake snapshot ports compile against the core-owned contracts.
+  - _Requirements: 1.1, 1.2, 3.1, 3.2, 3.3, 3.6, 4.6, 9.7, 10.5_
+  - _Boundary: ModelFacts, CatalogRuntime_
+- [x] 1.3 Add sample configuration coverage for disabled-by-default behavior
+  - Update the sample config with commented catalog settings and override examples without enabling external fetches by default.
+  - Add drift coverage so the documented sample continues to parse with catalog settings present.
+  - Done when the sample config validates with catalog disabled and includes clear examples for both override levels.
+  - _Requirements: 2.1, 2.2, 2.5, 11.4_
+  - _Boundary: ModelCatalogConfig_
+  - _Depends: 1.1_
+
+- [x] 2. Implement model matching and override precedence
+- [x] 2.1 (P) Build deterministic model-name matching
+  - Match exact catalog model names before normalized prefix-stripped names.
+  - Return explicit exact, non-exact, ambiguous, and no-match outcomes without rewriting the route model.
+  - Done when table tests prove exact match, `amazon/claude-sonnet-4` style normalized match, multiple-match ambiguity, and no-match outcome classification.
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.6_
+  - _Boundary: Matcher_
+  - _Depends: 1.2_
+- [x] 2.2 (P) Implement administrator override resolution
+  - Resolve backend/model overrides before model-only overrides.
+  - Accept overrides for models that are not present in any catalog snapshot and mark them as operator-defined facts.
+  - Done when tests prove pair override wins, model override falls back, unknown override is accepted, and source precedence is visible.
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.7, 5.8_
+  - _Boundary: OverrideResolver_
+  - _Depends: 1.1, 1.2_
+- [x] 2.3 Combine overrides, catalog matches, and backend declarations into effective facts
+  - Apply precedence: backend/model override, model override, catalog match, then no feature match.
+  - Intersect matching model facts with backend adapter capabilities so adapter unsupported features remain unsupported.
+  - Preserve backend-only behavior when no override or catalog match applies.
+  - Done when tests prove effective facts and capabilities for each precedence branch, including catalog no-match fallback and no-match no-limiting.
+  - _Requirements: 1.4, 3.4, 4.5, 5.5, 5.6, 11.1, 11.2, 11.3, 11.4_
+  - _Boundary: CatalogResolver_
+  - _Depends: 2.1, 2.2_
+
+- [x] 3. Implement models.dev ingestion and local snapshot lifecycle
+- [x] 3.1 Parse and normalize the models.dev payload subset
+  - Decode provider/model maps and normalize only runtime-relevant fields: modalities, tools, reasoning, structured outputs, and limits.
+  - Treat sparse or missing fields as unknown unless they explicitly map to supported or unsupported facts.
+  - Establish the validated snapshot wire shape consumed by local cache loading and saving.
+  - Done when parser tests cover valid payloads, missing optional fields, unsupported schema, invalid JSON, and ignored pricing/provider metadata.
+  - _Requirements: 1.6, 3.1, 3.2, 3.3, 3.6, 10.5_
+  - _Boundary: ModelsDevSource_
+  - _Depends: 1.2_
+- [x] 3.2 Implement local snapshot cache load and atomic save
+  - Implement the filesystem-backed cache adapter for the core-owned snapshot cache port.
+  - Load the latest valid local snapshot during startup and reject corrupt or unsupported cached data.
+  - Save only validated snapshots with proxy-owned fetched timestamp and content hash metadata.
+  - Done when tests prove valid load, corrupt cache rejection, atomic save/readback, and deterministic snapshot metadata.
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.7, 8.4, 8.5_
+  - _Boundary: SnapshotStore_
+  - _Depends: 3.1_
+- [x] 3.3 Implement external fetch behavior with privacy safeguards
+  - Implement the HTTP-backed source adapter for the core-owned snapshot source port.
+  - Fetch the configured catalog source through the shared runtime HTTP client only when external updates are enabled.
+  - Ensure requests contain no prompts, tool payloads, session transcripts, or provider API keys.
+  - Done when HTTP-stub tests prove successful fetch, HTTP failure classification, disabled external access, and absence of sensitive headers or payload content.
+  - _Requirements: 1.3, 10.1, 10.2, 10.3, 10.4_
+  - _Boundary: ModelsDevSource_
+  - _Depends: 3.1_
+- [x] 3.4 Build non-blocking refresh lifecycle and status tracking
+  - Implement refresh coordination in the core catalog runtime using the snapshot source/cache ports.
+  - Start refresh work only when automatic updates are enabled and stop it cleanly during runtime shutdown.
+  - Retry failed updates according to configured timing while retaining the latest valid local snapshot.
+  - Done when tests prove refresh success publishes a new snapshot, refresh failure keeps the old snapshot, request-time reads do not block on network, and shutdown stops the worker.
+  - _Requirements: 1.2, 1.3, 1.5, 2.2, 2.3, 8.5, 10.2, 10.3_
+  - _Boundary: CatalogRuntime_
+  - _Depends: 3.2, 3.3_
+
+- [x] 4. Implement context-size estimation and catalog eligibility
+- [x] 4.1 (P) Add conservative request-size estimation
+  - Estimate request size from available canonical request content and mark the estimate basis for diagnostics.
+  - Return unavailable when a deterministic estimate cannot be produced, including unavailable session contribution.
+  - Done when tests prove available estimates, unavailable estimates, and diagnostic basis values for representative text and tool-containing calls.
+  - _Requirements: 7.1, 7.2, 7.5, 7.7_
+  - _Boundary: SizeEstimator_
+  - _Depends: 1.2_
+- [x] 4.2 Apply context-limit eligibility without duplicating capability negotiation
+  - Consume already-resolved effective facts instead of raw backend capability declarations.
+  - Exclude candidates only when matching admin/catalog facts provide a known context limit and an available estimate exceeds it.
+  - Return eligible for no-match, ambiguous-match, missing limit, or unavailable estimate cases.
+  - Keep capability reject/downgrade decisions out of this path and leave them to canonical negotiation.
+  - Done when tests prove context exclusion, no-limit no-exclusion, no-estimate no-exclusion, and no direct capability rejection.
+  - _Requirements: 6.1, 6.4, 7.1, 7.3, 7.4, 7.5, 7.6, 8.1, 8.2, 8.4_
+  - _Boundary: EligibilityResolver_
+  - _Depends: 2.3, 4.1_
+
+- [x] 5. Wire catalog facts into runtime execution
+- [x] 5.1 Compose the catalog runtime in the standard runtime bundle
+  - Build config-derived overrides, concrete source/cache adapters, core catalog runtime, optional local snapshot loading, optional refresh, and the effective catalog resolver during runtime composition.
+  - Register refresh shutdown with existing runtime closers.
+  - Wire the catalog resolver into the existing candidate-aware capability resolver path without changing backend plugin contracts.
+  - Done when runtime bundle tests prove catalog disabled behavior, catalog enabled with cache behavior, refresh closer registration, resolver wiring, and invalid config rejection.
+  - _Requirements: 1.1, 1.4, 2.1, 2.2, 2.4, 2.5, 10.2, 11.4_
+  - _Boundary: RuntimeBundle_
+  - _Depends: 1.1, 2.3, 3.2, 3.4, 4.2_
+- [x] 5.2 Route effective capabilities through canonical negotiation
+  - Feed catalog/admin effective capabilities into existing capability negotiation for capability reject and downgrade decisions.
+  - Preserve existing backend declarations when catalog usage is disabled or no override/catalog match applies.
+  - Done when executor tests prove catalog-derived capability mismatch is rejected by canonical negotiation, downgradable behavior remains unchanged, and no-match uses backend-only capabilities.
+  - _Requirements: 3.5, 6.2, 6.3, 6.5, 8.1, 8.2, 11.1, 11.2, 11.3, 11.4_
+  - _Boundary: Executor Integration_
+  - _Depends: 5.1_
+- [x] 5.3 Apply context-limit exclusions in the existing candidate failover loop
+  - Exclude context-ineligible candidates before backend open using the existing route exclusion mechanism.
+  - Preserve weighted routing and ordered failover among remaining compatible candidates.
+  - Done when runtime tests prove incompatible first candidate is skipped, compatible fallback executes, all-context-excluded returns an explicit context-limit error, and no post-output switch is introduced.
+  - _Requirements: 6.1, 6.6, 7.3, 7.6, 8.1, 8.2, 8.3_
+  - _Boundary: Executor Integration_
+  - _Depends: 5.2_
+
+- [x] 6. Add diagnostics and operator visibility
+- [x] 6.1 Expose catalog status diagnostics
+  - Add a protected diagnostics response for enabled, disabled, unavailable, stale, snapshot generation, fetched timestamp, and latest refresh failure category.
+  - Ensure diagnostics redact source credentials and do not expose prompts, sessions, tool payloads, or provider API keys.
+  - Done when HTTP tests prove protected access, disabled status, unavailable status, snapshot freshness, failure category, and redaction behavior.
+  - _Requirements: 1.4, 1.7, 9.1, 9.2, 9.6, 10.4_
+  - _Boundary: DiagnosticsProvider_
+  - _Depends: 5.1_
+- [x] 6.2 Record candidate match and exclusion diagnostics
+  - Surface exact, non-exact, ambiguous, no-match, effective fact source, estimate basis, and exclusion reason in existing routing diagnostics or attempt lineage.
+  - Keep diagnostics compact and free of request content.
+  - Done when tests prove non-exact match, ambiguity, source precedence, estimate basis, and exclusion reasons are visible when diagnostics are enabled.
+  - _Requirements: 4.3, 4.6, 5.7, 7.7, 9.3, 9.4, 9.5, 9.7, 10.4_
+  - _Boundary: DiagnosticsProvider_
+  - _Depends: 5.3, 6.1_
+
+- [x] 7. Add parser fuzzing, architecture guards, and end-to-end regressions
+- [x] 7.1 Fuzz and harden catalog payload parsing
+  - Add fuzz coverage for malformed provider maps, sparse optional fields, oversized irrelevant fields, and invalid limit values.
+  - Done when fuzz smoke runs against the parser without panics and all invalid inputs fail closed without replacing the active snapshot.
+  - _Requirements: 1.3, 1.6, 3.3, 3.6, 10.5_
+  - _Boundary: ModelsDevSource_
+  - _Depends: 3.1_
+- [x] 7.2 Add architecture boundary checks for catalog code
+  - Verify core catalog code does not import provider SDKs, backend plugins, frontend plugins, or raw provider execution packages.
+  - Verify models.dev raw schema types remain outside public `pkg/lipapi` contracts.
+  - Done when architecture tests fail on forbidden imports and pass for the intended package boundaries.
+  - _Requirements: 3.3, 10.5, 11.4_
+  - _Boundary: Architecture Tests_
+  - _Depends: 3.1, 5.1_
+- [x] 7.3 Validate critical multi-candidate flows end to end
+  - Cover a multi-candidate request where catalog/admin facts reject one candidate through negotiation and route to another candidate.
+  - Cover a multi-candidate request where no admin/catalog match applies and no feature-driven limiting occurs.
+  - Cover a request where a catalog refresh happens during evaluation and only later candidate evaluations or later requests can observe the new snapshot.
+  - Done when end-to-end runtime tests prove failover, no-match no-limiting, context-limit rejection, stable in-flight decisions, and no post-output failover behavior.
+  - _Requirements: 5.6, 6.1, 6.5, 6.6, 7.6, 8.1, 8.2, 8.3, 8.4, 8.5, 11.1, 11.4_
+  - _Boundary: Runtime Integration Tests_
+  - _Depends: 5.3, 6.2_

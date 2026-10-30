@@ -1,0 +1,130 @@
+[
+  {
+    "id": 1,
+    "name": "profile-before-optimizing",
+    "description": "Checks that a latency complaint leads to measurement and bottleneck isolation",
+    "prompt": "Our Go endpoint has 800 ms latency. The handler uppercases strings and encodes JSON, but fetchFromDB is also on the path. What should we change first?",
+    "trap": "A micro-optimization can distract from external I/O or queueing that dominates wall time.",
+    "assertions": [
+      {"id": "1.1", "text": "Requests a representative baseline and CPU, allocation, blocking, trace, or end-to-end evidence"},
+      {"id": "1.2", "text": "Treats fetchFromDB and downstream queueing as hypotheses to verify"},
+      {"id": "1.3", "text": "Does not promise that strings or JSON are the bottleneck without profile evidence"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "allocation-and-ownership",
+    "description": "Checks allocation reduction without hiding ownership bugs",
+    "prompt": "A profiled transformation allocates heavily. It builds an output slice with append and returns a small view of a much larger input buffer. How should I investigate?",
+    "trap": "Preallocation and pooling can help, but retaining backing arrays or reusing memory across owners can create correctness and memory problems.",
+    "assertions": [
+      {"id": "2.1", "text": "Uses benchmem, allocation profiles, and a representative size distribution"},
+      {"id": "2.2", "text": "Notes that append is typically amortized linear with geometric growth, not universally quadratic"},
+      {"id": "2.3", "text": "Considers copying or cloning a small result to avoid retaining a large backing array"},
+      {"id": "2.4", "text": "Avoids unsafe or sync.Pool until ownership, reset, lifetime, and contention are explicit"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "receiver-and-compiler-evidence",
+    "description": "Checks nuanced receiver, escape, and inlining advice",
+    "prompt": "A fluent configuration type is slow. Should I switch all pointer receivers to value receivers so the compiler can inline the chain?",
+    "trap": "Receiver type does not mechanically enable or prevent inlining; it also changes copying, method sets, aliasing, and escape behavior.",
+    "assertions": [
+      {"id": "3.1", "text": "Rejects a universal pointer-versus-value receiver rule"},
+      {"id": "3.2", "text": "Checks mutation, ownership, copying cost, method sets, and escape behavior"},
+      {"id": "3.3", "text": "Uses compiler diagnostics and a benchmark on the actual hot path"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "cache-and-eviction",
+    "description": "Checks bounded cache design and measured implementation choice",
+    "prompt": "We need an LRU cache for a hot path. Is container/list or a particular third-party LRU always fastest?",
+    "trap": "Cache policy, eviction semantics, key shape, locality, dependency cost, and contention determine the result; a fixed speedup claim is not portable.",
+    "assertions": [
+      {"id": "4.1", "text": "Requires explicit capacity, eviction, expiry, stale-value, and concurrency semantics"},
+      {"id": "4.2", "text": "Treats pointer-heavy list storage and contiguous storage as measured alternatives"},
+      {"id": "4.3", "text": "Compares candidate implementations with realistic hit/miss and key distributions"},
+      {"id": "4.4", "text": "Does not require a named library or promise a fixed multiplier"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "data-layout-locality",
+    "description": "Checks data-layout and loop-order reasoning",
+    "prompt": "A row-major matrix is traversed column first and a particle loop reads only X from a large struct. What candidates should we measure?",
+    "trap": "Cache locality can dominate these loops, but gains depend on dimensions, hardware, and surrounding work.",
+    "assertions": [
+      {"id": "5.1", "text": "Identifies row-major loop order as a locality candidate"},
+      {"id": "5.2", "text": "Considers a structure-of-arrays or compact projection when only selected fields are hot"},
+      {"id": "5.3", "text": "Preserves ordering and ownership semantics and benchmarks before/after"},
+      {"id": "5.4", "text": "Avoids asserting a universal cache-speedup percentage"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "json-and-regexp-hot-paths",
+    "description": "Checks setup-work elimination while preserving correctness",
+    "prompt": "Profiling shows regexp compilation in every validation call and encoding/json consuming meaningful CPU. What should we try?",
+    "trap": "Compile fixed trusted patterns once and benchmark serialization alternatives; do not replace a correct standard implementation merely because a library advertises a speedup.",
+    "assertions": [
+      {"id": "6.1", "text": "Moves fixed trusted regexp compilation out of the request loop and validates user-supplied patterns separately"},
+      {"id": "6.2", "text": "Measures compile-once versus per-call costs instead of quoting fixed nanoseconds or multipliers"},
+      {"id": "6.3", "text": "Considers schema, custom marshalers, code generation, or reviewed alternatives only after profiling"},
+      {"id": "6.4", "text": "Preserves wire compatibility and tests malformed and large inputs"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "runtime-memory-controls",
+    "description": "Checks workload-based GOMEMLIMIT and GOGC advice",
+    "prompt": "A service in a 512 MiB container is OOM-killed while runtime.MemStats.Alloc is 200 MiB. Which runtime settings should I use?",
+    "trap": "RSS includes non-heap memory and the right headroom depends on workload, runtime version, native allocations, and sidecars.",
+    "assertions": [
+      {"id": "7.1", "text": "Distinguishes heap Alloc from RSS and accounts for stacks, metadata, mappings, and native memory"},
+      {"id": "7.2", "text": "Considers a tested GOMEMLIMIT below the container limit with explicit headroom"},
+      {"id": "7.3", "text": "Treats GOGC, GOMAXPROCS, and GOMEMLIMIT as controls to change one at a time with rollback"},
+      {"id": "7.4", "text": "Does not prescribe a fixed percentage for every container"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "pgo-and-unsafe-gates",
+    "description": "Checks evidence requirements for PGO and unsafe code",
+    "prompt": "Should I add PGO or unsafe pointer conversions to optimize a hot function?",
+    "trap": "PGO profiles must represent deployed work, and unsafe requires an invariant/ownership reason beyond a generic speed target.",
+    "assertions": [
+      {"id": "8.1", "text": "Collects a representative production-like profile and validates the built binary on a separate workload"},
+      {"id": "8.2", "text": "Reports measured PGO effect rather than promising a fixed gain"},
+      {"id": "8.3", "text": "Requires an explicit unsafe ownership, lifetime, alignment, and portability justification"},
+      {"id": "8.4", "text": "Keeps the safe implementation unless the measured benefit is meaningful for the target budget"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "concurrency-and-batching",
+    "description": "Checks queueing, batching, and downstream-limit reasoning",
+    "prompt": "A pipeline is slow, so I want to double workers and batch every operation. Is that a safe optimization?",
+    "trap": "Concurrency helps only when stages have independent bottlenecks and bounded downstream capacity; batching changes latency and failure behavior.",
+    "assertions": [
+      {"id": "9.1", "text": "Profiles queueing and wait time before adding workers"},
+      {"id": "9.2", "text": "Bounds workers, queues, retries, and connection pools to downstream limits"},
+      {"id": "9.3", "text": "Considers ordering, cancellation, partial failure, latency, and backpressure"},
+      {"id": "9.4", "text": "Measures throughput and tail latency rather than optimizing throughput alone"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "production-profiling-and-alerts",
+    "description": "Checks safe profiling and workload-relative alerting",
+    "prompt": "We suspect goroutine or memory growth in production. How should we collect profiles and define an alert?",
+    "trap": "A rising metric can follow traffic, retention, or a deployment; pprof and continuous profiling need access, duration, overhead, and privacy controls.",
+    "assertions": [
+      {"id": "10.1", "text": "Correlates goroutine and memory trends with traffic, lifecycle, heap snapshots, and controlled reproduction"},
+      {"id": "10.2", "text": "Treats in-use growth as a retention suspect, not proof of a leak"},
+      {"id": "10.3", "text": "Protects pprof/trace endpoints and limits capture duration, size, and sensitive labels"},
+      {"id": "10.4", "text": "Calibrates alert thresholds from normal variance and rollback/runbook needs"}
+    ]
+  }
+]

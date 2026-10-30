@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "feature": "runtime-attempt-publication-ownership-convergence",
+  "phase": "6-final-certification",
+  "metrics": {
+    "facade_owner_count": 5,
+    "coordinator_fan_out_goroutines": 1,
+    "cross_owner_access_sites": 14,
+    "state_copy_surface_sites": 6,
+    "cleanup_site_count": 7
+  },
+  "justifications": {
+    "cross_owner_access_sites": "+2 due to TerminalizeAttempt converged terminalization and readyAttempt single-use handoff (cancelAndClose reclassified as teardown, still counted)",
+    "state_copy_surface_sites": "+1 due to readyAttempt capability verification at publication boundary",
+    "cleanup_site_count": "-2 due to converged attempt-owned terminalization replacing dispersed abort/rollback/close sites"
+  }
+}

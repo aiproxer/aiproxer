@@ -1,0 +1,57 @@
+{
+  "profile": {
+    "family": "openresponses",
+    "version": "2026-04-24",
+    "source_commit": "92c12d96d7b61d6d15e2214daa5e9c6000ab6e1c",
+    "source_repository": "openresponses/openresponses",
+    "schema_digest": "sha256:997c4cf16c349751502813f46ea79b2c88880b23171b69f7f2c3d4bf5b330529",
+    "compliance_digest": "sha256:63b5e6595ac831ee74b8e887af76c28d69aee8e2ec7d9e99dc688eec4bccb7fb",
+    "license": "Apache-2.0",
+    "license_attribution": "Licensed under the Apache License, Version 2.0"
+  },
+  "deviations": [
+    "Proxy-owned previous_response_id: continuation state is proxy-persisted canonical history, never forwarded raw to upstream backends",
+    "Default base path /openresponses/v1 to prevent route collisions with /v1/responses",
+    "No OpenAI-specific cancel route: OpenResponses omits POST /v1/responses/{id}/cancel",
+    "WebSocket maximum connection age capped at 60 minutes with connection-local store:false state",
+    "Context compaction standalone endpoint POST /responses/compact exposed as a protocol-neutral operation"
+  ],
+  "artifacts": [
+    {
+      "role": "license",
+      "upstream_path": "LICENSE",
+      "local_path": "LICENSE",
+      "sha256": "sha256:43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1"
+    },
+    {
+      "role": "normative_spec",
+      "upstream_path": "src/specifications/2026-04-24.mdx",
+      "local_path": "specifications/2026-04-24.mdx",
+      "sha256": "sha256:a7a9e3848722b11feaea51df62233ac7b676b6dda42007d9fde02d41dd22aa75"
+    },
+    {
+      "role": "schema",
+      "upstream_path": "schema/openapi.json",
+      "local_path": "schema/openapi.json",
+      "sha256": "sha256:997c4cf16c349751502813f46ea79b2c88880b23171b69f7f2c3d4bf5b330529"
+    },
+    {
+      "role": "compliance_tests",
+      "upstream_path": "src/lib/compliance-tests.ts",
+      "local_path": "compliance/compliance-tests.ts",
+      "sha256": "sha256:63b5e6595ac831ee74b8e887af76c28d69aee8e2ec7d9e99dc688eec4bccb7fb"
+    },
+    {
+      "role": "official_example_param",
+      "upstream_path": "src/examples/ResponseParam.json",
+      "local_path": "official_examples/ResponseParam.json",
+      "sha256": "sha256:34bdc5059a09c5ead8d1dbe4b8981d7f782c8e205f256e672ae91d67756d3331"
+    },
+    {
+      "role": "official_example_resource",
+      "upstream_path": "src/examples/ResponseResource.json",
+      "local_path": "official_examples/ResponseResource.json",
+      "sha256": "sha256:f3787e0361ffdfd1ffd78a3535e91bad6e45468a50e0ac697ad9d2b500153791"
+    }
+  ]
+}

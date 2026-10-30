@@ -1,0 +1,23 @@
+{
+  "feature_name": "control-plane-persistence-query-event-ledger",
+  "created_at": "2026-07-03T00:00:00+02:00",
+  "updated_at": "2026-07-03T23:32:42.8850006+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

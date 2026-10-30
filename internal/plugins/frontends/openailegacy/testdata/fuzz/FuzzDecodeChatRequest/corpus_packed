@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\x00{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"x\"}]}")

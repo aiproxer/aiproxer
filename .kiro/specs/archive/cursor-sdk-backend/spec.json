@@ -1,0 +1,30 @@
+{
+  "feature_name": "cursor-sdk-backend",
+  "created_at": "2026-07-17T17:27:04+02:00",
+  "updated_at": "2026-07-28T12:00:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true,
+      "approved_at": "2026-07-20T10:42:51+02:00",
+      "note": "Phase 8.3 external-connector revalidation"
+    },
+    "design": {
+      "generated": true,
+      "approved": true,
+      "approved_at": "2026-07-27T00:45:00+02:00",
+      "note": "External connectors/cursorsdk delivery; forbidden internal/plugins/backends/cursorsdk path removed"
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true,
+      "approved_at": "2026-07-20T10:42:51+02:00",
+      "note": "Product tasks retargeted to external artifact; Task 0 is kiro-spec-check"
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Experimental Cursor SDK-backed backend as an external connectors/cursorsdk artifact using a project-owned Node bridge, public backendplugin ABI, closed manifest, trusted discovery/IPC, and per_instance process sharing ÔÇö preserving Go-LIP streaming, routing, lifecycle, security, and coexistence with cursorcliacp."
+}

@@ -1,0 +1,75 @@
+package escapeneg
+
+import (
+	"context"
+
+	rb "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimebundle"
+	"github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/coordpkg"
+	"github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/deepalias"
+)
+
+// unrelated type parameter named Host
+func Identity[Host any](h Host) Host { return h }
+
+// function-local unrelated Host
+func UseLocalHost() {
+	type Host struct{ n int }
+	var pick func(*Host) int
+	_ = pick
+}
+
+// unrelated imported same-named coordinator/owner
+func UseUnrelatedCoord(pick func(*coordpkg.Coordinator) int) int { return pick(nil) }
+
+func UseMapper(m coordpkg.StringMapper) string { return m("") }
+
+// leaf callbacks that cannot identify/acquire an owner
+type leaf struct{}
+
+func focused(pick func(*leaf) int) int { return pick(nil) }
+
+func withCleanup(run func() error) error { return run() }
+
+func withCtxCleanup(run func(context.Context) error) error { return run(context.Background()) }
+
+// direct ordinary protected-owner parameter and field
+func useHost(h *rb.Host) {}
+
+type holder struct{ h *rb.Host }
+
+// direct invocation of an allowed owner method that is not transferred
+func UseDirectClose(h *rb.Host, ctx context.Context) error {
+	return h.Close(ctx)
+}
+
+func directHostCall(*rb.Host) {}
+
+func UseDirectFunctions() {
+	directHostCall(nil)
+	(directHostCall)(nil)
+	_ = deepalias.ImportedDirectAllowed()
+	_ = (deepalias.ImportedDirectAllowed)()
+}
+
+func UseDirectMethodExpression(h *rb.Host, ctx context.Context) error {
+	return ((*rb.Host).Close)(h, ctx)
+}
+
+func UseDirectIIFE(h *rb.Host) {
+	func(owner *rb.Host) {}(h)
+}
+
+// Immediately invoked owner-capturing literal remains a legal control.
+func UseImmediateCapturedOwner(h *rb.Host) {
+	func() { _ = h.Close(context.Background()) }()
+}
+
+// Unrelated captured values must not be flagged as owner escapes.
+func StoreCapturedUnrelated(n int) {
+	callback := func() { _ = n + 1 }
+	_ = callback
+}
+
+func UseDirectFactoryResult() int {
+	return deepalias.ImportedImmediateFactory()(nil)
+}

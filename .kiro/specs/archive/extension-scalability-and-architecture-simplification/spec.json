@@ -1,0 +1,24 @@
+{
+  "feature_name": "extension-scalability-and-architecture-simplification",
+  "created_at": "2026-08-08T16:05:00+02:00",
+  "updated_at": "2026-08-13T19:30:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Refactor Go-LIP's extension architecture so frontend, backend, provider, and connector growth has additive rather than Cartesian maintenance cost: replace FE×BE completeness gates with contract TCK certification plus a bounded integration sentinel, make compatible inference providers data-driven profiles of a small number of protocol families, single-source plugin contribution metadata, prevent protocol-specific backend-plugin ABI growth, remove confirmed continuation mirrors, and add architecture/change-surface ratchets while preserving canonical routing, streaming, failover, security, and current wire behavior."
+}

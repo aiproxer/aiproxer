@@ -1,0 +1,21 @@
+{
+  "Messages": [
+    {
+      "Role": "user",
+      "Parts": [{ "Kind": "text", "Text": "continue" }]
+    },
+    {
+      "Role": "assistant",
+      "Parts": [
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "anthropic.redacted_thinking.v1",
+            "Opaque": { "type": "redacted_thinking", "data": "opaque-blob-v1" }
+          }
+        },
+        { "Kind": "text", "Text": "Continuing without exposing redacted content." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "aiproxer.backendplugin.manifest/v1",
+  "plugin_id": "com.aiproxer.fixture",
+  "version": "0.1.0",
+  "build_id": "fixture",
+  "executable": "bin/fixture",
+  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "protocol_major": 1,
+  "protocol_min_minor": 0,
+  "protocol_max_minor": 1,
+  "platforms": [
+    {"os": "linux", "arch": "amd64"},
+    {"os": "darwin", "arch": "arm64"}
+  ],
+  "exports": [
+    {
+      "kind": "fixture",
+      "display_name": "Fixture",
+      "description": "test",
+      "credential_mode": "none",
+      "access_scope": "local_only",
+      "process_sharing": "per_instance"
+    }
+  ]
+}

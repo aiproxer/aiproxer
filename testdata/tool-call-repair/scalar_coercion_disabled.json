@@ -1,0 +1,26 @@
+{
+  "name": "scalar_coercion_disabled",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "integer" }
+        },
+        "required": ["limit"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"limit\":\"1\"}"
+  },
+  "expect": {
+    "action": "unrepairable",
+    "args_json_unchanged": true,
+    "reason_code": "scalar_coercion_disabled",
+    "must_not_mutate": true
+  }
+}

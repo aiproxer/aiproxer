@@ -1,0 +1,165 @@
+Here’s a focused plan for the remaining medium-severity issues, with one important note up front: one of them is already effectively fixed.
+- F8 correlation middleware vs diagnostics is already addressed in current code. internal/stdhttp/server.go:87 now wraps all traffic with TraceMiddleware and RequestIDMiddleware unconditionally, while diagnostics only gates admin endpoints. I would treat that review item as closed and remove it from the active worklist.
+- The medium issues still worth planning are:
+  - F5 routing health and observer seams are mostly placeholders,
+  - F6 explicit bundle registration improved, but registry/build flow still uses mutable package-global state,
+  - F9 standard-bundle decoupling quality can improve without destabilizing core/plugin boundaries,
+  - F10 frontend execute-error taxonomy is still thin and duplicated.
+Recommended Order
+- 1. Remove package-global backend build context and finish explicit bundle/registry ownership.
+- 2. Wire real routing health behavior and a concrete standard observer path.
+- 3. Introduce shared frontend execute-error classification/mapping helpers.
+- 4. Tighten standard-bundle boundary quality without widening pkg/lipsdk unnecessarily.
+Phase 1: Finish Bundle Explicitness and Remove Global Build Context
+- Goal: keep composition explicit and testable, and eliminate the remaining hidden mutable state in internal/pluginreg/build_context.go:10.
+- Current issue:
+  - RegisterStandardBundle() is explicit now, which is good.
+  - But internal/pluginreg/reg.go:76 still relies on package-global buildUpstreamHTTP set/reset around BuildBackend, which is a hidden side channel.
+- Best direction:
+  - Keep pkg/lipsdk stable if possible.
+  - Refactor only the internal bundled backend factory layer so backend constructor helpers explicitly receive the shared upstream *http.Client.
+  - Move from “global state + generic registry callback” to “internal bundled factory closure captures injected dependencies”.
+- Concrete shape:
+  - Introduce an internal value-style standard registry/bundle object, e.g. a StandardBundle or Registry struct in internal/pluginreg/ or internal/infra/runtimebundle/.
+  - That bundle should contain explicit backend/frontend/feature factory maps as values, not package globals.
+  - runtimebundle.Build should construct or receive this bundle and call value methods like bundle.BuildBackend(...).
+  - Bedrock/ACP constructors should get the shared HTTP client directly through those value methods.
+- Packages likely to change:
+  - internal/pluginreg/reg.go:1
+  - internal/pluginreg/build_context.go:1
+  - internal/pluginreg/standard_table.go:24
+  - internal/pluginreg/backends_install.go:36
+  - internal/infra/runtimebundle/build.go:30
+  - possibly cmd/lipstd/main.go:31
+- Acceptance criteria:
+  - no package-global mutable build-time context remains,
+  - no hidden dependency injection via package globals,
+  - standard bundle still remains compile-time explicit,
+  - no core package imports concrete plugins.
+- Why first:
+  - this is localized to composition and reduces future coupling before adding more behavior.
+Phase 2: Make Routing Health and Observers Real Standard Runtime Behavior
+- Goal: turn non-nil placeholders into meaningful, standard-bundle behavior without bloating core.
+- Current issue:
+  - internal/infra/runtimebundle/build.go:96 wires routinghealth.Empty() and a no-op route observer.
+  - internal/core/runtime/executor.go:136 and internal/core/runtime/executor.go:150 support health/observer hooks, but the standard bundle does not give them real behavior.
+  - internal/core/policy/circuit_breaker.go:8 already provides a minimal ThresholdCircuit, but it is not composed into runtime.
+- Best direction:
+  - Use a minimal standard health implementation based on policy.ThresholdCircuit.
+  - Keep health policy core-owned, because planning/exclusion is core behavior.
+  - Keep emission/logging/metrics observer behavior outside core, in infra/standard bundle.
+- Concrete shape:
+  - Add standard runtime config for route health in internal/core/config/ with very small surface:
+    - enabled,
+    - failure threshold,
+    - time window.
+  - In runtimebundle.Build, create a ThresholdCircuit when enabled.
+  - Set Executor.CandidateHealth to the circuit.
+  - Update executor attempt result paths to record success/failure into the circuit:
+    - swallowed recoverable failures should count as failures,
+    - surfaced failures should count as failures,
+    - successful completion should clear/reset failure state.
+  - Add a concrete standard RouteObserver implementation that at minimum forwards structured decisions to logger or a ring buffer-backed sink.
+  - Keep RouteTrace as an optional diagnostics endpoint, separate from observer logic.
+- Packages likely to change:
+  - internal/core/runtime/executor.go:167
+  - internal/core/runtime/attempt_stream.go:60
+  - internal/core/policy/circuit_breaker.go:1
+  - internal/infra/runtimebundle/build.go:31
+  - internal/infra/routinghealth/routinghealth.go:11
+  - internal/core/config/model.go:51
+  - internal/core/config/loader.go:11
+- Tests to add:
+  - standard bundle excludes a backend instance after threshold failures,
+  - health state clears after success,
+  - route observer receives instance-aware routing decisions,
+  - diagnostics trace still works independently of observer presence.
+- Key boundary rule:
+  - backends must not decide health policy; they only return results/errors that core interprets.
+Phase 3: Introduce Shared Execute-Error Classification for Frontends
+- Goal: remove duplicated and inconsistent mapExecuteError logic while keeping protocol-specific response shapes inside frontends.
+- Current issue:
+  - internal/plugins/frontends/openairesponses/handler.go:107
+  - internal/plugins/frontends/openailegacy/handler.go:105
+  - internal/plugins/frontends/anthropic/handler.go:104
+  - internal/plugins/frontends/gemini/handler.go:103
+  all duplicate thin execute-error mapping.
+- Best direction:
+  - Do not push OpenAI/Anthropic/Gemini error strings into core.
+  - Add a small shared frontend helper that classifies execution errors into a protocol-neutral intermediate result.
+- Concrete shape:
+  - Add a tiny shared package under internal/plugins/frontends/ such as internal/plugins/frontends/executeerr/.
+  - The helper returns a small neutral struct, e.g.:
+    - class: reject / internal / upstream / timeout / unavailable,
+    - http status,
+    - canonical message,
+    - optional stable internal error code.
+  - Each frontend maps that neutral classification to protocol-specific JSON fields and error code strings.
+- Optional extension:
+  - If current lipapi error typing is insufficient, add one or two small typed helpers there, but only if truly needed.
+  - Prefer using existing lipapi.IsReject(...) and similar typed checks before expanding public contracts.
+- Packages likely to change:
+  - internal/plugins/frontends/openairesponses/handler.go:79
+  - internal/plugins/frontends/openailegacy/handler.go:79
+  - internal/plugins/frontends/anthropic/handler.go:84
+  - internal/plugins/frontends/gemini/handler.go:83
+  - new shared helper under internal/plugins/frontends/
+- Tests to add:
+  - one table-driven shared classification test,
+  - per-frontend tests proving each protocol still emits the expected response shape/codes.
+Phase 4: Improve Standard-Bundle Boundary Quality Without Over-Rotating
+- Goal: address F9 carefully, without destabilizing the architecture or widening pkg/lipsdk too early.
+- Current issue:
+  - standard frontends still mount onto *http.ServeMux,
+  - bundled backends still return runtime.Backend,
+  - this is acceptable for the standard distribution, but not ideal as the ultimate abstraction.
+- Recommendation:
+  - do not prioritize a large pkg/lipsdk redesign yet.
+  - keep boundary improvements internal and incremental.
+- Concrete direction:
+  - First, clean composition ownership and shared helper seams.
+  - Then, if still justified, introduce internal adapter types in the standard bundle so the bundle is less tied to raw ServeMux and raw runtime.Backend.
+  - Only promote those abstractions to pkg/lipsdk if a second consumer or external plugin authoring case really needs them.
+- This keeps the core lean and avoids public-contract churn for a medium-severity concern.
+Phase 5: Documentation and Guardrail Tightening
+- After implementation, update architecture docs to match the actual state:
+  - explicit standard bundle ownership,
+  - backend instance identity and route targeting,
+  - health/circuit semantics in standard runtime,
+  - shared error classification strategy,
+  - correlation middleware always-on behavior.
+- Likely docs:
+  - README.md
+  - docs/adr/0001-registry-driven-composition.md
+  - .kiro/steering/routing-and-orchestration.md:18
+  - .kiro/steering/structure.md:41
+Suggested Milestone Breakdown
+- Milestone A: Composition cleanup
+  - remove build_context package-global injection,
+  - move to explicit internal bundle/registry value flow,
+  - keep standard runtime behavior unchanged.
+- Milestone B: Routing-runtime truthfulness
+  - wire ThresholdCircuit,
+  - record success/failure from executor,
+  - add a real standard RouteObserver.
+- Milestone C: Frontend error consistency
+  - add shared execute-error classifier,
+  - convert frontend handlers to use it,
+  - add protocol-specific regression tests.
+- Milestone D: Boundary polish and docs
+  - evaluate whether any internal adapter cleanup is worthwhile,
+  - update docs and operational guidance.
+Risks to Avoid
+- Don’t let route health become backend-owned or plugin-owned.
+- Don’t add provider/protocol strings to internal/core/*.
+- Don’t rush a pkg/lipsdk contract redesign unless internal refactoring proves it necessary.
+- Don’t conflate diagnostics route tracing with observer logic; they serve different purposes.
+- Don’t introduce a bigger bootstrap God object while cleaning composition.
+My Recommendation on Priority
+- Highest-value next work is:
+  1. remove global build_context,
+  2. wire real routing health/circuit behavior,
+  3. unify frontend execute-error classification.
+- I would explicitly defer any broader public SDK boundary redesign unless these are done and the need still remains.
+One targeted decision point before implementation:
+- For routing health, do you want the standard bundle to ship with a minimal built-in circuit breaker enabled by config, or do you prefer the health system to remain opt-in/off by default until more operator tuning surfaces exist? My recommendation is opt-in by config, with a minimal ThresholdCircuit implementation as the default standard behavior when enabled.

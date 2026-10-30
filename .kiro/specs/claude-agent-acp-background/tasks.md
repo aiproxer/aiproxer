@@ -1,0 +1,72 @@
+# Implementation Plan
+
+> Status: generated, pending owner approval (issue #1182 chose "spec first, then decide"). No implementation before requirements/design approval. The `allow` profile ships only after its certification task passes.
+
+- [ ] 1. Policy foundation
+- [ ] 1.1 Add `background_policy` configuration and fail-closed enablement gates
+  - Add `background_policy: deny|allow` (default `deny`) to the connector configuration and parser. `allow` requires local-only posture, `admin_policy: honor`, and the recorded certification digest (`backgroundCertifiedProfile` constant); reject otherwise before any process exec, naming the unmet prerequisite.
+  - Done when red-first table tests cover default, explicit deny, allow without honor, allow in multi-user posture, allow with uncertified/missing digest, and identity drift after enablement.
+  - _Requirements: 1.1, 1.2, 1.4_
+  - _Boundary: backend plugin (Config, AuthEnv)_
+- [ ] 1.2 Emit `allow` session metadata and environment; pin `deny` byte-identity
+  - Background tracking preserves the selected permission policy: bypass already enables Agent/Task and omits `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`; explicit permission deny keeps archived tools-off metadata/env. Tracking must not widen deny or change MCP/plugins/settings, env allowlists or roots.
+  - Done when byte-comparison tests cover both policies for all three credential sources and a denied allow-policy never starts a process.
+  - _Requirements: 1.1, 1.3_
+  - _Boundary: backend plugin (AuthEnv)_
+  - _Depends: 1.1_
+- [ ] 2. Background seam and tracker
+- [ ] 2.1 Verify adapter background wire signals on the pinned profile and record fixtures
+  - Against the certified adapter/runtime profile, capture the exact notification kinds, capability advertisements and state transitions for background tasks and subagents (start, progress, completion, stuck, out-of-turn emission) plus the enablement metadata shape `agents` expects. Record sanitized fixtures and findings in `research.md`; no real credentials.
+  - Done when fixtures exist for every tracker-relevant kind and the certification matrix inputs are named; unknown kinds are documented as diagnostics-only.
+  - _Requirements: 2.1, 5.1_
+  - _Boundary: research/fixtures (no production code)_
+- [ ] 2.2 Add the opt-in background tracker seam to shared ACP support
+  - Add `BackgroundActivitySpec`/`BackgroundTracker` (opt-in, exercised only when the connector spec implements it) and pool state: `backgroundActive` marking on release, `Quiesced()` checks, and a `RuntimePoolConfig` quiesce deadline. With no opt-in, pool behavior is unchanged.
+  - Done when fake-protocol tests cover release marking, non-reapability while active, quiescence clearing, deadline expiry, and zero behavior change for non-opting protocols.
+  - _Requirements: 2.1, 2.2_
+  - _Boundary: connector-support (RuntimePool, protocol seam)_
+  - _Depends: 2.1_
+- [ ] 2.3 Implement the Claude background tracker over the recorded fixtures
+  - Map the verified notification kinds to tracked background state; ignore unknown kinds and defer them to diagnostics; bound all retained state and never retain raw payloads.
+  - Done when table tests over the 2.1 fixtures prove active/quiesced transitions, unknown-kind tolerance, bound enforcement, and that no tracker observation emits content events.
+  - _Requirements: 2.1, 3.4_
+  - _Boundary: backend plugin (tracker), connector-support (interface reuse)_
+  - _Depends: 2.2_
+- [ ] 3. Lifecycle ownership
+- [ ] 3.1 Bounded reuse of unsettled runtimes
+  - A foreground turn on a `backgroundActive` runtime waits up to the quiesce deadline for settlement; on timeout the runtime is killed, history reset, and a replacement spawned with transcript replay via the existing reset path, logged with a stable reason. Never interleave into unsettled state.
+  - Done when fake-process tests cover wait-success reuse, timeout replacement with replay, and absence of replacement for settled runtimes.
+  - _Requirements: 2.2, 4.3_
+  - _Boundary: connector-support (orchestrator), backend plugin (disclosure logging)_
+  - _Depends: 2.3_
+- [ ] 3.2 Cancel, idle reap, reconfiguration and shutdown quiescence
+  - Cancel ends the foreground turn with exactly one terminal outcome and terminates owned background work within the deadline. Idle reap, instance reconfiguration after drain, and proxy shutdown quiesce or kill all owned background work and the process tree before the deadline; the deadline value and outcome are logged.
+  - Done when fake-process and process-tree tests cover cancel-with-active-work, reap-with-active-work, reconfigure drain, and shutdown with no owned survivors, each with one terminal outcome and no duplicate content.
+  - _Requirements: 2.3, 2.4, 4.4_
+  - _Boundary: connector-support (pool/stream lifecycle), backend plugin_
+  - _Depends: 3.1_
+- [ ] 3.3 Out-of-turn capture with bounded redacted diagnostics
+  - Add additive `TransportOptions.CaptureOutOfTurn` + optional `OutOfTurnObserver` (default off). The `allow` connector maps tracker kinds through the tracker and everything else into bounded, redacted diagnostics (fixed caps, no raw payloads) attributable to the runtime; the `deny` transport sets neither option and behavior stays exactly as archived V1.
+  - Done when transport tests cover captured vs dropped notifications for both policies, bounded/redacted mapping, oversized/garbage payloads, and zero deny-path change.
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+  - _Boundary: connector-support (transport seam), backend plugin (observer mapping)_
+  - _Depends: 2.2_
+- [ ] 4. Integration, certification and closure
+- [ ] 4.1 Failure and terminal semantics under active background work
+  - Post-output background failure ends the stream terminally with no retry; pre-output failures keep existing failover eligibility and classification (authentication, plan exhaustion, capability); stuck replacement carries a stable, safe reason.
+  - Done when service tests cover each case with no late or duplicate events and unchanged safe-error guarantees.
+  - _Requirements: 4.1, 4.2_
+  - _Boundary: backend plugin (service/classification)_
+  - _Depends: 3.2_
+- [ ] 4.2 Certification run, disclosure and operator documentation
+  - Run the background certification against the exact packaged profile and record: background start/completion between turns, out-of-turn visibility, cancel with active work, shutdown with active work, stuck replacement. On success update the enabling constant and record evidence; disclose posture in startup/resolved-profile output; document both policies, single-user limits, no-rollback, and the disabled `allow` example.
+  - Done when the certification record is attached to the spec and the enabling constant only matches the certified digest; docs/example pass the existing docs checks.
+  - _Requirements: 5.1, 5.2, 5.3_
+  - _Boundary: certification evidence, docs, config example_
+  - _Depends: 4.1_
+- [ ] 4.3 Integration and regression proof
+  - Fake-adapter two-turn integration with background activity between turns: no interleaving, no fabricated content, correct visibility, replay on replacement. Prove `deny` byte-identity and unchanged cursor/agy/gemini suites and archtests.
+  - Done when the integration test and full module suites pass and the delivery report shows no budget or change-size violations.
+  - _Requirements: 3.3, 5.4_
+  - _Boundary: backend plugin (service tests), regression suites_
+  - _Depends: 4.2_

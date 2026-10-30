@@ -1,0 +1,128 @@
+[
+  {
+    "id": 1,
+    "name": "signal-selection",
+    "description": "Checks choosing logs, metrics, traces, or profiles for a question",
+    "prompt": "A Go service is slow and occasionally returns errors. What observability should we add?",
+    "trap": "Every signal has a different purpose; duplicating the same event everywhere increases cost and noise.",
+    "assertions": [
+      {"id": "1.1", "text": "Uses logs for individual decisions, metrics for aggregates, traces for request paths, and profiles for runtime behavior"},
+      {"id": "1.2", "text": "Defines a baseline, owner, and correlation field for each signal"},
+      {"id": "1.3", "text": "Avoids logging secrets, raw bodies, and arbitrary user input"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "slog-format-choice",
+    "description": "Checks structured logging without requiring JSON everywhere",
+    "prompt": "Should a production Go service always use a JSON slog handler instead of text?",
+    "trap": "JSON is convenient for machine ingestion but slog also supports structured text and custom handlers; deployment determines the sink contract.",
+    "assertions": [
+      {"id": "2.1", "text": "Chooses a structured handler compatible with the log collector and operators"},
+      {"id": "2.2", "text": "Does not call JSON a universal requirement"},
+      {"id": "2.3", "text": "Uses stable event names, bounded fields, and redaction"},
+      {"id": "2.4", "text": "Avoids logging the same error at every wrapper layer"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "metric-cardinality",
+    "description": "Checks bounded Prometheus labels and metric semantics",
+    "prompt": "I want to label an HTTP counter with URL, user ID, and error text so dashboards can filter everything. Is that safe?",
+    "trap": "Unbounded labels create series and memory growth; user data and error text also create privacy and cardinality risks.",
+    "assertions": [
+      {"id": "3.1", "text": "Rejects arbitrary URLs, user IDs, and error text as metric labels"},
+      {"id": "3.2", "text": "Uses bounded route names, status classes, and selected outcome dimensions"},
+      {"id": "3.3", "text": "Chooses counters, gauges, and histograms according to what they measure"},
+      {"id": "3.4", "text": "Defines retention and alert ownership for the resulting series"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "trace-context-and-status",
+    "description": "Checks context propagation and span error semantics",
+    "prompt": "An HTTP handler starts a span and calls a database. How should trace context and errors be recorded?",
+    "trap": "Propagation does not authenticate callers, and RecordError alone may not set the span status expected by the backend.",
+    "assertions": [
+      {"id": "4.1", "text": "Passes context through HTTP, database, and downstream calls using context-aware APIs"},
+      {"id": "4.2", "text": "Records bounded attributes and avoids tokens, full URLs with secrets, and bodies"},
+      {"id": "4.3", "text": "Records an error and sets an appropriate status when the operation failed"},
+      {"id": "4.4", "text": "Keeps authorization independent from trace propagation"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "sampling-and-cost",
+    "description": "Checks workload-based tracing and profiling cost controls",
+    "prompt": "Tracing every request tripled backend cost, and I want continuous profiling on all instances. What should I change?",
+    "trap": "Sampling and profiling strategy depends on error/latency coverage, collector behavior, privacy, and measured overhead.",
+    "assertions": [
+      {"id": "5.1", "text": "Uses parent-based and error/latency-aware sampling where the tracing system supports it"},
+      {"id": "5.2", "text": "Measures collector CPU, memory, network, and storage effects on representative instances"},
+      {"id": "5.3", "text": "Starts with a bounded rollout or target instances and expands only after evidence"},
+      {"id": "5.4", "text": "Does not prescribe a fixed sampling ratio or overhead percentage for every workload"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "protected-profiling",
+    "description": "Checks pprof and trace endpoint exposure",
+    "prompt": "Where should I expose pprof for a production Go service?",
+    "trap": "pprof can disclose source, goroutine stacks, heap contents, and configuration; an unauthenticated public route is unsafe.",
+    "assertions": [
+      {"id": "6.1", "text": "Uses a separate restricted listener or authenticated route"},
+      {"id": "6.2", "text": "Limits capture duration, size, access, and retention"},
+      {"id": "6.3", "text": "Explains startup environment variables do not toggle a running process without reload/control support"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "privacy-aware-telemetry",
+    "description": "Checks identity, consent, retention, and hosting claims",
+    "prompt": "Can we send an internal user ID to analytics without consent because it is not a name, and does self-hosting remove privacy obligations?",
+    "trap": "Linkable identifiers can be personal data, and self-hosting changes transfer/control but does not remove privacy duties.",
+    "assertions": [
+      {"id": "7.1", "text": "Treats internal IDs and pseudonymous hashes as potentially linkable personal data"},
+      {"id": "7.2", "text": "Checks lawful basis/consent, purpose, minimization, access, retention, and deletion requirements"},
+      {"id": "7.3", "text": "Compares self-hosted and SaaS transfer, processor, residency, maintenance, and control trade-offs"},
+      {"id": "7.4", "text": "Uses keyed correlation only when the purpose and access/rotation policy justify it"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "slo-alerting",
+    "description": "Checks error-budget and multi-window alert design",
+    "prompt": "A 99.9% SLO alert fires on brief spikes but misses slow degradation. How should we improve it?",
+    "trap": "One threshold and one window cannot express both fast outages and slow budget burn; exact windows depend on the service and paging policy.",
+    "assertions": [
+      {"id": "8.1", "text": "Bases alerts on an explicit SLO/error budget and records denominator quality"},
+      {"id": "8.2", "text": "Uses multiple windows or severities for fast and slow burn where appropriate"},
+      {"id": "8.3", "text": "Tunes windows and thresholds from normal variance and runbook response time"},
+      {"id": "8.4", "text": "Avoids presenting example burn multipliers as universal values"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "runtime-health-dashboard",
+    "description": "Checks dashboards that correlate runtime health with load",
+    "prompt": "What should a Go runtime dashboard show when we suspect goroutine or memory growth?",
+    "trap": "Absolute values without traffic, lifecycle, and deployment context can misclassify healthy scaling as a leak.",
+    "assertions": [
+      {"id": "9.1", "text": "Correlates goroutines, heap/live bytes, allocation rate, GC pauses, CPU, traffic, and queue depth"},
+      {"id": "9.2", "text": "Treats independent sustained growth as a suspect requiring profiles or reproduction, not proof"},
+      {"id": "9.3", "text": "Includes deploy/version and instance labels with bounded cardinality"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "observability-rollout",
+    "description": "Checks staged rollout and failure handling for telemetry",
+    "prompt": "Add observability to a service without allowing telemetry failures to take down requests.",
+    "trap": "Instrumentation should be bounded and observable but must not silently drop the service's required business semantics.",
+    "assertions": [
+      {"id": "10.1", "text": "Defines bounded queues, timeouts, sampling, and exporter failure behavior"},
+      {"id": "10.2", "text": "Keeps request paths functional when telemetry backends are unavailable, unless the contract explicitly requires audit delivery"},
+      {"id": "10.3", "text": "Rolls out with dashboards, alerts, access controls, and a rollback path"}
+    ]
+  }
+]

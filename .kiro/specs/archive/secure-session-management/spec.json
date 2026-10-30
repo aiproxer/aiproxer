@@ -1,0 +1,23 @@
+{
+  "feature_name": "secure-session-management",
+  "created_at": "2026-04-23T21:38:04.633690+00:00",
+  "updated_at": "2026-04-23T23:10:00+00:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

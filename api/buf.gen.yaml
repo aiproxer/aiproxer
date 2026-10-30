@@ -1,0 +1,11 @@
+version: v2
+plugins:
+  # Generators installed from root go.mod tool directives (`go install tool`).
+  - local: protoc-gen-go
+    out: .
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: .
+    opt:
+      - paths=source_relative

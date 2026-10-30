@@ -1,0 +1,8 @@
+# Assertion arguments for the tool-name-correction feature-stub-smoke scenario,
+# one per line, passed as --assert <scope:pattern:count> plus --backend-requests.
+# The invented name must never reach the client wire; the corrected call must.
+# Backend bodies are raw JSON, so the correction sentence's quotes match escaped.
+wire:invented_tool:0
+wire:get_weather:1
+backend:Available tools: \"get_weather\":1
+log:outcome=corrected reason=unknown_tool_name:1

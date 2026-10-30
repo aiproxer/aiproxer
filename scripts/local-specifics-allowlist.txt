@@ -1,0 +1,13 @@
+# Path exclusions for scripts/check-local-specifics.sh (staged-content pass).
+# One pathspec per line (relative to repo root), passed as :(exclude)<line>.
+# Keep entries minimal with a reason: anything listed here can carry
+# local-environment strings into the shared history unchecked.
+# The commit-message pass is never allowlisted.
+
+# The guard defines the forbidden literals, so its own source names them.
+scripts/check-local-specifics.sh
+# The self-test stages the literals as fixtures by necessity.
+scripts/test-check-local-specifics.sh
+# Path-virtualization fixtures name synthetic Windows/UNC repository roots on purpose.
+internal/plugins/features/pathvirtualization/mapping_test.go
+tools/backendplugin/release_gates/report_determinism_test.go

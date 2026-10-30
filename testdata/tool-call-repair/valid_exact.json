@@ -1,0 +1,26 @@
+{
+  "name": "valid_exact",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"location\":\"NYC\"}"
+  },
+  "expect": {
+    "action": "pass",
+    "args_json_unchanged": true,
+    "tool_name": "get_weather",
+    "reason_code": "valid_pass_through"
+  }
+}

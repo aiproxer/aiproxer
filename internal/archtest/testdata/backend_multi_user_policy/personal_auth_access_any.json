@@ -1,0 +1,9 @@
+{
+  "connector": "connectors/openai-chatgpt-plan",
+  "plugin_id": "com.aiproxer.backend.openai-chatgpt-plan",
+  "kind": "openai-chatgpt-plan",
+  "credential_mode": "static",
+  "access_scope": "any",
+  "execution_class": "inference",
+  "process_sharing": "per_instance"
+}

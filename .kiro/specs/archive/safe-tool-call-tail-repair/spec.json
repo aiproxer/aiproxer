@@ -1,0 +1,24 @@
+{
+  "feature_name": "safe-tool-call-tail-repair",
+  "created_at": "2026-08-03T23:40:00+02:00",
+  "updated_at": "2026-08-08T23:24:44+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "project_description": "Extend Go-LIP's conservative canonical native tool-call repair with bounded safe terminal-tail recovery for a trailing comma after a complete JSON value and an explicit final top-level property whose missing value is selected by the existing deterministic-fill policy, while preserving exact-original fail-open replay, applicable compiled-schema post-validation, empty-schema syntax-only safeguards, streaming-first execution, and strict refusal of speculative repairs.",
+  "completed": true
+}

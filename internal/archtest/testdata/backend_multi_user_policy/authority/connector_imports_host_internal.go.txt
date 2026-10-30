@@ -1,0 +1,8 @@
+// Negative fixture: a connector that tries to reach host internals and learn the
+// deployment access mode so it can branch on it locally.
+package fixture
+
+import (
+	_ "github.com/aiproxer/aiproxer/internal/core/config"
+	_ "github.com/aiproxer/aiproxer/internal/standardplugins"
+)

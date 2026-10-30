@@ -1,0 +1,30 @@
+{
+  "name": "oversized_args",
+  "catalog": [
+    {
+      "name": "echo",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "blob": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "generate": {
+    "args_prefix": "{\"blob\":\"",
+    "args_suffix": "\"}",
+    "fill_byte": 97,
+    "fill_count": 65527
+  },
+  "input": {
+    "tool_name": "echo"
+  },
+  "expect": {
+    "action": "unrepairable",
+    "args_json_unchanged": true,
+    "reason_code": "args_too_large",
+    "must_not_mutate": true
+  }
+}

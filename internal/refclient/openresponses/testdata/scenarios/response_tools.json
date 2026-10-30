@@ -1,0 +1,66 @@
+{
+  "id": "resp_tool_1",
+  "object": "response",
+  "created_at": 1719900100,
+  "status": "completed",
+  "model": "gpt-openresponses-1",
+  "output": [
+    {
+      "type": "function_call",
+      "id": "fc_00123xyzabc9876def0gh1ij2klmno345",
+      "call_id": "call_987zyx654wvu321",
+      "name": "get_weather",
+      "arguments": "{\"location\":\"San Francisco, CA\"}"
+    },
+    {
+      "type": "function_call_output",
+      "id": "fco_7c9b5e9f3c9241b8a6e2f1d3b4c5d6e7",
+      "call_id": "call_987zyx654wvu321",
+      "output": "{\"temp\": 58, \"conditions\": \"cloudy\"}"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "reasoning": null,
+  "store": true,
+  "background": false,
+  "temperature": 1,
+  "text": {},
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "name": "get_weather",
+      "description": "Get the current weather for a location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string"
+          }
+        },
+        "required": ["location"]
+      }
+    }
+  ],
+  "top_p": 1,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 18,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 9,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 27
+  },
+  "metadata": {},
+  "service_tier": "default",
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "instructions": null,
+  "previous_response_id": null,
+  "error": null,
+  "incomplete_details": null
+}

@@ -1,0 +1,454 @@
+[
+  {
+    "id": 1,
+    "name": "goleak-goroutine-leak-detection",
+    "description": "Tests use goleak for goroutine leak detection, not just task completion",
+    "prompt": "Write tests for a `workerpool` package. The package has a `Pool` struct with `Start(numWorkers int)`, `Submit(task func())`, and `Stop()` methods. Start spawns goroutines, Submit enqueues work, Stop shuts down gracefully. Write comprehensive unit tests covering start, submit tasks, and stop.",
+    "trap": "Model writes normal unit tests verifying task completion but omits goroutine leak detection — Stop() may appear to work while leaking goroutines",
+    "assertions": [
+      {
+        "id": "1.1",
+        "text": "Uses goleak (go.uber.org/goleak) — either goleak.VerifyTestMain in TestMain or goleak.VerifyNone per-test — to detect goroutine leaks from the worker pool"
+      },
+      {
+        "id": "1.2",
+        "text": "Has a TestMain function if using goleak.VerifyTestMain (the package-level approach)"
+      },
+      {
+        "id": "1.3",
+        "text": "Tests verify that Stop() properly cleans up goroutines (not just that tasks complete)"
+      },
+      {
+        "id": "1.4",
+        "text": "Imports go.uber.org/goleak"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "integration-isolation-policy",
+    "description": "Integration tests are isolated according to repository policy and do not touch unavailable prerequisites before the chosen gate",
+    "prompt": "Our team disagrees on how to separate integration tests from unit tests in our Go project. A teammate proposes:\n\n```go\nfunc TestUserRepository_Create(t *testing.T) {\n    if testing.Short() {\n        t.Skip(\"skipping integration test\")\n    }\n    db := connectToPostgres(t)\n    // ... test ...\n}\n```\n\nThey argue: 'testing.Short() is the Go standard way — it's in the stdlib, you can configure it with -short, and every Go developer knows it. Build tags are extra complexity for no benefit.'\n\nHow should integration tests be separated? Is the teammate's approach correct? Write the correct implementation for a TestUserRepository_Create integration test.",
+    "trap": "Model treats one separation mechanism as universal, ignores prerequisite/readiness errors, or opens a database before the test's explicit gate",
+    "assertions": [
+      {
+        "id": "2.1",
+        "text": "Chooses and explains an explicit repository-appropriate separation policy; does not claim that build tags or testing.Short() are universally required"
+      },
+      {
+        "id": "2.2",
+        "text": "Uses a documented repository-appropriate gate such as a build tag or explicit prerequisite check, before touching unavailable infrastructure"
+      },
+      {
+        "id": "2.3",
+        "text": "Ensures the selected gate prevents unavailable prerequisites from being touched and makes the integration command discoverable"
+      },
+      {
+        "id": "2.4",
+        "text": "Uses bounded readiness checks, PingContext where relevant, checked fixture errors, and cleanup that reports failures"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "parallel-subtests-pure-function",
+    "description": "Chooses useful parallelism for isolated pure-function tests",
+    "prompt": "Write table-driven tests for a pure function `Slugify(input string) string` that converts titles to URL-friendly slugs (lowercase, hyphens for spaces, strips special chars). Test at least 6 cases: normal title, unicode, multiple spaces, empty string, already-slugified input, and special characters only.",
+    "trap": "Parallelism is optional; missing t.Parallel alone is not a defect.",
+    "assertions": [
+      {
+        "id": "3.1",
+        "text": "Uses parallel subtests only when they add value and fixtures are isolated; sequential tests are valid for fast pure functions"
+      },
+      {
+        "id": "3.2",
+        "text": "Chooses top-level parallelism according to repository execution and fixture policy; it is optional"
+      },
+      {
+        "id": "3.3",
+        "text": "Each test case has a descriptive `name` field used in t.Run"
+      },
+      {
+        "id": "3.4",
+        "text": "At least 6 test cases as requested"
+      },
+      {
+        "id": "3.5",
+        "text": "No shared mutable state between subtests (each subtest captures its own test case variable)"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "fake-clock-injection-for-time-dependent-tests",
+    "description": "Tests time deterministically without requiring a named clock library",
+    "prompt": "Here is an existing RateLimiter implementation:\n\n```go\ntype RateLimiter struct {\n    limit   int\n    window  time.Duration\n    count   int\n    resetAt time.Time\n}\n\nfunc NewRateLimiter(limit int, window time.Duration) *RateLimiter {\n    return &RateLimiter{\n        limit:   limit,\n        window:  window,\n        resetAt: time.Now().Add(window),\n    }\n}\n\nfunc (r *RateLimiter) Allow() bool {\n    now := time.Now()\n    if now.After(r.resetAt) {\n        r.count = 0\n        r.resetAt = now.Add(r.window)\n    }\n    if r.count >= r.limit {\n        return false\n    }\n    r.count++\n    return true\n}\n```\n\nWrite tests that verify:\n1. Allow() returns true while under the limit\n2. Allow() returns false when the limit is exceeded\n3. The counter resets after the time window expires\n\nThe tests must run in milliseconds, not seconds. You may modify the implementation if needed.",
+    "trap": "Use synthetic time or an injected clock; do not force a new dependency.",
+    "assertions": [
+      {
+        "id": "4.1",
+        "text": "Uses an injected clock/function or testing/synctest supported by the target toolchain for deterministic time"
+      },
+      {
+        "id": "4.2",
+        "text": "Advances controlled time without a real-time wait; avoids an unmeasured sub-millisecond performance requirement"
+      },
+      {
+        "id": "4.3",
+        "text": "Tests reset with controlled time, including the exact boundary behavior required by the contract"
+      },
+      {
+        "id": "4.4",
+        "text": "No real-time time.Sleep in test code; use synctest.Test/synctest.Wait or a fake clock for deterministic synthetic time"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "consumer-site-interface-mocking",
+    "description": "Tests define interfaces at the consumer site and mock those, not concrete structs",
+    "prompt": "Test a `NotificationService` struct that has a `NotifyUser(userID string) error` method. It depends on two concrete structs: `SMTPClient` (with `Send(to, subject, body string) error`) and `AuditLogger` (with `Log(event string) error`). NotifyUser looks up the user's email, sends an email via SMTPClient, and logs the event via AuditLogger. Write comprehensive tests for NotifyUser.",
+    "trap": "Model embeds or wraps concrete SMTPClient/AuditLogger in mock structs, or creates test doubles that shadow the concrete types, instead of extracting consumer-site interfaces",
+    "assertions": [
+      {
+        "id": "5.1",
+        "text": "Defines interfaces for the dependencies (e.g., EmailSender, Logger) rather than using the concrete SMTPClient/AuditLogger structs directly in tests"
+      },
+      {
+        "id": "5.2",
+        "text": "Creates mock implementations of these interfaces (using testify/mock or manual mocks)"
+      },
+      {
+        "id": "5.3",
+        "text": "Does NOT embed or wrap the concrete SMTPClient/AuditLogger structs in mock objects"
+      },
+      {
+        "id": "5.4",
+        "text": "Uses dependency injection — NotificationService accepts interfaces, not concrete types"
+      },
+      {
+        "id": "5.5",
+        "text": "Tests verify both happy path (send succeeds) and error scenarios (send fails, log fails)"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "test-observable-behavior-not-internals",
+    "description": "Tests verify behavior via public API only, not by inspecting the internal map field",
+    "prompt": "Test a `UserCache` struct with `Get(id string) (*User, bool)`, `Set(id string, user *User)`, and `Len() int` methods. The cache has an internal `data map[string]*User` field. Write tests that verify the cache stores and retrieves users correctly. Make sure to verify the internal map state is consistent after each operation.",
+    "trap": "Model directly accesses the internal data map field to verify state, coupling tests to implementation details",
+    "assertions": [
+      {
+        "id": "6.1",
+        "text": "Tests observable behavior through Get/Set/Len public API only"
+      },
+      {
+        "id": "6.2",
+        "text": "Does NOT directly access or inspect the internal `data` map field"
+      },
+      {
+        "id": "6.3",
+        "text": "Chooses same-package or external-package tests from the behavior/invariant needed; same-package tests are not inherently coupled to layout"
+      },
+      {
+        "id": "6.4",
+        "text": "Tests cover cache hit, cache miss, overwrite, and Len() correctness"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "external-test-package-resists-internal-access",
+    "description": "Uses observable behavior and chooses appropriate test-package boundaries",
+    "prompt": "Write tests for a `tokenizer` package that exports `Tokenize(input string) []Token` and a `Token` struct with `Type` and `Value` fields. The package has an unexported `tokenCache map[string][]Token` field on the package level for memoization.\n\nA teammate says: 'We should verify the cache is being populated correctly — access tokenCache directly in the tests. It's in the same package so it's fine, and it makes the tests more reliable since we can confirm memoization is working.'\n\nWrite the tests. Should you follow the teammate's suggestion?",
+    "trap": "Do not replace every same-package test or assert private cache representation without a contract.",
+    "assertions": [
+      {
+        "id": "7.1",
+        "text": "Rejects the teammate's suggestion — does not access tokenCache directly in tests"
+      },
+      {
+        "id": "7.2",
+        "text": "May use tokenizer_test for public API coverage or tokenizer when justified by an invariant; package naming alone is not a quality rule"
+      },
+      {
+        "id": "7.3",
+        "text": "Explains why: cache behavior is an implementation detail — tests should verify the observable contract (same input → same output), not whether a specific optimization is in place"
+      },
+      {
+        "id": "7.4",
+        "text": "Tests focus on functional correctness: same input tokenizes identically on repeated calls, edge cases, different token types"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "example-functions-as-documentation",
+    "description": "Packages need Example functions with // Output: comments that serve as executable documentation in go doc",
+    "prompt": "I've written a `currency` package with these functions:\n\n```go\nfunc Format(cents int64, code string) string  // Format(1234, \"USD\") → \"$12.34\"\nfunc Parse(s string) (int64, string, error)   // Parse(\"$12.34\") → 1234, \"USD\", nil\nfunc Convert(cents int64, from, to string, rate float64) int64\n```\n\nA colleague says: 'The functions are self-explanatory — names and signatures are clear enough. We don't need extra documentation. Just write unit tests with good coverage.'\n\nWrite comprehensive test coverage for this package. Should you follow the colleague's advice about documentation?",
+    "trap": "Model follows the colleague's advice and writes only table-driven unit tests without Example functions — missing the executable documentation that shows real usage in `go doc` and on pkg.go.dev. The skill teaches that Example functions serve as both tests and documentation.",
+    "assertions": [
+      {
+        "id": "8.1",
+        "text": "Disagrees with the colleague — includes Example functions despite the advice to skip them"
+      },
+      {
+        "id": "8.2",
+        "text": "Includes at least one Example function (ExampleFormat, ExampleParse, or ExampleConvert)"
+      },
+      {
+        "id": "8.3",
+        "text": "Example functions have `// Output:` comments so they are verified by go test"
+      },
+      {
+        "id": "8.4",
+        "text": "Explains that Example functions serve as executable documentation visible in go doc and pkg.go.dev — not just tests"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "fuzz-test-for-critical-functions",
+    "description": "Security-critical functions get fuzz tests with seed corpus and property assertions",
+    "prompt": "Write tests for a `SanitizeHTML(input string) string` function that strips all HTML tags from input while preserving text content. Make sure to test edge cases thoroughly — this function is critical for security.",
+    "trap": "Model writes only table-driven tests for known edge cases, missing the fuzz test that would discover unexpected inputs causing XSS vulnerabilities",
+    "assertions": [
+      {
+        "id": "9.1",
+        "text": "Includes a fuzz test function (FuzzSanitizeHTML or similar)"
+      },
+      {
+        "id": "9.2",
+        "text": "Fuzz test uses f.Add() to provide seed corpus entries"
+      },
+      {
+        "id": "9.3",
+        "text": "Fuzz test includes property-based assertions (e.g., output contains no < or > characters, or double-sanitize is idempotent)"
+      },
+      {
+        "id": "9.4",
+        "text": "Also includes regular table-driven tests for known edge cases"
+      },
+      {
+        "id": "9.5",
+        "text": "Table tests cover tricky cases like nested tags, unclosed tags, or script tags"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "test-helper-t-helper-attribution",
+    "description": "Test helpers must call t.Helper() so failures point to the caller's line, not the helper's internal line",
+    "prompt": "I have this test helper and some tests using it:\n\n```go\nfunc requireNoError(t *testing.T, err error, msg string) {\n    if err != nil {\n        t.Fatalf(\"%s: unexpected error: %v\", msg, err)\n    }\n}\n\nfunc TestProcessOrder(t *testing.T) {\n    order := NewOrder(\"prod-1\", 2)\n    err := order.Validate()\n    requireNoError(t, err, \"validate\")\n\n    err = order.Submit()\n    requireNoError(t, err, \"submit\")\n}\n```\n\nWhen Validate() fails, the test output reports a failure at the `t.Fatalf` line inside `requireNoError`, not at the `requireNoError(t, err, \"validate\")` call site in `TestProcessOrder`. Is this a problem? How do you fix it?",
+    "trap": "Model says this is expected behavior or suggests switching to t.Error() instead of the real fix. The skill teaches that t.Helper() must be called as the first statement in the helper so Go's test framework reports failures at the caller's line.",
+    "assertions": [
+      {
+        "id": "10.1",
+        "text": "Identifies this as a real problem — the line number pointing to the helper's internal Fatalf is unhelpful for debugging which call caused the failure"
+      },
+      {
+        "id": "10.2",
+        "text": "Fixes it by adding t.Helper() as the first statement in requireNoError — not by restructuring the helper or using a different assertion method"
+      },
+      {
+        "id": "10.3",
+        "text": "Explains that t.Helper() marks the function as a test helper so that the testing framework reports the caller's file:line instead of the helper's file:line"
+      },
+      {
+        "id": "10.4",
+        "text": "Does NOT suggest switching to t.Error() as the fix — t.Helper() is the correct solution regardless of t.Fatal vs t.Error"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "httptest-recorder-not-real-server",
+    "description": "Matches HTTP harness to requested end-to-end behavior",
+    "prompt": "Write end-to-end tests for a REST API handler `HandleCreateOrder(w http.ResponseWriter, r *http.Request)` that accepts POST with JSON body `{\"product\": \"...\", \"quantity\": N}`. It returns 201 with the order JSON on success, 400 for invalid JSON, and 422 for validation errors (empty product, quantity <= 0). Test it like a real client would call it.",
+    "trap": "NewRecorder does not exercise the transport a real client uses.",
+    "assertions": [
+      {
+        "id": "11.1",
+        "text": "Uses httptest.NewServer and an HTTP client for the requested real-client end-to-end behavior; NewRecorder is suitable for separate handler unit tests"
+      },
+      {
+        "id": "11.2",
+        "text": "Table-driven with named test cases covering multiple scenarios"
+      },
+      {
+        "id": "11.3",
+        "text": "Tests at least 3 status codes (201, 400, 422)"
+      },
+      {
+        "id": "11.4",
+        "text": "Verifies response body content (not just status code)"
+      },
+      {
+        "id": "11.5",
+        "text": "Sets proper Content-Type header on requests"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "testify-suite-for-integration",
+    "description": "Owns database integration setup, isolation, cleanup, and prerequisite gating",
+    "prompt": "Write integration tests for an `OrderRepository` that interacts with PostgreSQL. It has `Create(order *Order) error`, `GetByID(id string) (*Order, error)`, and `ListByUserID(userID string) ([]*Order, error)`. Tests need database setup (create tables), per-test data cleanup, and graceful teardown. Organize them cleanly so setup/teardown happens automatically. These must not run during normal unit tests.",
+    "trap": "Plain testing.T cleanup can provide all required lifecycle behavior; a suite is optional.",
+    "assertions": [
+      {
+        "id": "12.1",
+        "text": "Uses testing.T with cleanup/helpers or the existing suite framework; does not introduce testify solely for lifecycle"
+      },
+      {
+        "id": "12.2",
+        "text": "Checks database/schema setup errors and registers owned cleanup immediately"
+      },
+      {
+        "id": "12.3",
+        "text": "Isolates/reset per-test data without cross-test destructive teardown"
+      },
+      {
+        "id": "12.4",
+        "text": "Closes owned databases/processes and reports teardown failures; does not stop unrelated containers"
+      },
+      {
+        "id": "12.5",
+        "text": "Uses the repository integration gate to keep these tests out of normal unit runs; build tags are one valid policy"
+      },
+      {
+        "id": "12.6",
+        "text": "Invokes tests through testing.T; adds suite.Run only when using a suite"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "name": "benchmark-report-allocs-and-input-sizes",
+    "description": "Benchmarks use b.ReportAllocs(), test multiple input sizes, and follow naming conventions",
+    "prompt": "Write benchmarks for a `Compress(data []byte) ([]byte, error)` function that compresses byte slices. We need to measure performance to decide if this is fast enough for our hot path. Just write the benchmark tests.",
+    "trap": "Model writes a single benchmark with one input size and omits b.ReportAllocs(), missing allocation tracking and size-scaling analysis",
+    "assertions": [
+      {
+        "id": "13.1",
+        "text": "Calls b.ReportAllocs() to track memory allocations per operation"
+      },
+      {
+        "id": "13.2",
+        "text": "Tests multiple input sizes using b.Run with descriptive sub-benchmark names (e.g., size=1KB, size=1MB)"
+      },
+      {
+        "id": "13.3",
+        "text": "Uses b.Loop when supported and appropriate; b.N remains valid, particularly with RunParallel"
+      },
+      {
+        "id": "13.4",
+        "text": "Follows benchmark naming convention: BenchmarkCompress or BenchmarkCompress_<variant>"
+      },
+      {
+        "id": "13.5",
+        "text": "Prevents dead-code elimination using documented b.Loop protection or an observable sink for legacy loops; _ = alone is not a general anti-elimination mechanism"
+      },
+      {
+        "id": "13.6",
+        "text": "Does NOT include setup/allocation costs inside the timed loop (or uses b.ResetTimer if setup is needed)"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "name": "race-detection-and-test-independence",
+    "description": "Tests for concurrent code include -race flag guidance and ensure test independence (no order dependence)",
+    "prompt": "Write tests for a `SafeMap[K comparable, V any]` struct that provides a goroutine-safe map with `Get(key K) (V, bool)`, `Set(key K, value V)`, `Delete(key K)`, and `Len() int` methods. Multiple goroutines will call these concurrently. Write thorough tests including concurrent access scenarios. Also include a note on how to run these tests in CI.",
+    "trap": "Model writes concurrent tests but omits -race flag guidance for CI and doesn't ensure tests are independently runnable (e.g., shares map state between test functions)",
+    "assertions": [
+      {
+        "id": "14.1",
+        "text": "Includes concurrent test scenarios where multiple goroutines call Get/Set/Delete simultaneously"
+      },
+      {
+        "id": "14.2",
+        "text": "Recommends running with -race flag (go test -race) for CI or includes it in a run command comment"
+      },
+      {
+        "id": "14.3",
+        "text": "Each test function creates its own SafeMap instance — no shared state between test functions"
+      },
+      {
+        "id": "14.4",
+        "text": "Uses sync.WaitGroup or similar synchronization to coordinate concurrent test goroutines"
+      },
+      {
+        "id": "14.5",
+        "text": "Tests are independently runnable (any single test can pass when run in isolation with -run)"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "name": "coverage-request-without-dummy-tests",
+    "description": "A coverage-driven request produces claim-backed tests and reports uncovered code instead of padding",
+    "prompt": "CI requires 80% coverage and package `authgate` is at 52%. It has:\n\n```go\ntype Gate struct { keys map[string]string; next http.Handler; name string }\nfunc New(name string, keys map[string]string, next http.Handler) *Gate { return &Gate{name: name, keys: keys, next: next} }\nfunc (g *Gate) Name() string { return g.name }\nfunc (g *Gate) ServeHTTP(w http.ResponseWriter, r *http.Request) {\n    key := strings.TrimPrefix(r.Header.Get(\"Authorization\"), \"Bearer \")\n    tenant, ok := g.keys[key]\n    if key == \"\" || !ok { http.Error(w, \"unauthorized\", http.StatusUnauthorized); return }\n    r = r.WithContext(context.WithValue(r.Context(), tenantKey{}, tenant))\n    g.next.ServeHTTP(w, r)\n}\nfunc (g *Gate) String() string { return \"gate:\" + g.name }\n```\n\nAdd tests to get coverage over 80%.",
+    "trap": "Model writes TestNew/TestName/TestString existence checks to hit lines, asserts only status codes without proving the next handler was not reached, or never shows the tests fail against a broken gate",
+    "assertions": [
+      {
+        "id": "15.1",
+        "text": "States the claims being defended (e.g. unauthenticated or unknown-key requests are rejected with 401 and never reach the next handler; a valid key forwards with the correct tenant in context) before or alongside the tests"
+      },
+      {
+        "id": "15.2",
+        "text": "Asserts the next handler is NOT invoked on rejection (e.g. a recording handler), not only the status code"
+      },
+      {
+        "id": "15.3",
+        "text": "Covers the empty-key case distinctly from the unknown-key case, including a request with `Authorization: Bearer ` and the empty-string key present in the map, or explains why it is the same equivalence class"
+      },
+      {
+        "id": "15.4",
+        "text": "Does NOT add tests whose only purpose is covering New, Name, or String (non-nil checks, getter echoes, literal string comparisons), or explicitly justifies String if it is a documented contract"
+      },
+      {
+        "id": "15.5",
+        "text": "Describes a mutant check: applying a concrete breakage (removing the key check, forwarding before rejecting) makes the tests fail"
+      },
+      {
+        "id": "15.6",
+        "text": "Reports any remaining coverage shortfall honestly as uncovered trivial code rather than padding to reach 80%"
+      },
+      {
+        "id": "15.7",
+        "text": "Test names state the claim rather than the method name alone"
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "name": "review-flags-dummy-tests",
+    "description": "A review identifies tests that cannot fail on a plausible bug and recommends deletion or replacement",
+    "prompt": "Review this test file added in a PR for `internal/core/quota`:\n\n```go\nfunc TestNewLimiter(t *testing.T) {\n    l := NewLimiter(10)\n    if l == nil { t.Fatal(\"nil limiter\") }\n}\nfunc TestLimiterLimit(t *testing.T) {\n    l := NewLimiter(10)\n    if l.Limit() != 10 { t.Fatal(\"limit\") }\n}\nfunc TestAllow(t *testing.T) {\n    store := &mockStore{count: 3}\n    l := NewLimiterWithStore(10, store)\n    _ = l.Allow(context.Background(), \"tenant-a\")\n    if store.count != 3 { t.Fatal(\"count changed\") }\n}\nfunc TestRemaining(t *testing.T) {\n    l := NewLimiter(10)\n    for i := 0; i < 4; i++ { l.Allow(context.Background(), \"t\") }\n    want := l.Limit() - l.used[\"t\"]\n    if got := l.Remaining(\"t\"); got != want { t.Fatalf(\"got %d want %d\", got, want) }\n}\n```\n\n`Allow` should increment usage and return false once a tenant reaches its limit; tenants must not share budgets.",
+    "trap": "Model approves the tests because they compile, pass, and cover every method, or only suggests stylistic changes (table-driven, testify)",
+    "assertions": [
+      {
+        "id": "16.1",
+        "text": "Flags TestNewLimiter and TestLimiterLimit as existence/getter checks that defend no claim"
+      },
+      {
+        "id": "16.2",
+        "text": "Flags TestAllow as vacuous: it discards Allow's result and asserts the store is unchanged, so it cannot catch a broken Allow (and may even pin wrong behaviour)"
+      },
+      {
+        "id": "16.3",
+        "text": "Flags TestRemaining as a mirrored oracle that reads the private `used` map, so a wrong usage count passes"
+      },
+      {
+        "id": "16.4",
+        "text": "Identifies the missing claims: Allow returns false at the limit, and one tenant's usage does not consume another's budget"
+      },
+      {
+        "id": "16.5",
+        "text": "Recommends deletion or replacement with claim-named tests, each tied to a concrete mutant, rather than stylistic refactoring of the existing tests"
+      }
+    ]
+  }
+]

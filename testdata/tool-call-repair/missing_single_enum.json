@@ -1,0 +1,26 @@
+{
+  "name": "missing_single_enum",
+  "catalog": [
+    {
+      "name": "format",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "style": { "type": "string", "enum": ["plain"] }
+        },
+        "required": ["style"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "format",
+    "args_json": "{}"
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"style\":\"plain\"}",
+    "require_schema_valid": true,
+    "reason_code": "enum_inserted"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "feature_name": "runtime-architecture-convergence-and-shrinkage",
+  "created_at": "2026-07-23T14:29:26+02:00",
+  "updated_at": "2026-07-28T16:45:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "implementation_complete": true,
+  "completed": true,
+  "completion_evidence": {
+    "certified_implementation_sha": "a5a2d375c767b3dad8225de0879f5a6c6f4b1ee5",
+    "reviewed_baseline_sha": "efe4624909cea318c7211d5cb3734059d3210802",
+    "verdict": "PASS - all approved release gates are satisfied",
+    "artifact": "baseline/final-release-evidence.md"
+  },
+  "compatibility_amendment": {
+    "decision": "alpha-stage-breaking-removal-of-legacy-Options-fields",
+    "approved_at": "2026-07-25",
+    "approving_maintainer": "matdev83",
+    "rationale": "Project is alpha with no users; no supported stable release/user contract depended on RequestProviders, AttemptProviders, ConcurrencyProvider, Rater, or ProviderDescriptors. Removal proceeds without waiting for a future major version.",
+    "removed_fields": [
+      "RequestProviders",
+      "AttemptProviders",
+      "ConcurrencyProvider",
+      "Rater",
+      "ProviderDescriptors"
+    ],
+    "canonical_replacements": [
+      "RequestRegistrations",
+      "AttemptRegistrations",
+      "ConcurrencyRegistration",
+      "RaterRegistrations"
+    ],
+    "last_commit_with_legacy_fields": "33339e79b3d8c03a1a70b34fb86e3a1d85d3c2a0",
+    "first_registration_only_commit": "e9a5d5072453fc234186efbf67955e110396a541"
+  },
+  "project_description": "Complete the versioned-runtime migration by converging the standard distribution on one process runtime, one canonical generation runtime, one host, one reload contract, and one generation-resource lifecycle owner; delete the legacy Built/RunWithRuntime/bootstrap compatibility graph, decompose reload coordination by ownership, eliminate duplicate config reads and fake check-config publication, remove deprecated public option shapes under the alpha-stage compatibility decision, and ratchet architecture budgets downward while preserving all existing protocol, reload, security, streaming, no-drop, lifecycle, and public-facade behavior."
+}

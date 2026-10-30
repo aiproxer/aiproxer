@@ -1,0 +1,21 @@
+{
+  "description": "High-signal native tool-call repair fixtures (ADR 0007 / issue #152). Oversized cases use generate.* instead of committing large blobs.",
+  "cases": [
+    "valid_exact.json",
+    "syntax_truncated_object.json",
+    "syntax_nested_truncated.json",
+    "tool_name_unique_normalized.json",
+    "tool_name_ambiguous.json",
+    "property_unique_normalized.json",
+    "property_ambiguous.json",
+    "missing_default.json",
+    "missing_const.json",
+    "missing_single_enum.json",
+    "missing_required_no_default.json",
+    "forbidden_additional_property.json",
+    "additional_properties_allowed.json",
+    "scalar_coercion_disabled.json",
+    "invalid_schema.json",
+    "oversized_args.json"
+  ]
+}

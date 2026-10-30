@@ -1,0 +1,23 @@
+{
+  "feature_name": "config-source-inode-ownership",
+  "created_at": "2026-10-01T06:45:12Z",
+  "updated_at": "2026-10-02T11:02:18Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

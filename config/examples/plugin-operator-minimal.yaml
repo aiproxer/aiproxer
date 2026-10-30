@@ -1,0 +1,77 @@
+# Operator: minimal package layout + single optional plugin after manual install.
+# Stage one artifact (not curated-full): make package-full PACKAGE_DEST=.aip-plugins
+# then point discovery at that plugin dir, or leave discovery disabled until installed.
+# See docs/backend-plugins/operator.md.
+server:
+  address: "127.0.0.1:18180"
+
+routing:
+  max_attempts: 3
+  default_route: "op-min:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  backend_discovery:
+    enabled: false
+    development_mode: false
+    strict: true
+    paths: []
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: op-min
+      enabled: true
+      config:
+        text: "[operator] minimal single-plugin"
+        input_tokens: 1
+        output_tokens: 1
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}

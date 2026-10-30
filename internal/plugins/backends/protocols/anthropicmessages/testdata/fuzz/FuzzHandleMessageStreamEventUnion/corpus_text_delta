@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"x\"}}")

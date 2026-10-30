@@ -1,0 +1,112 @@
+name: OSS export
+
+# The open-source export is the published AIProxer tree. This workflow builds
+# the deterministic export of the pull request revision, refuses an export
+# that can still reach the Enterprise tree, and runs the unit tests of the
+# exported tree.
+#
+# The gate needs no secrets and no remote service: the export tool archives
+# the revision with Git, checks it, and builds it with the pinned Go
+# toolchain.
+#
+# The billing packages the export once still carried (and the test that read
+# an export-dropped certification matrix) now live in the Enterprise tree, so
+# the exported tree passes its unit tests.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oss-export-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  export:
+    name: OSS export tree (Linux, ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [heavy, rest, rest-2]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The export tool archives a revision, so the commit must be present.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded ci-unit Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-unit
+
+      - name: Build the deterministic export
+        # The tool archives the requested revision, refuses an export whose
+        # published tree can still reach the Enterprise tree, and builds and
+        # vets the exported tree.
+        run: |
+          set -euo pipefail
+          go run ./tools/ossexport \
+            -rev HEAD \
+            -out "$RUNNER_TEMP/aiproxer.tar" \
+            -extract-dir "$RUNNER_TEMP/oss-export"
+
+      - name: Unit tests of the exported tree
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/oss-export"
+          # Every package of the exported tree runs. Only the individual tests
+          # that need the private repository state are skipped, and each one is
+          # named with the reason it cannot run in a published checkout:
+          #   git archive of a recorded commit, git rev-parse HEAD, git diff,
+          #   or git status
+          #     TestConversationViewChangedGoFileCountUnderGate
+          #     TestLoadGitCommitFSContext_CancellationAndCacheRecovery
+          #     TestLoadGitCommitFSContext_CancelledLoadDoesNotPoisonCache
+          #     TestResidualOwnershipInventoryContract_Live
+          #     TestResidualOwnershipInventoryContract_ValidatesSHAIdentity
+          #     TestRootHygiene_DirtyGoFiles
+          #     TestRun_BaseFlagUsesSelectedRevision
+          #     TestShrinkage_APIKeyCredentialBaselinesArePinnedAndDisjoint
+          #     TestShrinkage_OpenCoreAdminBaselinesArePinnedAndDisjoint
+          #     TestShrinkage_OpenCoreSeamBaselinesArePinnedAndDisjoint
+          #     TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint
+          #     TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint
+          #   a Kiro specification, its budget ceilings, or its evidence table
+          #     TestGrandfatheredCeilingsMatchRepository
+          #     TestKiroSpec
+          #     TestPhase1ProducerConsumerCensusIsExactAndDispositioned
+          # The source-boundary rules of the architecture package and the
+          # repository-policy checks of the quality package keep running: the
+          # export tool covers the Enterprise import boundary, not the other
+          # architecture rules.
+          skip='TestConversationViewChangedGoFileCountUnderGate|TestLoadGitCommitFSContext_CancellationAndCacheRecovery|TestLoadGitCommitFSContext_CancelledLoadDoesNotPoisonCache|TestResidualOwnershipInventoryContract_Live|TestResidualOwnershipInventoryContract_ValidatesSHAIdentity|TestRootHygiene_DirtyGoFiles|TestRun_BaseFlagUsesSelectedRevision|TestShrinkage_APIKeyCredentialBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreAdminBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreSeamBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint|TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint|TestGrandfatheredCeilingsMatchRepository|TestKiroSpec|TestPhase1ProducerConsumerCensusIsExactAndDispositioned'
+          mapfile -t all < <(go list ./...)
+          mapfile -t packages < <(printf '%s\n' "${all[@]}" | bash "$GITHUB_WORKSPACE/scripts/ci-suite-shard.sh" "${{ matrix.shard }}")
+          echo "shard ${{ matrix.shard }}: ${#packages[@]} of ${#all[@]} packages"
+          [[ ${#packages[@]} -gt 0 ]] || { echo "shard ${{ matrix.shard }} selected no packages" >&2; exit 1; }
+          go test -ldflags=-w -timeout=25m -skip "^(${skip})\$" "${packages[@]}"
+
+      - name: Report the export digest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f "$RUNNER_TEMP/aiproxer.tar" ]]; then
+            sha256sum "$RUNNER_TEMP/aiproxer.tar" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no export archive was published" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,41 @@
+# Narrow Linux race gate for connectors/codex (Task 8.2).
+# Windows hosts cannot run -race for this module (cgo toolchain failure).
+name: Codex connector race
+
+on:
+  # Race evidence is nightly, not per-PR (see AGENTS.md Verification).
+  schedule:
+    - cron: "7 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-connector-race-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  codex-race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: race
+
+      - name: Race connectors/codex
+        working-directory: connectors/codex
+        run: GOWORK=off go test -race ./...

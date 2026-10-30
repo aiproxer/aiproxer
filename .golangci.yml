@@ -1,0 +1,165 @@
+version: "2"
+
+run:
+  # The root module is the longest single invocation: 400+ packages typechecked
+  # with tests included. With an empty golangci-lint analysis cache it takes
+  # 8m21s on four pinned cores and reports 0 issues; CI run 40754294363
+  # (2026-10-28) hit the old 10m cap while a second module competed for the same
+  # four vCPUs and the Go build cache was cold. Sharding cannot recover that:
+  # the runner has no spare cores and every shard repeats the shared typecheck.
+  # Keep this below the Lint (Linux) job's timeout-minutes: 30 so it stays bounded.
+  timeout: 20m
+  # Linting *_test.go catches more issues but roughly doubles analyzer work vs tests: false.
+  tests: true
+
+linters:
+  default: none
+  # Canonical quality gates (`make lint`, `make quality-checks`, `make qa`,
+  # `make precommit-full`, and the pre-commit quality gate) enforce the
+  # correctness linters below. They run through scripts/lint-all-modules.*,
+  # which pass --disable=modernize,paralleltest,thelper,gocognit so that
+  # repository-wide style and complexity debt cannot block the release. The
+  # four advisory linters stay enabled in this file so the full report remains
+  # reproducible on demand via `make lint-advisory` (and the scheduled
+  # .github/workflows/modernize-monthly.yml modernize pass). They are advisory:
+  # reported, never silently skipped.
+  enable:
+    - staticcheck
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - forcetypeassert
+    - errcheck
+    # Suppression hygiene is mandatory: a directive must name a linter, still
+    # suppress a finding, and say why it is needed (see nolintlint settings
+    # below).
+    - nolintlint
+    # Advisory style (on-demand; disabled in the canonical gates above):
+    - paralleltest
+    - thelper
+    - modernize
+    # Advisory complexity ratchet (on-demand; disabled in the canonical gates
+    # above). The threshold and the exclusions under `exclusions` are read by
+    # internal/qa/cognitive_complexity_ratchet_test.go, so the advisory report
+    # and the ratchet always enforce the same policy.
+    - gocognit
+  settings:
+    # Cognitive complexity ceiling for the advisory report and the ratchet. A
+    # function above this value must be recorded in the ratchet baseline; the
+    # ratchet fails when a recorded function grows past its pinned value.
+    gocognit:
+      min-complexity: 200
+    nolintlint:
+      # A directive that suppresses nothing hides the next finding too.
+      allow-unused: false
+      # `//nolint` and `//nolint:all` suppress future linters as well; require
+      # the specific analyzer so a new check is never silently disabled.
+      require-specific: true
+      require-explanation: true
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: indent-error-flow
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+  exclusions:
+    rules:
+      # Cognitive complexity ratchet scope. The ratchet in
+      # internal/qa/cognitive_complexity_ratchet_test.go reads this threshold
+      # and these rules from this file, so the advisory report and the ratchet
+      # never disagree about what is measured.
+      #
+      # Test files are scenario scripts: their complexity is a linear step
+      # sequence, not a branching policy, so it is not a maintainability signal.
+      - path: _test\.go$
+        linters:
+          - gocognit
+      # Generated code is not authored complexity.
+      - path: (?:^|/)\w*_generated\.go$|(?:^|/)\w*\.pb\.go$
+        linters:
+          - gocognit
+      # Billing is frozen while its packages move to the Enterprise tree
+      # (AGENTS.md, "Transition: rebrand and open-core split"); the freeze
+      # follows the packages that have already moved.
+      - path: ^(enterprise/)?enterprise/internal/core/billing/|^(enterprise/)?internal/infra/billing[a-z]*/
+        linters:
+          - gocognit
+      # SQLite/PostgreSQL parity is a policy requirement
+      # (.kiro/steering/testing.md), not a simplification candidate.
+      - path: ^internal/testkit/dbparity/
+        linters:
+          - gocognit
+      # Bun 1.3 deprecates in-place AddQueryHook for the cloning WithQueryHook.
+      # Tests attach guards and barriers to a *bun.DB a store already holds, so
+      # they need the in-place mutation that WithQueryHook cannot express.
+      - path: _test\.go$
+        linters:
+          - staticcheck
+        text: "SA1019: \\(\\*github.com/uptrace/bun.DB\\).AddQueryHook is deprecated"
+      # Stateful database and lifecycle tests deliberately run serially.
+      - path: ^(cmd/aipstd|internal/(core/(config|runtime)|infra/(db|dbmigrate|metering/journalstore|metrics|runtimebundle)|testkit)|pkg/aipsdk/metering)/.*_test\.go$
+        linters:
+          - paralleltest
+      # Billing-store tests deliberately exercise shared SQLite locking, replay,
+      # rollback, and fault campaigns; outer-test parallelism would change those
+      # contention semantics rather than improve coverage.
+      - path: ^enterprise/internal/infra/billingstore/.*_test\.go$
+        linters:
+          - paralleltest
+      # Connector parity suites and state machines test sequential OAuth lifecycle and token refresh.
+      - path: ^connectors/(gitlabduo|minimexoauth|nousportal|qwenoauth|xaioauth)/.*_test\.go$
+        linters:
+          - paralleltest
+      # These composed protocol/backend suites use shared scripted transports,
+      # deterministic stream timing, or package-level test fixtures.
+      - path: ^(internal/plugins/backends/openresponsescompat|internal/plugins/protocols/openresponses|internal/plugins/frontends/openresponses|internal/refclient/openresponses)/.*_test\.go$
+        linters:
+          - paralleltest
+      - path: ^internal/integration/openresponses/(compliance_official_test|cell_select_test)\.go$
+        linters:
+          - paralleltest
+      - path: ^internal/refbackend/openresponses/direct_wire_test\.go$
+        linters:
+          - paralleltest
+      - path: ^internal/refbackend/openresponses/direct_wire_test\.go$
+        linters:
+          - thelper
+      - path: ^internal/standardplugins/reasoning_preservation_codex_companion_test\.go$
+        linters:
+          - paralleltest
+      - path: ^internal/stdhttp/(frontend_isolation_integration_test|reasoning_preservation_http_harness_test)\.go$
+        linters:
+          - paralleltest
+      # Process-wide heap/GC ratchets must run sequentially: parallel siblings
+      # perturb runtime.MemStats deltas.
+      - path: ^internal/core/largebody/streaming_proof_differential_test\.go$
+        linters:
+          - paralleltest
+      - path: ^internal/plugins/frontends/frontendpipe/(large_payload_heap_invariant_bench|large_payload_proof_bound_characterization|large_payload_pipeline_memory_ratchet_red)_test\.go$
+        linters:
+          - paralleltest
+      - path: ^internal/plugins/frontends/(openailegacy|openairesponses)/(profile_test|compaction_differential_test)\.go$
+        linters:
+          - paralleltest
+      # JSON wire-shape changes need contract review, not bulk lint autofixes.
+      - text: "Omitempty has no effect on nested struct fields"
+        linters:
+          - modernize
+      # pkg/aipsdk/controltool production sources stay inside the generic import
+      # contract enforced by TestProductionSourcesStayGeneric; the
+      # slices.ContainsFunc rewrite would add a banned stdlib import.
+      - path: ^pkg/aipsdk/controltool/validate\.go$
+        text: 'Loop can be simplified using slices\.ContainsFunc'
+        linters:
+          - modernize
+
+formatters:
+  enable:
+    - gofumpt

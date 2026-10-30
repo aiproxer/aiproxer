@@ -1,0 +1,24 @@
+{
+  "feature_name": "reasoning-preservation-e2e-validation",
+  "created_at": "2026-07-18T15:10:00+02:00",
+  "updated_at": "2026-07-28T11:45:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Follow-up full HTTP E2E validation for reasoning-output-preservation: standard runtimebundle/stdhttp stack, protocol backend emulators, stateful client/oracle transcript proofs, deterministic controls, seeded matrix, and env-gated soak. Parent: .kiro/specs/archive/reasoning-output-preservation/. Issue #157."
+}

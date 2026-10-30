@@ -1,0 +1,76 @@
+# Request-Path Seam-View Benchmark Baseline (Wave 0 Pre-Consolidation)
+# Task: 1.6 Capture request-path seam-view benchmark baselines
+# Requirements: 7.1 (Hot-path neutrality, allocs/op <= baseline, zero new locks/key-searches)
+#
+# Machine-Context Caveat:
+#   Captured on Windows 10/11 x86_64 (AMD Ryzen 7 5800X 8-Core Processor @ windows/amd64).
+#   Absolute ns/op measurements are hardware-, OS-, and CPU-frequency-dependent;
+#   they are comparable only on the same machine class and execution environment.
+#   B/op and allocs/op allocations are deterministic Go runtime metrics.
+#
+# Seam-View Accessor Defensive-Cloning Inventory:
+#   1. Defensive-Cloning Accessors (allocate 1 alloc/op on non-empty data):
+#      - (*RequestRuntimeSnapshot).CompletionGates() [slices.Clone]
+#      - CompletionGatesFromContext(ctx, fallback) [delegates to CompletionGates(); 0 alloc/op when empty/nil via emptyCompletionGates]
+#      - (*RequestRuntimeSnapshot).TrafficPortBundle() [calls TrafficRedactors(), incurring 1 alloc/op when redactors non-empty; 0 when empty/nil]
+#      - (*RequestRuntimeSnapshot).TrafficRedactors() [slices.Clone]
+#      - (*RequestRuntimeSnapshot).SecretGuardPlane() [slices.Clone on Guards slice]
+#      - (*RequestRuntimeSnapshot).CompactionObservers() [slices.Clone]
+#      - (*RequestRuntimeSnapshot).CompactionPreservers() [slices.Clone]
+#
+#   2. Direct / Execution / Non-Cloning Accessors (0 alloc/op, zero-copy hot path):
+#      - (*RequestRuntimeSnapshot).SecretGuardExecutionPlane() [returns SecretGuardPlane directly without cloning Guards slice]
+#      - (*RequestRuntimeSnapshot).TrafficObserver() [direct interface return]
+#      - (*RequestRuntimeSnapshot).RawCapture() [direct interface return]
+#      - (*RequestRuntimeSnapshot).TerminalDecisionProvider() [direct interface return]
+#
+# Issue #394 Performance Hardening Coordination:
+#   - OBSERVE scenario: Evaluates traffic observation pipelines (TrafficPortBundle, RawCapture, TrafficObserver, TrafficRedactors).
+#     Populated TrafficPortBundle incurs 1 alloc/op due to defensive cloning of redactors (32 B/op).
+#   - DELTA-allocation scenario: Evaluates streaming turn / event processing reads (CompletionGatesFromContext,
+#     SecretGuardExecutionPlane, CompactionObservers, CompactionPreservers).
+#     Hot-path execution accessors such as SecretGuardExecutionPlane exhibit 0 alloc/op, whereas defensive-copy
+#     accessors incur 1 alloc/op (16-32 B/op).
+#     Post-consolidation implementations must maintain <= baseline allocs/op on all corresponding seams.
+#   - HOLD scenario: Fixed-cost snapshot retention for idle / held streams. Snapshot accessors perform
+#     zero background allocation, acquire zero mutexes/locks, and execute in O(1) time without map/key lookups.
+#
+# Captured Benchmark Output (Run 2 of 2):
+
+goos: windows
+goarch: amd64
+pkg: github.com/aiproxer/aiproxer/internal/core/extensions
+cpu: AMD Ryzen 7 5800X 8-Core Processor             
+BenchmarkCompletionGates_Populated-12                            	28897000	        41.60 ns/op	      32 B/op	       1 allocs/op
+BenchmarkCompletionGates_Empty-12                                	1000000000	         1.092 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompletionGates_NilSnapshot-12                          	1000000000	         1.102 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompletionGatesFromContext_Populated-12                 	20925463	        62.78 ns/op	      32 B/op	       1 allocs/op
+BenchmarkCompletionGatesFromContext_Empty-12                     	147687708	         8.203 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompletionGatesFromContext_NilContextFallback-12        	23797908	        65.06 ns/op	      32 B/op	       1 allocs/op
+BenchmarkCompletionGatesFromContext_nilFallback_empty-12         	149549854	         7.951 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompletionGatesFromContext_fallbackNilGates_empty-12    	126571342	         9.453 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompletionGatesFromContext_withGates-12                 	29615589	        43.85 ns/op	      16 B/op	       1 allocs/op
+BenchmarkTrafficPortBundle_Populated-12                          	17735055	        63.35 ns/op	      32 B/op	       1 allocs/op
+BenchmarkTrafficPortBundle_Empty-12                              	148739008	         7.986 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTrafficPortBundle_NilSnapshot-12                        	1000000000	         0.9779 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTrafficObserver_Populated-12                            	1000000000	         1.044 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTrafficRedactors_Populated-12                           	29714664	        51.07 ns/op	      32 B/op	       1 allocs/op
+BenchmarkTrafficRedactors_Empty-12                               	385747900	         3.197 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTrafficRedactors_NilSnapshot-12                         	1000000000	         1.156 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSecretGuardPlane_Populated-12                           	27177913	        66.66 ns/op	      32 B/op	       1 allocs/op
+BenchmarkSecretGuardPlane_Empty-12                               	87866384	        13.91 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSecretGuardPlane_NilSnapshot-12                         	680765702	         1.703 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSecretGuardExecutionPlane_Populated-12                  	169167454	         7.069 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSecretGuardExecutionPlane_Empty-12                      	168175716	         7.081 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSecretGuardExecutionPlane_NilSnapshot-12                	575338682	         1.770 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompactionObservers_Populated-12                        	27821247	        42.18 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCompactionObservers_Empty-12                            	728929827	         1.602 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompactionObservers_NilSnapshot-12                      	1000000000	         1.086 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompactionPreservers_Populated-12                       	34944060	        38.75 ns/op	      16 B/op	       1 allocs/op
+BenchmarkCompactionPreservers_Empty-12                           	1000000000	         1.151 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompactionPreservers_NilSnapshot-12                     	942575178	         1.182 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTerminalDecisionProvider_Populated-12                   	902867280	         1.458 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTerminalDecisionProvider_Empty-12                       	1000000000	         1.058 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTerminalDecisionProvider_NilSnapshot-12                 	1000000000	         0.8839 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/aiproxer/aiproxer/internal/core/extensions	38.477s

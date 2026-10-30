@@ -1,0 +1,16 @@
+{
+  "frontends": [
+    {
+      "id": "fe-1",
+      "factory_kind": "openai-responses",
+      "enabled": true
+    }
+  ],
+  "backends": [
+    {
+      "id": "be-1",
+      "factory_kind": "openai-responses",
+      "enabled": true
+    }
+  ]
+}

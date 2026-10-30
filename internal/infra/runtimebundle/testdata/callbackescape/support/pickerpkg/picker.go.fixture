@@ -1,0 +1,6 @@
+package pickerpkg
+
+import rh "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimehost"
+
+// CoordPicker is an intentional complete-owner callback type in another package.
+type CoordPicker func(*rh.Coordinator) int

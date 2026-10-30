@@ -1,0 +1,51 @@
+goos: linux
+goarch: amd64
+pkg: github.com/matdev83/go-llm-interactive-proxy/internal/infra/runtimebundle
+cpu: AMD EPYC 9J14 96-Core Processor
+                       │ bench-final-runA.txt │        bench-final-runB.txt         │
+                       │        sec/op        │   sec/op     vs base                │
+CandidateCompilation-2            4.732m ± 3%   3.801m ± 1%  -19.68% (p=0.000 n=10)
+BuildHost-2                       5.911m ± 1%   5.316m ± 1%  -10.07% (p=0.000 n=10)
+SuccessfulReload-2                5.870m ± 3%   5.747m ± 1%   -2.09% (p=0.000 n=10)
+NoopReload-2                      27.36µ ± 1%   26.86µ ± 0%   -1.82% (p=0.000 n=10)
+geomean                           1.456m        1.329m        -8.72%
+
+                       │ bench-final-runA.txt │         bench-final-runB.txt         │
+                       │         B/op         │     B/op      vs base                │
+CandidateCompilation-2           4.417Mi ± 0%   3.735Mi ± 0%  -15.44% (p=0.000 n=10)
+BuildHost-2                      5.802Mi ± 0%   5.117Mi ± 0%  -11.80% (p=0.000 n=10)
+SuccessfulReload-2               5.752Mi ± 0%   5.090Mi ± 0%  -11.51% (p=0.000 n=10)
+NoopReload-2                     9.319Ki ± 0%   9.409Ki ± 0%   +0.96% (p=0.000 n=10)
+geomean                          1.076Mi        995.7Ki        -9.65%
+
+                       │ bench-final-runA.txt │        bench-final-runB.txt         │
+                       │      allocs/op       │  allocs/op   vs base                │
+CandidateCompilation-2            19.62k ± 0%   17.15k ± 0%  -12.56% (p=0.000 n=10)
+BuildHost-2                       24.46k ± 0%   21.88k ± 0%  -10.56% (p=0.000 n=10)
+SuccessfulReload-2                24.23k ± 0%   21.81k ± 0%   -9.97% (p=0.000 n=10)
+NoopReload-2                       66.00 ± 0%    67.00 ± 0%   +1.52% (p=0.000 n=10)
+geomean                           5.263k        4.839k        -8.05%
+
+pkg: github.com/matdev83/go-llm-interactive-proxy/internal/infra/runtimehost
+                                    │ bench-final-runA.txt │         bench-final-runB.txt          │
+                                    │        sec/op        │    sec/op     vs base                 │
+Manager_AcquireRelease-2                       26.30n ± 1%    26.31n ± 0%         ~ (p=0.985 n=10)
+GenerationDispatcher_AcquireLease-2            367.7n ± 9%    375.7n ± 3%         ~ (p=0.239 n=10)
+Manager_Publish-2                              561.5n ± 1%   2365.5n ± 1%  +321.32% (p=0.000 n=10)
+geomean                                        175.8n         286.0n        +62.70%
+
+                                    │ bench-final-runA.txt │         bench-final-runB.txt         │
+                                    │         B/op         │    B/op     vs base                  │
+Manager_AcquireRelease-2                        16.00 ± 0%   16.00 ± 0%        ~ (p=1.000 n=10) ¹
+GenerationDispatcher_AcquireLease-2             784.0 ± 0%   784.0 ± 0%        ~ (p=1.000 n=10) ¹
+Manager_Publish-2                               480.5 ± 0%   745.0 ± 0%  +55.05% (p=0.000 n=10)
+geomean                                         182.0        210.6       +15.74%
+¹ all samples are equal
+
+                                    │ bench-final-runA.txt │         bench-final-runB.txt          │
+                                    │      allocs/op       │ allocs/op   vs base                   │
+Manager_AcquireRelease-2                        1.000 ± 0%   1.000 ± 0%         ~ (p=1.000 n=10) ¹
+GenerationDispatcher_AcquireLease-2             9.000 ± 0%   9.000 ± 0%         ~ (p=1.000 n=10) ¹
+Manager_Publish-2                               4.000 ± 0%   9.000 ± 0%  +125.00% (p=0.000 n=10)
+geomean                                         3.302        4.327        +31.04%
+¹ all samples are equal

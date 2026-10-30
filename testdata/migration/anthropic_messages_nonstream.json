@@ -1,0 +1,18 @@
+{
+  "id": "msg_contract_1",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-3-5-haiku-20241022",
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 3,
+    "output_tokens": 4
+  }
+}

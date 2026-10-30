@@ -1,0 +1,26 @@
+{
+  "schema": "aiproxer.backendplugin.manifest/v1",
+  "plugin_id": "com.aiproxer.backend.nousportal",
+  "version": "0.1.0",
+  "build_id": "REPLACE_BUILD_ID",
+  "executable": "bin/aip-backend-nousportal",
+  "sha256": "REPLACE_SHA256",
+  "protocol_major": 1,
+  "protocol_min_minor": 0,
+  "protocol_max_minor": 0,
+  "platforms": [
+    {"os": "windows", "arch": "amd64"},
+    {"os": "windows", "arch": "arm64"},
+    {"os": "linux", "arch": "amd64"},
+    {"os": "linux", "arch": "arm64"}
+  ],
+  "exports": [
+    {
+      "kind": "nous-portal",
+      "credential_mode": "oauth_user",
+      "access_scope": "local_only",
+      "process_sharing": "per_instance",
+      "execution_class": "inference"
+    }
+  ]
+}

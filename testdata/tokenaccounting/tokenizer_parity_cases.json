@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "generated_by": "phase-0-baseline",
+  "notes": [
+    "Phase 0 fixture set for future tokenizer parity tests.",
+    "Exact counts are intentionally absent unless backed by deterministic external evidence."
+  ],
+  "cases": [
+    {
+      "id": "openai-gpt4o-mini-basic-text",
+      "status": "pending",
+      "model": "gpt-4o-mini",
+      "tokenizer_family": "tiktoken",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Hello world"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "total_tokens": null
+      },
+      "provenance": {
+        "status_reason": "pending-external-verification",
+        "intended_reference": "LiteLLM or Python tiktoken parity run"
+      }
+    },
+    {
+      "id": "anthropic-sonnet-tools-envelope",
+      "status": "pending",
+      "model": "claude-sonnet-4-20250514",
+      "tokenizer_family": "provider-or-hf-mapping",
+      "messages": [
+        {
+          "role": "system",
+          "content": [
+            {
+              "type": "text",
+              "text": "You are a precise assistant."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Summarize token accounting phases."
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "name": "lookup_phase",
+          "description": "Lookup a phase by name",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        }
+      ],
+      "expected": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "total_tokens": null
+      },
+      "provenance": {
+        "status_reason": "pending-model-mapping-and-external-verification",
+        "intended_reference": "Python provider-specific counting harness"
+      }
+    }
+  ]
+}

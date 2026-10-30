@@ -1,0 +1,147 @@
+[
+  {
+    "id": 1,
+    "name": "security-triage",
+    "description": "Checks threat-boundary, exploitability, and verification reasoning",
+    "prompt": "Review a scanner finding in a Go HTTP service and tell me how to prioritize and fix it.",
+    "trap": "A scanner label is evidence to investigate, not a complete severity or exploitability decision.",
+    "assertions": [
+      {"id": "1.1", "text": "Identifies assets, attacker capabilities, trust boundaries, and required security properties"},
+      {"id": "1.2", "text": "Traces the input through validation, interpreters, storage, and deployment"},
+      {"id": "1.3", "text": "States preconditions, impact, existing mitigations, and a focused reproduction"},
+      {"id": "1.4", "text": "Reruns tests/scans and verifies fail-closed errors without sensitive disclosure"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "html-and-sql-injection",
+    "description": "Checks context-appropriate output escaping and parameterized queries",
+    "prompt": "A Go handler renders a user name in HTML and filters database rows by a query parameter. Make both boundaries safe.",
+    "trap": "text/template is not HTML-context escaping, and SQL placeholders do not safely represent identifiers or keywords.",
+    "assertions": [
+      {"id": "2.1", "text": "Uses html/template for HTML contexts and validates URL/script contexts separately"},
+      {"id": "2.2", "text": "Uses parameterized SQL values and an explicit allowlist for dynamic identifiers"},
+      {"id": "2.3", "text": "Limits and validates input at the boundary"},
+      {"id": "2.4", "text": "Tests malicious markup, encoding, and SQL metacharacters"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "filesystem-confinement",
+    "description": "Checks traversal, symlink, archive, and permission defenses",
+    "prompt": "An upload endpoint extracts user-provided archive paths under /srv/uploads. How should it prevent escape and resource exhaustion?",
+    "trap": "A lexical HasPrefix check is not path confinement; separators, absolute paths, symlinks, platform semantics, and decompression expansion matter.",
+    "assertions": [
+      {"id": "3.1", "text": "Uses os.Root/os.OpenRoot or a symlink-aware platform-correct scoped resolution strategy"},
+      {"id": "3.2", "text": "Rejects absolute/traversal paths and validates archive entry type and destination"},
+      {"id": "3.3", "text": "Bounds decompressed bytes, entry count, nesting, and request size"},
+      {"id": "3.4", "text": "Uses restrictive permissions and tests symlink and separator edge cases"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "url-and-xml-boundaries",
+    "description": "Checks SSRF and XML parser assumptions",
+    "prompt": "Implement a URL preview endpoint and parse a bounded XML document received from an external client.",
+    "trap": "URL scheme validation alone does not prevent SSRF, and Go encoding/xml does not fetch external entities by default; string scanning is not an XXE defense.",
+    "assertions": [
+      {"id": "4.1", "text": "Allow-lists scheme/host/port and validates every redirect and resolved destination"},
+      {"id": "4.2", "text": "Blocks loopback, link-local, private, metadata, and rebinding destinations as appropriate"},
+      {"id": "4.3", "text": "Limits XML bytes and decoded structure and rejects unsupported formats/features"},
+      {"id": "4.4", "text": "Does not claim string scanning provides XXE protection"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "serialization-boundaries",
+    "description": "Checks safe handling of gob and untrusted data shapes",
+    "prompt": "A service accepts gob data from an untrusted network peer. Is gob an arbitrary-code-execution format, and what should we do?",
+    "trap": "Go gob decodes typed data and is not a Java-style constructor execution mechanism, but untrusted input still creates parser, resource, compatibility, and authorization risks.",
+    "assertions": [
+      {"id": "5.1", "text": "Rejects the claim that gob automatically executes arbitrary constructors"},
+      {"id": "5.2", "text": "Recommends a deliberately specified external wire format or a tightly controlled gob boundary"},
+      {"id": "5.3", "text": "Bounds input, decoded sizes, nesting, time, and downstream work"},
+      {"id": "5.4", "text": "Validates authorization and decoded invariants after parsing"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "jwt-algorithm-pinning",
+    "description": "Checks exact JWT method and claim validation",
+    "prompt": "Validate a JWT signed with RS256 using a Go JWT library.",
+    "trap": "Accepting any RSA method family is weaker than pinning the exact algorithm required by the issuer contract.",
+    "assertions": [
+      {"id": "6.1", "text": "Pins the exact expected signing method such as RS256, not merely an RSA family"},
+      {"id": "6.2", "text": "Validates issuer, audience, expiry/not-before, key identity, and token structure"},
+      {"id": "6.3", "text": "Performs authorization after authentication and rejects malformed/unsigned tokens"},
+      {"id": "6.4", "text": "Tests algorithm confusion, wrong key, expired, and wrong-audience tokens"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "bounded-rate-limits",
+    "description": "Checks memory-safe client rate limiting",
+    "prompt": "Implement a per-client rate limiter keyed by an attacker-controlled header for a public service.",
+    "trap": "An unbounded map keyed by arbitrary client strings is a memory-exhaustion vector even if each client has a correct token bucket.",
+    "assertions": [
+      {"id": "7.1", "text": "Uses a trusted identity or normalized key strategy and documents spoofing limits"},
+      {"id": "7.2", "text": "Bounds entries and includes expiry/eviction or a bounded admission structure"},
+      {"id": "7.3", "text": "Protects concurrent state and defines cleanup behavior"},
+      {"id": "7.4", "text": "Separates per-client, global, and downstream resource limits"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "numeric-and-dsn-safety",
+    "description": "Checks integer-width validation and credential-safe connection strings",
+    "prompt": "Parse a non-negative size into int and build a MySQL connection configuration from credentials.",
+    "trap": "math.MaxInt64 is not an int bound on every target, and raw password interpolation can break or expose a DSN.",
+    "assertions": [
+      {"id": "8.1", "text": "Checks negative input and the actual int width or uses checked arithmetic"},
+      {"id": "8.2", "text": "Rejects overflow before conversion and tests 32-bit and 64-bit boundaries where relevant"},
+      {"id": "8.3", "text": "Uses the database driver's typed config/FormatDSN or proper URL credential escaping"},
+      {"id": "8.4", "text": "Keeps passwords out of logs, errors, metrics, and process-visible examples"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "cookies-and-endpoints",
+    "description": "Checks session cookie and debug endpoint exposure",
+    "prompt": "Set a session cookie and expose a diagnostic endpoint for an HTTPS service.",
+    "trap": "Cookie flags depend on deployment, and diagnostics can disclose sensitive runtime state even on a nominally internal network.",
+    "assertions": [
+      {"id": "9.1", "text": "Uses Secure, HttpOnly, and intentional SameSite settings for session cookies"},
+      {"id": "9.2", "text": "Uses __Host- only with Secure, Path=/, and no Domain"},
+      {"id": "9.3", "text": "Authenticates and restricts pprof/diagnostic listeners or routes"},
+      {"id": "9.4", "text": "Sets request, body, read/write, and idle limits appropriate to the service"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "privacy-and-logging",
+    "description": "Checks telemetry minimization and linkability",
+    "prompt": "Send an internal account ID to a third-party analytics service so events can be correlated.",
+    "trap": "Internal IDs, salted hashes, and truncated identifiers can remain linkable data; self-hosting or hashing does not automatically remove obligations.",
+    "assertions": [
+      {"id": "10.1", "text": "Minimizes fields and checks purpose, lawful basis/consent, access, retention, and deletion"},
+      {"id": "10.2", "text": "Uses a keyed construction only when correlation is necessary and rotation/access are documented"},
+      {"id": "10.3", "text": "Redacts tokens, passwords, authorization headers, raw personal data, and attacker-controlled strings"},
+      {"id": "10.4", "text": "Treats hosting location as a transfer/control factor, not a removal of privacy duties"}
+    ]
+  },
+  {
+    "id": 11,
+    "name": "template-data-versus-source-review",
+    "prompt": "Review two handlers using html/template. A parses the fixed template <div>{{.}}</div> then Execute(w,r.URL.Query().Get(\"q\")). B parses r.URL.Query().Get(\"template\") with a FuncMap exposing filesystem helpers. Identify security defects without flagging safe data escaping.",
+    "assertions": [
+      {
+        "id": "template.1",
+        "text": "Flags attacker-controlled template source/powerful function exposure in B and traces reachability"
+      },
+      {
+        "id": "template.2",
+        "text": "Recognizes plain untrusted data in A is supported and escaped by html/template; does not invent template injection"
+      }
+    ]
+  }
+]

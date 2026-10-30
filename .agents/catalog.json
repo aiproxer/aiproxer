@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "groups": {
+    "golang": [
+      "golang-benchmark",
+      "golang-cli",
+      "golang-code-style",
+      "golang-concurrency",
+      "golang-context",
+      "golang-continuous-integration",
+      "golang-data-structures",
+      "golang-database",
+      "golang-dependency-injection",
+      "golang-dependency-management",
+      "golang-design-patterns",
+      "golang-documentation",
+      "golang-error-handling",
+      "golang-grpc",
+      "golang-hexagonal-architecture",
+      "golang-lint",
+      "golang-modernize",
+      "golang-naming",
+      "golang-observability",
+      "golang-performance",
+      "golang-popular-libraries",
+      "golang-project-layout",
+      "golang-safety",
+      "golang-security",
+      "golang-simplify",
+      "golang-solid-principle-review",
+      "golang-stretchr-testify",
+      "golang-structs-interfaces",
+      "golang-testing",
+      "golang-thermonuclear-code-review",
+      "golang-troubleshooting"
+    ],
+    "kiro-sdd": [
+      "kiro-debug",
+      "kiro-discovery",
+      "kiro-impl",
+      "kiro-review",
+      "kiro-review-panel",
+      "kiro-spec-approve",
+      "kiro-spec-batch",
+      "kiro-spec-design",
+      "kiro-spec-init",
+      "kiro-spec-quick",
+      "kiro-spec-requirements",
+      "kiro-spec-status",
+      "kiro-spec-tasks",
+      "kiro-steering",
+      "kiro-steering-custom",
+      "kiro-validate-design",
+      "kiro-validate-gap",
+      "kiro-validate-impl",
+      "kiro-verify-completion"
+    ],
+    "repository": [
+      "aip-cordis-v4",
+      "kiro-spec-archive",
+      "aip-pr-delivery"
+    ],
+    "tooling": [
+      "codegraph"
+    ]
+  }
+}

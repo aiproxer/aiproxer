@@ -1,0 +1,24 @@
+{
+  "feature_name": "acp-runtime-deduplication",
+  "created_at": "2026-07-31T00:15:00+02:00",
+  "updated_at": "2026-08-08T17:50:13+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "project_description": "Remove duplicated ACP protocol/runtime implementation by retiring internal/plugins/backends/acp and establishing connector-support/acp as the sole canonical ACP runtime module. Migrate root conformance testkit importers, replace mirror file drift scripts with single-implementation architecture guards, preserve structured JSON-RPC error propagation from PR #239, maintain root module build isolation without connector dependencies, and update release manifests, scripts, and documentation.",
+  "completed": true
+}

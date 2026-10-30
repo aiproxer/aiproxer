@@ -1,0 +1,59 @@
+{
+  "id": "resp_ext_1",
+  "object": "response",
+  "created_at": 1719900300,
+  "status": "completed",
+  "model": "gpt-openresponses-1",
+  "output": [
+    {
+      "type": "acme:telemetry_chunk",
+      "id": "tc_123",
+      "status": "completed",
+      "request_id": "req_123",
+      "sequence": 4,
+      "latency_ms": 72,
+      "cache_hit": true
+    },
+    {
+      "type": "message",
+      "id": "msg_ext_final",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "done"
+        }
+      ]
+    }
+  ],
+  "parallel_tool_calls": false,
+  "reasoning": null,
+  "store": true,
+  "background": false,
+  "temperature": 1,
+  "text": {},
+  "tool_choice": "auto",
+  "tools": [],
+  "top_p": 1,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 2,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 5
+  },
+  "metadata": {},
+  "service_tier": "default",
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "instructions": null,
+  "previous_response_id": null,
+  "error": null,
+  "incomplete_details": null
+}

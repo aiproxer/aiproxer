@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "anchor_ref": "bb1ef9620ee6e8d9199950161e46fc51914945f2",
+  "targets": {
+    "test-unit": {
+      "cpu": { "ratio": 1.30, "delta_seconds": 10 },
+      "processes": { "ratio": 1.50, "delta": 8 },
+      "io_operations": { "ratio": 1.40, "delta": 10000 },
+      "wall": { "ratio": 1.60, "delta_seconds": 155 },
+      "packages": {
+        "existing_ratio": 1.75,
+        "existing_delta_seconds": 3,
+        "existing_floor_seconds": 15,
+        "new_warn_seconds": 4,
+        "new_fail_seconds": 8
+      },
+      "package_overrides": {
+        "github.com/aiproxer/aiproxer/internal/archtest": {
+          "existing_ratio": 1.50,
+          "existing_delta_seconds": 5
+        },
+        "github.com/aiproxer/aiproxer/internal/core/runtime": {
+          "existing_delta_seconds": 45
+        },
+        "github.com/aiproxer/aiproxer/internal/core/securesession/storecontract": {
+          "existing_delta_seconds": 20
+        },
+        "github.com/aiproxer/aiproxer/enterprise/internal/infra/billingstore": {
+          "existing_delta_seconds": 160
+        },
+        "github.com/aiproxer/aiproxer/internal/infra/metering/journalstore": {
+          "existing_delta_seconds": 55
+        },
+        "github.com/aiproxer/aiproxer/internal/infra/runtimebundle": {
+          "existing_delta_seconds": 160
+        },
+        "github.com/aiproxer/aiproxer/internal/testkit/dbparity": {
+          "existing_ratio": 2.25,
+          "existing_delta_seconds": 13
+        }
+      }
+    },
+    "quality-checks": {
+      "cpu": { "ratio": 1.30, "delta_seconds": 5 },
+      "processes": { "ratio": 1.15, "delta": 8 },
+      "io_operations": { "ratio": 1.40, "delta": 7500 },
+      "wall": { "ratio": 1.50, "delta_seconds": 10 }
+    },
+    "qa-tagged-hotspots": {
+      "cpu": { "ratio": 1.25, "delta_seconds": 10 },
+      "processes": { "ratio": 1.15, "delta": 15 },
+      "io_operations": { "ratio": 1.30, "delta": 50000 },
+      "wall": { "ratio": 1.50, "delta_seconds": 60 },
+      "packages": {
+        "existing_ratio": 1.50,
+        "existing_delta_seconds": 5,
+        "existing_floor_seconds": 5,
+        "new_warn_seconds": 4,
+        "new_fail_seconds": 8
+      },
+      "package_overrides": {
+        "github.com/aiproxer/aiproxer/internal/archtest": {
+          "existing_ratio": 1.40,
+          "existing_delta_seconds": 8
+        },
+        "github.com/aiproxer/aiproxer/internal/infra/runtimebundle": {
+          "existing_ratio": 1.40,
+          "existing_delta_seconds": 90
+        },
+        "github.com/aiproxer/aiproxer/tools/backendplugin": {
+          "existing_ratio": 1.40,
+          "existing_delta_seconds": 8
+        },
+        "github.com/aiproxer/aiproxer/tools/backendplugin/release_gates": {
+          "existing_ratio": 1.40,
+          "existing_delta_seconds": 8
+        }
+      }
+    }
+  }
+}

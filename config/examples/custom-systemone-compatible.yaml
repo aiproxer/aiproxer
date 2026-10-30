@@ -1,0 +1,57 @@
+# POST /v1/systemone with a TypeSafe profile and an operator-defined server.
+# Set TYPESAFE_API_KEY for the profile and SYSTEMONE_CUSTOM_API_KEY for custom.
+# Stock aipstd applies no customer billing unless its host injects billing ports.
+server:
+  address: "127.0.0.1:18095"
+
+access:
+  mode: single_user
+
+routing:
+  max_attempts: 2
+  default_route: "typesafe:jev-latest"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+# Enables stock payload-size estimates if a host supplies billing admission.
+# No external catalog fetch is required for static decision inventories.
+model_catalog:
+  enabled: true
+  external_updates_enabled: false
+  cache_path: data/systemone_model_catalog.json
+
+plugins:
+  frontends:
+    - id: systemone
+      enabled: true
+      config:
+        max_questions: 256
+  backends:
+    - id: typesafe
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: typesafe
+    - id: custom-decision
+      kind: custom-systemone-compatible
+      enabled: true
+      config:
+        backend_prefix: custom-decision
+        base_url: https://systemone.example/v1
+        api_key_env_var_root: SYSTEMONE_CUSTOM_API_KEY
+        models:
+          source: inline
+          items:
+            - canonical_id: custom-jev
+              native_id: jev-latest
+              display_name: Custom System One
+  features: []

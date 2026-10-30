@@ -1,0 +1,9 @@
+{
+  "connector": "connectors/fixtureacp",
+  "plugin_id": "com.aiproxer.backend.fixtureacp",
+  "kind": "fixtureacp",
+  "credential_mode": "none",
+  "access_scope": "any",
+  "execution_class": "agent_runtime",
+  "process_sharing": "per_instance"
+}

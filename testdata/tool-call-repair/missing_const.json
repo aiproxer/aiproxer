@@ -1,0 +1,26 @@
+{
+  "name": "missing_const",
+  "catalog": [
+    {
+      "name": "ping",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": { "const": "ping" }
+        },
+        "required": ["op"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "ping",
+    "args_json": "{}"
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"op\":\"ping\"}",
+    "require_schema_valid": true,
+    "reason_code": "const_inserted"
+  }
+}

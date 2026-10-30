@@ -1,0 +1,168 @@
+package escapepos
+
+import (
+	"context"
+
+	rb "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimebundle"
+	rh "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimehost"
+	"github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/deepalias"
+	"github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/pickerpkg"
+)
+
+// renamed import of Coordinator as owner callback parameter
+func UseRenamedImport(pick func(*rh.Coordinator) int) int { return pick(nil) }
+
+// named callback type
+type HostPicker func(*rb.Host) int
+
+func UseNamed(pick HostPicker) int { return pick(nil) }
+
+// imported named callback
+func UseImportedNamed(p pickerpkg.CoordPicker) int { return p(nil) }
+
+// defined pointer owner
+type ownerPtr *rb.Host
+
+func UseOwnerPtr(f func(ownerPtr) string) string { return f(nil) }
+
+// nested storage + callback returning owner
+type bag struct {
+	pick func(*rb.Host) int
+}
+
+type nest struct {
+	sliceEscape []func(*rh.Coordinator) int
+	mapEscape   map[string]func(*rh.Coordinator) int
+	chanEscape  chan func(*rh.Coordinator) int
+}
+
+func UseNested(b bag, n nest) {}
+
+func factory(mk func() *rb.Host) *rb.Host { return mk() }
+
+// function-local wrapper alias
+func UseLocalWrapper() {
+	type localPick = func(*rb.Host) int
+	var escape localPick
+	_ = escape
+}
+
+// generic named callback
+type OwnerCB[T any] func(*rb.Host) T
+
+func UseGenericNamed(p OwnerCB[int]) int { return p(nil) }
+
+// ~func constraint
+type OwnerFn interface {
+	~func(*rb.Host) int
+}
+
+func UseConstraint[T OwnerFn](t T) {}
+
+// type assertion to function callback
+func UseTypeAssertFunc(v any) int {
+	return v.(func(*rb.Host) int)(nil)
+}
+
+// Erased callback recovery is an escape even when immediately invoked.
+// Direct-callee exemptions must not apply to TypeAssertExpr callees.
+func InvokeErasedCallback(raw any, h *rb.Host) {
+	raw.(func(*rb.Host))(h)
+}
+
+func AcquireErasedOwner(raw any) *rb.Host {
+	return raw.(func() *rb.Host)()
+}
+
+// direct owner-bearing interface method
+type hostBindOp interface {
+	apply(path string, in int) (*rb.Host, error)
+}
+
+// type assertion to owner-bearing interface
+type ownerIface interface {
+	Bind() (*rb.Host, error)
+}
+
+func UseTypeAssertIface(v any) {
+	_ = v.(ownerIface)
+}
+
+// immediate function literal carrying owner authority
+var litEscape = func(h *rb.Host) int { return 0 }
+
+// transferred method expression
+var methExpr = (*rb.Host).Close
+
+// transferred method value
+func storeMethodValue(h *rb.Host) {
+	var f func(context.Context) error = h.Close
+	_ = f
+}
+
+// generic forwarding / instantiation expression
+func Forward[F ~func(*rb.Host) int](f F) F { return f }
+
+var genericInst = Forward[func(*rb.Host) int]
+
+// deep/cross-package alias identity
+func UseDeepAlias(p deepalias.DeepCoordPicker) int { return p(nil) }
+
+// callback-valued expression stored without a named declaration
+var anonStored = struct {
+	f func(*rb.Host) int
+}{f: func(h *rb.Host) int { return 1 }}
+
+func passAnon(cb func(*rb.Host) int) int { return cb(nil) }
+
+func UseAnonArg() int {
+	return passAnon(func(h *rb.Host) int { return 2 })
+}
+
+func UseAnonReturn() func(*rb.Host) int {
+	return func(h *rb.Host) int { return 3 }
+}
+
+// Ordinary local/imported function identifiers transferred through otherwise
+// untyped expressions must retain their callable owner authority.
+func LocalStoredMarker(*rb.Host) {}
+
+var localStored any = LocalStoredMarker
+var importedStored any = deepalias.ImportedStoredMarker
+var compositeStored = []any{deepalias.ImportedCompositeMarker}
+
+func takeAny(any) {}
+
+func TransferFunctionArg() { takeAny(deepalias.ImportedArgMarker) }
+
+func TransferFunctionReturn() any { return deepalias.ImportedReturnMarker }
+
+func LocalAssignMarker() *rb.Host { return nil }
+
+func TransferFunctionAssignment() {
+	var dst any
+	dst = LocalAssignMarker
+	_ = dst
+}
+
+func ForwardAny[F any](f F) F { return f }
+
+func TransferGenericFunction() { takeAny(ForwardAny(deepalias.ImportedGenericMarker)) }
+
+// Owner authority nested inside callback parameter shapes must remain visible.
+type SliceOwnerCallback func([]*rb.Host)
+type StructOwnerCallback func(struct{ Owner *rb.Host })
+type DoublePointerOwnerCallback func(**rb.Host)
+type ValueOwnerCallback func(rb.Host)
+
+// Generic constraints can preserve complete-owner authority inside callbacks.
+type Hostish interface{ *rb.Host }
+
+func UseConstrainedOwnerCallback[T Hostish](cb func(T)) { _ = cb }
+
+// Zero-argument closures that capture a protected owner are escapes even when
+// their function type mentions no owner parameters/results.
+func StoreCapturedOwner(h *rb.Host) {
+	capturedOwnerEscape := func() { _ = h.Close(context.Background()) }
+	_ = capturedOwnerEscape
+}

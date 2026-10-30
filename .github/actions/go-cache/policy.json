@@ -1,0 +1,102 @@
+{
+  "acp": {
+    "build_mib": 768,
+    "job": "process-tree",
+    "workflow": "ACP process-tree"
+  },
+  "backend-compile": {
+    "build_mib": 1536,
+    "job": "claimed-compilation",
+    "workflow": "Backend plugin cross-platform"
+  },
+  "backend-plugin": {
+    "build_mib": 1536,
+    "job": "native-evidence",
+    "workflow": "Backend plugin cross-platform"
+  },
+  "billing-schema": {
+    "build_mib": 768,
+    "job": "billing-schema",
+    "workflow": "CI"
+  },
+  "ci-cert": {
+    "build_mib": 3584,
+    "job": "test",
+    "workflow": "CI"
+  },
+  "ci-db": {
+    "build_mib": 768,
+    "job": "db-parity",
+    "workflow": "CI"
+  },
+  "ci-lint": {
+    "build_mib": 4096,
+    "job": "lint",
+    "workflow": "CI"
+  },
+  "ci-owner-gate": {
+    "build_mib": 4096,
+    "job": "owner-gate",
+    "workflow": "CI"
+  },
+  "ci-suite": {
+    "build_mib": 4096,
+    "job": "suite",
+    "workflow": "CI"
+  },
+  "ci-suite-2": {
+    "build_mib": 4096,
+    "job": "suite",
+    "workflow": "CI"
+  },
+  "ci-suite-heavy": {
+    "build_mib": 2048,
+    "job": "suite",
+    "workflow": "CI"
+  },
+  "ci-unit": {
+    "build_mib": 2048,
+    "job": "test",
+    "workflow": "CI"
+  },
+  "cost": {
+    "build_mib": 1536,
+    "job": "windows-cost",
+    "workflow": "Development cost watchdog"
+  },
+  "coverage": {
+    "build_mib": 768,
+    "job": "coverage",
+    "workflow": "OpenResponses coverage evidence"
+  },
+  "modules": {
+    "build_mib": 768,
+    "job": "modules",
+    "workflow": "Go module synchronization"
+  },
+  "node-independence": {
+    "build_mib": 7168,
+    "job": "no-node",
+    "workflow": "Node independence"
+  },
+  "official": {
+    "build_mib": 1536,
+    "job": "official-suite",
+    "workflow": "OpenResponses Official Compliance"
+  },
+  "qa": {
+    "build_mib": 1536,
+    "job": "qa",
+    "workflow": "QA"
+  },
+  "race": {
+    "build_mib": 1536,
+    "job": "connector-pool-race",
+    "workflow": "Connector pool race"
+  },
+  "taskrunner": {
+    "build_mib": 256,
+    "job": "process-tree",
+    "workflow": "Taskrunner process-tree"
+  }
+}

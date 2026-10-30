@@ -1,0 +1,54 @@
+# Opt-in reasoning-preservation full HTTP soak (not merge-blocking on PRs).
+# Dedicated nightly / manual workflow; do not attach to qa.yml or race-fuzz-nightly.
+name: Reasoning E2E soak (nightly)
+
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: "AIP_REASONING_E2E_SEEDS (default 1000)"
+        required: false
+        default: "1000"
+      turns:
+        description: "AIP_REASONING_E2E_TURNS (default 100)"
+        required: false
+        default: "100"
+      workers:
+        description: "AIP_REASONING_E2E_WORKERS (default 4)"
+        required: false
+        default: "4"
+  schedule:
+    - cron: "37 5 * * *" # 05:37 UTC daily
+
+permissions:
+  contents: read
+
+jobs:
+  reasoning-e2e-soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Reasoning E2E soak
+        env:
+          AIP_REASONING_E2E_SOAK: "1"
+          AIP_REASONING_E2E_SEEDS: ${{ github.event.inputs.seeds || '1000' }}
+          AIP_REASONING_E2E_TURNS: ${{ github.event.inputs.turns || '100' }}
+          AIP_REASONING_E2E_WORKERS: ${{ github.event.inputs.workers || '4' }}
+          REASONING_E2E_SOAK_TIMEOUT: 6h
+        run: make test-reasoning-e2e-soak

@@ -1,0 +1,77 @@
+# Native fuzz corpora must use LF-only line endings (Go rejects CRLF in corpus files).
+testdata/**/fuzz/** text eol=lf
+
+# Keep root ignore file LF-only so `git diff --check` stays clean on Windows checkouts.
+/.gitignore text eol=lf
+/.github/workflows/*.yml text eol=lf
+docs/dogfood-local.md whitespace=cr-at-eol
+
+# JSON fixtures and spec metadata intentionally retain CRLF on Windows.
+*.json whitespace=cr-at-eol
+
+# Generated feature plane storage — keep LF on Windows so -check byte-compare passes.
+/pkg/aipsdk/feature/plane_generated.go text eol=lf
+
+# AIProxer Enterprise tree: closed source, never part of the open-source export.
+/enterprise export-ignore
+/enterprise/** export-ignore
+
+# AIProxer Enterprise billing prose: excluded from the open-source export.
+# Whole spec directories whose every tracked file is classified Enterprise in
+# enterprise/inventory/billing-prose.csv (task 1.4 inventory, task 7.1 action).
+.kiro/specs/archive/billing-architecture-final-convergence/** export-ignore
+.kiro/specs/archive/billing-host-composition/** export-ignore
+.kiro/specs/archive/billing-post-usage-correctness-hardening/** export-ignore
+.kiro/specs/archive/billing-uncertain-component-overlap/** export-ignore
+.kiro/specs/archive/decoupled-exposure-and-post-usage-billing/** export-ignore
+.kiro/specs/archive/dual-plane-economics-and-concurrency-foundation/** export-ignore
+.kiro/specs/archive/dual-plane-economics-and-concurrency-production-readiness/** export-ignore
+.kiro/specs/archive/extensible-usage-economics-reconciliation/** export-ignore
+.kiro/specs/archive/extensible-usage-economics-reconciliation/evidence/** export-ignore
+.kiro/specs/archive/usage-accounting-architecture-convergence/** export-ignore
+.kiro/specs/archive/usage-economics-b-leg-multimodal-refinement/** export-ignore
+.kiro/specs/archive/usage-economics-b-leg-multimodal-refinement/evidence/** export-ignore
+.kiro/specs/archive/usage-quota-rate-budget-authority/** export-ignore
+.kiro/specs/archive/usage-record-ledger-billing/** export-ignore
+.kiro/specs/billing-financial-safety-contracts/** export-ignore
+.kiro/specs/proxy-memory-commercial/** export-ignore
+.kiro/specs/archive/open-core-billing-split/** export-ignore
+
+# Mixed historical artifacts with concrete billing internals: excluded file by
+# file. The unrelated companions of these features stay in the export.
+.kiro/specs/archive/agent-loop-explicit-completion-protocol/tasks.md export-ignore
+.kiro/specs/archive/aleg-cancellation-bleg-termination-hardening/requirements.md export-ignore
+.kiro/specs/archive/aleg-cancellation-bleg-termination-hardening/tasks.md export-ignore
+.kiro/specs/archive/betterleaks-secret-guard/certification-report.md export-ignore
+.kiro/specs/archive/betterleaks-secret-guard/review-remediation.md export-ignore
+.kiro/specs/archive/betterleaks-secret-guard/tasks.md export-ignore
+.kiro/specs/archive/compaction-continuity-preservation/design-review.md export-ignore
+.kiro/specs/archive/compaction-continuity-preservation/design.md export-ignore
+.kiro/specs/archive/compaction-continuity-preservation/gap-analysis.md export-ignore
+.kiro/specs/archive/compaction-continuity-preservation/requirements.md export-ignore
+.kiro/specs/archive/compaction-continuity-preservation/research.md export-ignore
+.kiro/specs/archive/core-feature-ownership-full-closure/final-ownership-census.md export-ignore
+.kiro/specs/archive/core-feature-ownership-full-closure/implementation-baseline.md export-ignore
+.kiro/specs/archive/core-feature-ownership-full-closure/residual-consumer-census.md export-ignore
+.kiro/specs/archive/large-payload-streaming-fast-path/evidence/1.1-rebaseline.md export-ignore
+.kiro/specs/archive/request-attempt-pipeline-state-simplification/design-review.md export-ignore
+.kiro/specs/archive/request-attempt-pipeline-state-simplification/gap-analysis.md export-ignore
+.kiro/specs/archive/request-attempt-pipeline-state-simplification/research.md export-ignore
+.kiro/specs/archive/request-attempt-pipeline-state-simplification/tasks.md export-ignore
+.kiro/specs/archive/turn-recv-terminal-ownership-simplification/gap-analysis.md export-ignore
+.kiro/specs/archive/turn-recv-terminal-ownership-simplification/requirements.md export-ignore
+.kiro/specs/archive/typed-decision-models/design-review.md export-ignore
+.kiro/specs/archive/typed-decision-models/design.md export-ignore
+.kiro/specs/archive/typed-decision-models/research.md export-ignore
+.kiro/specs/high-concurrency-performance-hardening/design.md export-ignore
+.kiro/specs/high-concurrency-performance-hardening/requirements.md export-ignore
+.kiro/specs/high-concurrency-performance-hardening/research.md export-ignore
+.kiro/specs/high-concurrency-performance-hardening/tasks.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/START-HERE.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/acceptance.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/design.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/requirements.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/research.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/revision-3-architecture.md export-ignore
+.kiro/specs/billing-financial-safety-contracts/spec.json export-ignore
+.kiro/specs/billing-financial-safety-contracts/tasks.md export-ignore

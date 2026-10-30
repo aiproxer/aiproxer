@@ -1,0 +1,135 @@
+# Example: multi-key credential pool vs. multiple backend *instances*.
+#
+# This file is an upstream-credential layout example. It binds loopback (127.0.0.1:8080) so it
+# passes `aipstd check-config` as-is; the focus is the `plugins.backends` credential-pool vs.
+# multiple-instance layout below.
+#
+# For a non-loopback (all-interfaces) production deployment, build out from this baseline by setting:
+#   - server.address to a non-loopback bind (e.g. ":8080")
+#   - access.mode: multi_user with authentication (auth.handler + required_level beyond none; see
+#     config/config.yaml commented scenarios), and start serve with `aipstd serve --multi-user`
+#   - diagnostics.shared_secret (>=12 chars), since protected diagnostics surfaces on a non-loopback
+#     bind require it
+#
+# - One runtime backend `id` is one upstream deployment (same adapter + base URL + parameters).
+#   Every API key for that provider comes from the host environment only:
+#   OPENAI_API_KEY (slot 1), OPENAI_API_KEY_2 … OPENAI_API_KEY_N (default bound
+#   N=20, see upstream_credentials in config/config.yaml; sparse numbering allowed,
+#   equal values deduplicate). No api_key/api_keys/credentials values may appear
+#   in this file: literal static credentials (including ${...} interpolation and
+#   file:/vault:/dotenv: paths) are rejected at startup with a field-path error
+#   naming the environment root to set instead. Other providers use the same
+#   numbered-env pattern with their own root (ANTHROPIC_API_KEY, GEMINI_API_KEY,
+#   ALIBABA_TOKEN_PLAN_API_KEY).
+# - Use a second backend row with a distinct `id` only for a genuinely separate deployment
+#   (e.g. different `base_url`, region, or provider account), not for each spare API key.
+#   A separate deployment with its own credential identity uses a
+#   custom-openai-responses-compatible backend with its own api_key_env_var_root.
+# Copy/adapt for your environment; do not commit real secrets.
+server:
+  address: "127.0.0.1:8080"
+
+logging:
+  level: info
+  format: json
+  access_log: false
+
+diagnostics:
+  enabled: true
+
+routing:
+  max_attempts: 3
+  # Selectors use runtime instance ids (not factory kind alone).
+  default_route: "openai-primary:gpt-4o-mini"
+
+continuity:
+  in_memory: true
+  store: memory
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    # Focus of this example: two openai-responses *instances* sharing the host
+    # OPENAI_API_KEY, OPENAI_API_KEY_2, ... pool, one targeting a separate upstream.
+    - kind: openai-responses
+      id: openai-primary
+      enabled: true
+      config: {}
+    - kind: openai-responses
+      id: openai-corporate-proxy
+      enabled: true
+      config:
+        # Second *instance*: different upstream target (example: tenant-specific gateway).
+        base_url: https://openai-gateway.example.corp/v1
+    # Mandatory standard backend registrations (disabled; present so this file passes
+    # `aipstd check-config` like the other config/examples/*.yaml).
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}

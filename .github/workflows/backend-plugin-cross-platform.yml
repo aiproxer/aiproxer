@@ -1,0 +1,287 @@
+# Narrow Phase 9.4 gate: connector platform matrix + native lifecycle/IPC on
+# Ubuntu, macOS, and Windows. Not a duplicate of full QA.
+name: Backend plugin cross-platform
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "scripts/cross-platform-selection.sh"
+      - "go.mod"
+      - "go.sum"
+      - "connectors/**"
+      - "connector-support/**"
+      - "pkg/aipsdk/backendplugin/**"
+      - "tools/backendplugin/**"
+      - "internal/infra/backendplugins/**"
+      - "internal/archtest/backend_plugin_cross_platform_ci_test.go"
+      - "Makefile"
+      - ".github/workflows/backend-plugin-cross-platform.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "scripts/cross-platform-selection.sh"
+      - "go.mod"
+      - "go.sum"
+      - "connectors/**"
+      - "connector-support/**"
+      - "pkg/aipsdk/backendplugin/**"
+      - "tools/backendplugin/**"
+      - "internal/infra/backendplugins/**"
+      - "internal/archtest/backend_plugin_cross_platform_ci_test.go"
+      - "Makefile"
+      - ".github/workflows/backend-plugin-cross-platform.yml"
+  workflow_dispatch:
+  # Native Windows/macOS evidence runs daily, and on every pull request that
+  # touches an OS-sensitive path. Other pull requests get Linux native plus
+  # compile-all.
+  schedule:
+    - cron: "47 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Push and PR events for the same branch share a group, avoiding duplicate
+  # runs. The daily schedule / manual runs get their own group: sharing main's
+  # group let a newer main push cancel the nightly mid-flight and lose the only
+  # native Windows/macOS evidence for that night. Runs on main publish the Go
+  # build caches (a cancelled run saves nothing), so only superseded PR runs are
+  # cancelled; a newer main push waits.
+  group: backend-plugin-cross-platform-${{ github.head_ref || github.ref_name }}${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '-scheduled' || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: Detect connector scope
+    runs-on: ubuntu-latest
+    outputs:
+      select: ${{ steps.select.outputs.select }}
+      relevant: ${{ steps.classify.outputs.relevant }}
+      os_sensitive: ${{ steps.classify.outputs.os_sensitive }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select changed connectors
+        id: select
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" != "pull_request" && "$EVENT_NAME" != "push" ]] || [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0{40}$ ]]; then
+            echo "select=" >> "$GITHUB_OUTPUT"
+          else
+            git rev-parse --verify "${BASE_SHA}^{commit}" >/dev/null
+            selection=$(bash scripts/cross-platform-selection.sh "$BASE_SHA" HEAD)
+            echo "select=$selection" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Classify matrix relevance
+        id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # Manual and initial pushes have no predecessor: retain full validation.
+          if [[ "$EVENT_NAME" != "pull_request" && "$EVENT_NAME" != "push" ]] || [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0{40}$ ]]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "os_sensitive=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git rev-parse --verify "${BASE_SHA}^{commit}" >/dev/null
+          relevant=false
+          while IFS= read -r file; do
+            case "$file" in
+              .github/actions/go-cache/**|scripts/ci-go-cache.py|scripts/cross-platform-selection.sh)
+                relevant=true
+                break
+                ;;
+              connectors/**|connector-support/**|pkg/aipsdk/backendplugin/**|tools/backendplugin/**|internal/infra/backendplugins/**|internal/archtest/backend_plugin_cross_platform_ci_test.go|.github/workflows/backend-plugin-cross-platform.yml)
+                relevant=true
+                break
+                ;;
+              go.mod|go.sum|*/go.mod|*/go.sum)
+                # Bypass checksum-only removals, never resolution changes.
+                # Fail open: only an explicit exit 1 (removal-only or
+                # untouched) may skip.
+                probe_rc=0
+                bash scripts/gomod-scope.sh --relevant "$BASE_SHA" HEAD || probe_rc=$?
+                if [[ "$probe_rc" != "1" ]]; then
+                  relevant=true
+                  break
+                fi
+                ;;
+              Makefile)
+                # Only a Makefile diff touching backend-plugin targets/recipes
+                # justifies the native matrix; other Makefile edits must not burn it.
+                # Fail open: only an explicit exit 1 (no scope-relevant lines) may skip.
+                probe_rc=0
+                bash scripts/makefile-scope.sh --relevant "$BASE_SHA" HEAD backend-plugin || probe_rc=$?
+                if [[ "$probe_rc" != "1" ]]; then
+                  relevant=true
+                  break
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" HEAD)
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+          # An OS-sensitive change alters behaviour that differs per platform,
+          # so the native Windows and macOS legs run on the pull request
+          # instead of waiting for the daily schedule. The rule is the one
+          # ci.yml already applies to the same paths.
+          os_sensitive="$(bash scripts/ci-scope.sh --outputs "$BASE_SHA" HEAD | awk -F= '$1 == "os_sensitive" {print $2}')"
+          case "$os_sensitive" in
+            true|false) echo "os_sensitive=$os_sensitive" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "invalid os_sensitive scope result: $os_sensitive" >&2
+              exit 1
+              ;;
+          esac
+  claimed-compilation:
+    name: Compile every claimed platform once
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+      - name: Checkout
+        if: needs.changes.outputs.relevant == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        if: needs.changes.outputs.relevant == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Restore claimed-platform compiler cache
+        if: needs.changes.outputs.relevant == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: backend-compile
+      - name: Compile complete selected claim matrix
+        if: needs.changes.outputs.relevant == 'true'
+        shell: bash
+        env:
+          CROSS_PLATFORM_SELECT: ${{ needs.changes.outputs.select }}
+          GOFLAGS: -buildvcs=false -p=2
+          GOMAXPROCS: "2"
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ -n "$CROSS_PLATFORM_SELECT" ]]; then args=(-select "$CROSS_PLATFORM_SELECT"); fi
+          go run ./tools/backendplugin/crossplatform_qa -root . -out .aip-crossplatform-matrix.json -compile-only "${args[@]}"
+      - name: Save claimed-platform compiler cache
+        if: success() && needs.changes.outputs.relevant == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: backend-compile
+          phase: save
+
+  native-evidence:
+    needs: changes
+    if: always() && !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true')
+    # Expensive native runners are allocated only for relevant changes.
+    # The original required check names are emitted by the join below.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      # Native Windows and macOS evidence runs on every pull request that
+      # touches an OS-sensitive path, and daily for the rest. A pull request
+      # that only changes connector payload keeps the cheap Linux leg.
+      RUN_LEG: ${{ needs.changes.outputs.relevant == 'true' && (matrix.os == 'ubuntu-latest' || needs.changes.outputs.os_sensitive == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci')) && 'true' || 'false' }}
+    runs-on: ${{ (needs.changes.outputs.relevant == 'true' && (matrix.os == 'ubuntu-latest' || needs.changes.outputs.os_sensitive == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci'))) && matrix.os || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "Backend-plugin scope detection failed; refusing to bypass native matrix evidence." >&2
+          exit 1
+
+      - name: Checkout
+        if: env.RUN_LEG == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        if: env.RUN_LEG == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          # The shared composite owns cache identity, size and main publication.
+          cache: false
+
+      - name: Restore bounded backend-plugin Go cache
+        if: env.RUN_LEG == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: backend-plugin
+
+      - name: Cross-platform QA
+        if: env.RUN_LEG == 'true'
+        env:
+          CROSS_PLATFORM_SELECT: ${{ needs.changes.outputs.select }}
+          CROSS_PLATFORM_SKIP_COMPILE: "1"
+          GOFLAGS: -buildvcs=false
+        run: make backend-plugin-cross-platform-qa
+
+      - name: Save bounded backend-plugin Go cache
+        if: success() && needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: backend-plugin
+          phase: save
+
+      - name: Report unrelated matrix bypass
+        if: needs.changes.result == 'success' && env.RUN_LEG != 'true'
+        shell: bash
+        run: |
+          echo "Cross-platform QA bypassed: no connector/backend-plugin-relevant changes detected."
+
+  # Preserve the original required matrix check names. Compilation and native
+  # evidence run concurrently; these cheap Linux statuses join both owners.
+  cross-platform-qa:
+    needs: [changes, claimed-compilation, native-evidence]
+    if: always() && !cancelled()
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require compiler and native matrix evidence
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.changes.result }}
+          RELEVANT: ${{ needs.changes.outputs.relevant }}
+          COMPILE_RESULT: ${{ needs.claimed-compilation.result }}
+          NATIVE_RESULT: ${{ needs.native-evidence.result }}
+        run: |
+          set -euo pipefail
+          test "$SCOPE_RESULT" = success
+          test "$COMPILE_RESULT" = success
+          if [[ "$RELEVANT" == true ]]; then
+            test "$NATIVE_RESULT" = success
+          else
+            test "$RELEVANT" = false
+            test "$NATIVE_RESULT" = skipped
+          fi

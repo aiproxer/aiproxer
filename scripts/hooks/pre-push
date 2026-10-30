@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+checker="$repo_root/scripts/check-release-clean.sh"
+change_size="$repo_root/scripts/check-change-size.sh"
+remote_name="${1:?missing remote name}"
+zero="0000000000000000000000000000000000000000"
+commits=()
+updates=()
+
+add_commit() {
+	local candidate="$1"
+	local existing
+	for existing in "${commits[@]}"; do
+		[[ "$existing" == "$candidate" ]] && return
+	done
+	commits+=("$candidate")
+}
+
+# pr_diff_base prints the merge-base of local_sha with the main branch: the
+# base of the PR diff, free of upstream drift.
+pr_diff_base() {
+	local local_sha="$1"
+	if git rev-parse --verify --quiet origin/main >/dev/null; then
+		git merge-base origin/main "$local_sha"
+	elif git rev-parse --verify --quiet main >/dev/null; then
+		git merge-base main "$local_sha"
+	else
+		git hash-object -t tree /dev/null
+	fi
+}
+
+# size_gate_base prints the base for the change-size gate in the documented
+# canonical order (docs/development-iteration.md): the explicitly declared
+# AIP_CHANGE_SIZE_BASE first, then DEV_BASE, then the merge-base with the
+# trunk. A stacked branch declares its stack base, so the gate measures the
+# branch's own changes instead of the whole inherited stack.
+size_gate_base() {
+	local local_sha="$1"
+	if [[ -n "${AIP_CHANGE_SIZE_BASE:-}" ]]; then
+		printf '%s' "$AIP_CHANGE_SIZE_BASE"
+	elif [[ -n "${DEV_BASE:-}" ]]; then
+		printf '%s' "$DEV_BASE"
+	else
+		pr_diff_base "$local_sha"
+	fi
+}
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+	[[ "$local_sha" == "$zero" ]] && continue
+	updates+=("$local_sha $remote_sha")
+
+	if [[ "$remote_sha" == "$zero" ]]; then
+		commit_list="$(git rev-list --reverse "$local_sha" --not "--remotes=$remote_name")"
+	else
+		commit_list="$(git rev-list --reverse "$remote_sha..$local_sha")"
+	fi
+	while read -r commit; do
+		[[ -n "$commit" ]] && add_commit "$commit"
+	done <<< "$commit_list"
+done
+
+for commit in "${commits[@]}"; do
+	bash "$checker" --ref "$commit"
+done
+
+for update in "${updates[@]}"; do
+	# shellcheck disable=SC2086
+	set -- $update
+	local_sha="$1"
+	remote_sha="$2"
+	base="$remote_sha"
+	if [[ "$remote_sha" == "$zero" ]]; then
+		base="$(size_gate_base "$local_sha")"
+	elif ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+		# History was rewritten (rebase/amend): the old tip is no longer an
+		# ancestor, so measuring old-tip..new-head would sweep in upstream
+		# drift pulled in by the rebase. Measure the declared base when one
+		# is set, else the PR diff.
+		base="$(size_gate_base "$local_sha")"
+	fi
+	bash "$change_size" --base "$base" --head "$local_sha"
+done

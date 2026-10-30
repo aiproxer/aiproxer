@@ -1,0 +1,21 @@
+{
+  "name": "openresponses-compliance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Test-only runner for the pinned OpenResponses official compliance suite (vendored from openresponses/openresponses @ 92c12d96d7b61d6d15e2214daa5e9c6000ab6e1c). Isolated from the Go module; never imported by production code.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "run": "node scripts/run.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "ws": "8.22.0"
+  }
+}

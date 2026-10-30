@@ -1,0 +1,122 @@
+# Control-plane durable SQLite recording with protected query exposure and retention.
+# Records evidence into a SQLite event ledger, exposes protected operator status/query
+# routes under /cp behind the diagnostics shared secret, and applies a 30-day retention
+# window with standard redaction. Replace sqlite_path and shared_secret for your deployment.
+# Same validation profile as openai-responses-stub.yaml; route default targets local stub.
+server:
+  address: "127.0.0.1:18081"
+
+routing:
+  max_attempts: 3
+  default_route: "stub-oar:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: true
+  health_path: "/healthz"
+  shared_secret: "replace-with-operator-secret"
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+control_plane:
+  enabled: true
+  store: sqlite
+  sqlite_path: "./data/control-plane.sqlite"
+  recording_policy: best_effort
+  required_categories: []
+  redaction_default: standard
+  query:
+    enabled: true
+    path_prefix: "/cp"
+    default_page_size: 100
+    max_page_size: 500
+    max_time_window: "168h"
+  retention:
+    enabled: true
+    window: "720h"
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: stub-oar
+      enabled: true
+      config:
+        text: "openai-responses smoke stub"
+        input_tokens: 1
+        output_tokens: 1
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}

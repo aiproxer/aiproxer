@@ -1,0 +1,46 @@
+{
+  "fixture_version": "phase1-v1-sideband-finalizer-compatibility",
+  "serialization": "wire_sha256 is SHA-256 of the compact JSON representation of the current V1 protojson bridge payload; tests compare protojson round trips after compaction, with default field names and omitted unpopulated fields.",
+  "finalize_request": {
+    "payload": {"instanceId":"instance-phase1", "aLegId":"a-phase1", "bLegId":"b-primary", "modelId":"model-phase1", "reason":"terminal", "idempotencyKey":"bc_0123456789abcdef0123456789abcdef:b-primary"},
+    "wire_sha256": "bde09439586d206f97713d12fa128ef8f305ebf81b1f63180793d7a7201e1c04"
+  },
+  "finalize_response": {
+    "payload": {"usage":{"inputTokens":"123", "outputTokens":"45", "totalTokens":"170", "presence":{"inputTokens":true, "outputTokens":true, "totalTokens":true}}, "evidenceQuality":"provider_reported"},
+    "wire_sha256": "f35607baba6cdccbf16ccea782adfab84f9173854ba61b2d75cc4c7c831d2438"
+  },
+  "accounting_frame": {
+    "payload": {"kind":"SERVER_FRAME_KIND_ACCOUNTING_EVIDENCE", "sequence":"7", "accountingEvidence":{"inputTokens":"123", "outputTokens":"45", "presence":{"inputTokens":true, "outputTokens":true}, "source":"ACCOUNTING_SOURCE_PROVIDER_REPORTED", "authority":"ACCOUNTING_AUTHORITY_AUTHORITATIVE", "plane":"ACCOUNTING_PLANE_PROVIDER_BILLABLE", "dedupeKey":"provider-charge-phase1"}},
+    "wire_sha256": "86484beda8263bacef57eb6eaace944ea9b2258a4a9e5505cbae72c7b353575e"
+  },
+  "field_numbers": {
+    "FinalizeBillingRequest.instance_id": 1,
+    "FinalizeBillingRequest.a_leg_id": 2,
+    "FinalizeBillingRequest.b_leg_id": 3,
+    "FinalizeBillingRequest.model_id": 4,
+    "FinalizeBillingRequest.reason": 5,
+    "FinalizeBillingRequest.idempotency_key": 6,
+    "FinalizeBillingResponse.usage": 1,
+    "FinalizeBillingResponse.evidence_quality": 2,
+    "UsageEvidence.input_tokens": 1,
+    "UsageEvidence.output_tokens": 2,
+    "UsageEvidence.cache_read_tokens": 3,
+    "UsageEvidence.cache_write_tokens": 4,
+    "UsageEvidence.reasoning_tokens": 5,
+    "UsageEvidence.total_tokens": 6,
+    "UsageEvidence.presence": 7,
+    "UsageEvidence.raw_usage_json": 8,
+    "AccountingEvidence.input_tokens": 1,
+    "AccountingEvidence.output_tokens": 2,
+    "AccountingEvidence.cache_read_tokens": 3,
+    "AccountingEvidence.cache_write_tokens": 4,
+    "AccountingEvidence.reasoning_tokens": 5,
+    "AccountingEvidence.total_tokens": 6,
+    "AccountingEvidence.presence": 7,
+    "AccountingEvidence.source": 8,
+    "AccountingEvidence.authority": 9,
+    "AccountingEvidence.plane": 10,
+    "AccountingEvidence.dedupe_key": 11,
+    "ExecuteServerFrame.accounting_evidence": 7
+  }
+}

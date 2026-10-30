@@ -1,0 +1,41 @@
+# Optional performance smoke: run locally via `make bench`.
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Run benchmarks
+        shell: bash
+        run: make bench 2>&1 | tee bench-out.txt
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: bench-output
+          path: bench-out.txt
+          retention-days: 14

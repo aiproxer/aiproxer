@@ -1,0 +1,77 @@
+package secretguard
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"strconv"
+	"testing"
+
+	"github.com/matdev83/go-llm-interactive-proxy/internal/plugins/features/secretguard/engine"
+	"github.com/matdev83/go-llm-interactive-proxy/pkg/lipapi"
+	sdk "github.com/matdev83/go-llm-interactive-proxy/pkg/lipsdk/secretguard"
+)
+
+const baselineSyntheticGitHubPAT = "ghp_aB3dE5fG7hI9jK1mN3pQ5rS7tU9vW1xY3zA5" // #nosec G101 -- benchmark fixture only.
+
+func BenchmarkSecretGuardBaselineExact(b *testing.B) {
+	cat, err := engine.BuildCatalog([]engine.CatalogInput{{
+		Name:           "GITHUB_TOKEN",
+		Value:          baselineSyntheticGitHubPAT,
+		SourceCategory: sdk.SourceCategoryOperatorEnv,
+	}}, 8)
+	if err != nil {
+		b.Fatal("build baseline catalog failed")
+	}
+	matcher := engine.AsMatcher(engine.NewMatcher(cat))
+	for _, size := range []int{1 << 10, 10 << 10, 100 << 10, 1 << 20, 2 << 20} {
+		for _, kind := range []string{"text", "json"} {
+			for _, hit := range []bool{false, true} {
+				payload := baselinePayload(size, kind, hit)
+				call := baselineCall(kind, payload)
+				b.Run(kind+"/"+map[bool]string{false: "no-hit", true: "positive"}[hit]+"/"+bytesLenName(len(payload)), func(b *testing.B) {
+					b.ReportAllocs()
+					b.SetBytes(int64(len(payload)))
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						if _, err := scanCall(context.Background(), &call, matcher, modeScan, len(payload)); err != nil {
+							b.Fatal("baseline exact scan failed")
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
+func baselinePayload(size int, kind string, hit bool) []byte {
+	if kind == "json" && hit {
+		prefix := []byte(`{"github_token":"`)
+		suffix := []byte(`","blob":"`)
+		end := []byte(`"}`)
+		filler := bytes.Repeat([]byte{'x'}, size-len(prefix)-len(suffix)-len(end)-len(baselineSyntheticGitHubPAT))
+		return append(append(append(append(prefix, baselineSyntheticGitHubPAT...), suffix...), filler...), end...)
+	}
+	if kind == "json" {
+		prefix := []byte(`{"blob":"`)
+		suffix := []byte(`"}`)
+		return append(append(prefix, bytes.Repeat([]byte{'x'}, size-len(prefix)-len(suffix))...), suffix...)
+	}
+	out := bytes.Repeat([]byte{'x'}, size)
+	if hit {
+		copy(out, []byte("GITHUB_TOKEN="+baselineSyntheticGitHubPAT+"\n"))
+	}
+	return out
+}
+
+func baselineCall(kind string, payload []byte) lipapi.Call {
+	part := lipapi.Part{Kind: lipapi.PartText, Text: string(payload)}
+	if kind == "json" {
+		part = lipapi.Part{Kind: lipapi.PartJSON, Content: json.RawMessage(bytes.Clone(payload))}
+	}
+	return lipapi.Call{Messages: []lipapi.Message{{Role: lipapi.RoleUser, Parts: []lipapi.Part{part}}}}
+}
+
+func bytesLenName(n int) string {
+	return strconv.Itoa(n)
+}

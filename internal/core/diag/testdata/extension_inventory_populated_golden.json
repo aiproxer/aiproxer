@@ -1,0 +1,399 @@
+{
+  "frontends": [
+    {
+      "id": "fe-openai",
+      "factory_kind": "openai-responses",
+      "enabled": true
+    }
+  ],
+  "backends": [
+    {
+      "id": "be-anthropic",
+      "factory_kind": "anthropic",
+      "enabled": true
+    }
+  ],
+  "features": [
+    {
+      "id": "feat-alpha-sec-gate",
+      "factory_kind": "sec-gate",
+      "enabled": true
+    },
+    {
+      "id": "feat-bravo-tool-governance",
+      "factory_kind": "tool-governance",
+      "enabled": true
+    },
+    {
+      "id": "feat-charlie-traffic-metrics",
+      "factory_kind": "traffic-metrics",
+      "enabled": true
+    },
+    {
+      "id": "feat-delta-session-routing",
+      "factory_kind": "session-routing",
+      "enabled": true
+    },
+    {
+      "id": "feat-echo-stream-pipeline",
+      "factory_kind": "stream-pipeline",
+      "enabled": true
+    },
+    {
+      "id": "secrets-guard",
+      "factory_kind": "secrets-guard",
+      "enabled": true
+    },
+    {
+      "id": "feat-golf-disabled",
+      "factory_kind": "disabled-plugin",
+      "enabled": false
+    }
+  ],
+  "extensions": {
+    "legal_pipeline": [
+      "transport_authentication",
+      "session_open",
+      "secret_guard",
+      "session_classification",
+      "submit_request",
+      "tool_catalog_filter",
+      "request_wide_shaping",
+      "pre_request_admission",
+      "route_hinting",
+      "candidate_attempt_transform",
+      "attempt_lifecycle",
+      "stream_event_mutation",
+      "tool_event_reaction",
+      "completion_gating",
+      "final_stream_observation",
+      "traffic_observation",
+      "egress_encoding"
+    ],
+    "stages": [
+      {
+        "id": "transport_authentication",
+        "default_failure": "fail_closed"
+      },
+      {
+        "id": "session_open",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "secret_guard",
+        "default_failure": "fail_closed"
+      },
+      {
+        "id": "session_classification",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "submit_request",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "tool_catalog_filter",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "request_wide_shaping",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "pre_request_admission",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "route_hinting",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "candidate_attempt_transform",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "attempt_lifecycle",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "stream_event_mutation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "tool_event_reaction",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "completion_gating",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "final_stream_observation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "traffic_observation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "egress_encoding",
+        "default_failure": "fail_closed"
+      }
+    ],
+    "features": [
+      {
+        "instance_id": "feat-alpha-sec-gate",
+        "factory_kind": "sec-gate",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "request_wide_shaping",
+            "handler_ids": [
+              "request_transform:rt-header-clean",
+              "request_transform:rt-auth-inject"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "secret_guard",
+            "handler_ids": [
+              "secret_guard:sg-a",
+              "secret_guard:sg-b",
+              "secret_guard:sg-z"
+            ],
+            "count": 3
+          },
+          {
+            "stage_id": "completion_gating",
+            "handler_ids": [
+              "completion_gate:cg-1",
+              "completion_gate:cg-2"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "traffic_observation",
+            "handler_ids": [
+              "raw_capture:0",
+              "raw_capture:2"
+            ],
+            "count": 2
+          }
+        ],
+        "privileges": {
+          "raw_capture": true,
+          "auxiliary_requests": true,
+          "auth_provider": false,
+          "completion_gate": true
+        }
+      },
+      {
+        "instance_id": "feat-bravo-tool-governance",
+        "factory_kind": "tool-governance",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "tool_catalog_filter",
+            "handler_ids": [
+              "tool_catalog:filter-admin-tools",
+              "tool_catalog:filter-private-tools"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "tool_event_reaction",
+            "handler_ids": [
+              "tool_policy:policy-allow-read",
+              "tool_policy:policy-deny-shell",
+              "tool_finalizer:finalizer-clamp-args",
+              "tool_finalizer:finalizer-validate-json",
+              "reactor-early-abort",
+              "reactor-audit-log"
+            ],
+            "count": 6
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": true,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "feat-charlie-traffic-metrics",
+        "factory_kind": "traffic-metrics",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "traffic_observation",
+            "handler_ids": [
+              "traffic_observer:0",
+              "traffic_observer:2",
+              "usage_observer:0",
+              "usage_observer:2",
+              "traffic_redactor:redact-auth-token",
+              "traffic_redactor:redact-ssn"
+            ],
+            "count": 6
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "feat-delta-session-routing",
+        "factory_kind": "session-routing",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "pre_request_admission",
+            "handler_ids": [
+              "pre_request:prereq-auth-check",
+              "pre_request:prereq-rate-limit"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "route_hinting",
+            "handler_ids": [
+              "route_hint:hint-cost-tier",
+              "route_hint:hint-low-latency"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "session_open",
+            "handler_ids": [
+              "opener:opener-user-session",
+              "opener:opener-tenant-session",
+              "workspace_resolver:0",
+              "workspace_resolver:2"
+            ],
+            "count": 4
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": true,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "feat-echo-stream-pipeline",
+        "factory_kind": "stream-pipeline",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "submit_request",
+            "handler_ids": [
+              "submit-preflight",
+              "submit-telemetry"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "request_wide_shaping",
+            "handler_ids": [
+              "request_part:req-part-metadata"
+            ],
+            "count": 1
+          },
+          {
+            "stage_id": "stream_event_mutation",
+            "handler_ids": [
+              "resp-part-tag",
+              "resp-part-mask"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "candidate_attempt_transform",
+            "handler_ids": [
+              "attempt_transform:attempt-circuit-breaker",
+              "attempt_transform:attempt-retry-backoff"
+            ],
+            "count": 2
+          },
+          {
+            "stage_id": "final_stream_observation",
+            "handler_ids": [
+              "stream_observer:stream-token-counter",
+              "stream_observer:stream-latency-tracker"
+            ],
+            "count": 2
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": true,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "secrets-guard",
+        "factory_kind": "secrets-guard",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "secret_guard",
+            "handler_ids": [
+              "secret_guard:sg-core-pattern"
+            ],
+            "count": 1
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        },
+        "secret_guard": {
+          "instance_id": "secrets-guard",
+          "action": "block_and_audit",
+          "catalog_entry_count": 16,
+          "source_categories": [
+            "proxy_env",
+            "operator_env",
+            "request_credential"
+          ],
+          "access_mode": "strict_isolation",
+          "local_auto_discovery_enabled": false,
+          "betterleaks_enabled": false,
+          "discovery_detector_count": 0
+        }
+      },
+      {
+        "instance_id": "feat-golf-disabled",
+        "factory_kind": "disabled-plugin",
+        "enabled": false,
+        "stage_occupancy": [],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      }
+    ],
+    "generic_ports": {
+      "attempt_transform_occupied": true,
+      "attempt_transform_handlers": 2,
+      "final_stream_observation_occupied": true,
+      "final_stream_observation_handlers": 2
+    }
+  },
+  "server_limits": {
+    "max_request_body_bytes": 8388608,
+    "max_concurrent_decodes": 32,
+    "max_inflight_decode_bytes": 67108864,
+    "max_pending_wire_events": 0
+  }
+}

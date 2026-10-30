@@ -1,0 +1,25 @@
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    # The exceptions below conflict with the frozen versioned backend-plugin
+    # ABI (api/backendplugin/v1/backend.proto). Renaming the package, the
+    # BackendPlugin service, or the Execute stream messages would break the
+    # negotiated wire contract, the generated Go API, and every executable
+    # connector, so the names stay and the rules are excepted instead.
+    # PACKAGE_DIRECTORY_MATCH: package aiproxer.backendplugin.v1 is stable;
+    #   the module root is api/, not api/aiproxer/.
+    # SERVICE_SUFFIX: service BackendPlugin is the frozen RPC path prefix.
+    # RPC_REQUEST_STANDARD_NAME / RPC_RESPONSE_STANDARD_NAME:
+    #   ExecuteClientFrame / ExecuteServerFrame are frozen stream frames.
+    - PACKAGE_DIRECTORY_MATCH
+    - SERVICE_SUFFIX
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+breaking:
+  use:
+    - FILE

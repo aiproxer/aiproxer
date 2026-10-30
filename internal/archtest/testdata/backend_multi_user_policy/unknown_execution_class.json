@@ -1,0 +1,9 @@
+{
+  "connector": "connectors/fixtureclass",
+  "plugin_id": "com.aiproxer.backend.fixtureclass",
+  "kind": "fixtureclass",
+  "credential_mode": "static",
+  "access_scope": "any",
+  "execution_class": "totally_safe",
+  "process_sharing": "per_instance"
+}

@@ -1,0 +1,106 @@
+[
+  {
+    "id": 1,
+    "name": "justify-a-new-dependency",
+    "description": "Checks dependency selection, trust, and follow-up verification",
+    "prompt": "I need YAML parsing in a Go module. Add a dependency and implement the config loader.",
+    "trap": "An explicit implementation request does not need an artificial confirmation step, but the dependency still needs a compatibility, maintenance, license, and security review.",
+    "assertions": [
+      {"id": "1.1", "text": "Checks the Go version, existing module policy, and whether the standard library is sufficient"},
+      {"id": "1.2", "text": "Names the chosen module path and briefly compares viable alternatives"},
+      {"id": "1.3", "text": "Adds the smallest justified version and runs tests, tidy, and relevant scanners"},
+      {"id": "1.4", "text": "Inspects go.mod/go.sum and does not hide the dependency diff"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "go-sum-integrity",
+    "description": "Checks correct interpretation of go.sum",
+    "prompt": "Our .gitignore contains go.sum because it is generated. Should we keep ignoring it?",
+    "trap": "go.sum records checksums but does not pin one complete build list; repository policy still determines tracking and review.",
+    "assertions": [
+      {"id": "2.1", "text": "Explains that go.sum is normally tracked and reviewed with go.mod"},
+      {"id": "2.2", "text": "Explains that it records module-content checksums and supports verification"},
+      {"id": "2.3", "text": "Does not call go.sum a lockfile or claim it alone prevents every supply-chain attack"},
+      {"id": "2.4", "text": "Mentions go mod verify or equivalent integrity checks where useful"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "deliberate-upgrades",
+    "description": "Checks compatibility-aware dependency upgrade advice",
+    "prompt": "I want to update every Go dependency to the latest version. Which command should I run?",
+    "trap": "No bulk update mode is universally safe; upgrade scope, directness, release notes, licenses, vulnerabilities, and tests matter.",
+    "assertions": [
+      {"id": "3.1", "text": "Clarifies whether the goal is a targeted, patch-only, minor, or major update"},
+      {"id": "3.2", "text": "Warns that go get -u can change many direct and indirect requirements"},
+      {"id": "3.3", "text": "Uses an explicit version or repository-approved range rather than unreviewed @latest"},
+      {"id": "3.4", "text": "Runs tidy, tests, vulnerability checks, and reviews the graph diff"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "minimal-version-selection",
+    "description": "Checks MVS and major-version module paths",
+    "prompt": "Module A requires pkg v1.2.0 and module B requires pkg v1.3.0. What does Go select? How would a breaking v2 release work?",
+    "trap": "Go selects the highest minimum required version in the graph, and major versions use distinct module paths.",
+    "assertions": [
+      {"id": "4.1", "text": "Selects v1.3.0 under Minimal Version Selection"},
+      {"id": "4.2", "text": "Explains that MVS is not simply selecting the newest available release"},
+      {"id": "4.3", "text": "States that a v2 module path includes /v2 and imports change accordingly"},
+      {"id": "4.4", "text": "Explains that v1 and v2 can coexist as distinct module paths"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "replace-exclude-retract",
+    "description": "Checks the scope and release implications of module graph directives",
+    "prompt": "A library needs a fork during development, a dependency has a bad release, and my published version has a critical bug. Which module directives apply?",
+    "trap": "replace, exclude, and retract have different owners and scopes; local replacements must not leak into a published module.",
+    "assertions": [
+      {"id": "5.1", "text": "Explains that a main module's replace directive does not force a library consumer to use the fork"},
+      {"id": "5.2", "text": "Uses exclude for a consumer's graph policy only with an explicit reason"},
+      {"id": "5.3", "text": "Uses retract in the module that published a broken version and documents the reason"},
+      {"id": "5.4", "text": "Tests a released module without local replacements before publishing"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "tool-version-reproducibility",
+    "description": "Checks reproducible CLI tool versioning across supported Go versions",
+    "prompt": "The project uses golangci-lint and govulncheck. How can developers and CI use reviewed versions?",
+    "trap": "Tool directives depend on the module's Go version; @latest in CI and an undocumented tools bootstrap create drift.",
+    "assertions": [
+      {"id": "6.1", "text": "Uses Go tool directives and go tool when the module's Go version supports them"},
+      {"id": "6.2", "text": "Uses a documented fallback for older Go versions rather than claiming one syntax works everywhere"},
+      {"id": "6.3", "text": "Reviews tool versions and their transitive module changes"},
+      {"id": "6.4", "text": "Keeps CI and local commands aligned without installing unpinned @latest tools"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "reachability-aware-vulnerability-review",
+    "description": "Checks nuanced interpretation of govulncheck",
+    "prompt": "A scanner reports a vulnerable dependency, but the application uses only a small part of it. What should we do?",
+    "trap": "Reachability informs triage but absence of a finding is not proof that every build and deployment is safe.",
+    "assertions": [
+      {"id": "7.1", "text": "Runs govulncheck for the relevant packages/builds and explains reachability context"},
+      {"id": "7.2", "text": "Does not claim that a never-called function makes every vulnerable dependency harmless"},
+      {"id": "7.3", "text": "Combines reachability with patching, version review, deployment context, and compensating controls"},
+      {"id": "7.4", "text": "Documents residual risk when an upgrade is delayed"}
+    ]
+  },
+  {
+    "id": 8,
+    "name": "workspace-reproducibility",
+    "description": "Checks go.work policy and independent module verification",
+    "prompt": "We use go.work for local multi-module development. Which files should be committed?",
+    "trap": "go.work and go.work.sum policy is repository-specific; a workspace can hide missing published-module requirements.",
+    "assertions": [
+      {"id": "8.1", "text": "Explains that go.work.sum may be committed or ignored according to documented reproducibility policy"},
+      {"id": "8.2", "text": "Distinguishes workspace sums from each module's normally tracked go.sum"},
+      {"id": "8.3", "text": "Tests each module with an explicit workspace policy such as GOWORK=off before publishing"},
+      {"id": "8.4", "text": "Avoids presenting one go.work commit rule as a Go language requirement"}
+    ]
+  }
+]

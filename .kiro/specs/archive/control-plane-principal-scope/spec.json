@@ -1,0 +1,23 @@
+{
+  "feature_name": "control-plane-principal-scope",
+  "created_at": "2026-07-01T19:25:58.3254044+02:00",
+  "updated_at": "2026-07-01T20:17:26.5584963+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

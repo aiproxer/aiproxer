@@ -1,0 +1,76 @@
+# Operator: retarget discovery to an upgrade-candidate plugin root after atomic publish.
+# See docs/backend-plugins/operator.md and examples/operator/upgrade-candidate.yaml.
+server:
+  address: "127.0.0.1:18182"
+
+routing:
+  max_attempts: 3
+  default_route: "op-up:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  backend_discovery:
+    enabled: true
+    development_mode: true
+    strict: true
+    paths:
+      - .aip-plugins/upgrade-candidate/localstub
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: op-up
+      enabled: true
+      config:
+        text: "[operator] upgrade candidate"
+        input_tokens: 1
+        output_tokens: 1
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}

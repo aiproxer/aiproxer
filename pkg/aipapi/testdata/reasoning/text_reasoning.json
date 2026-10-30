@@ -1,0 +1,21 @@
+{
+  "Messages": [
+    {
+      "Role": "user",
+      "Parts": [{ "Kind": "text", "Text": "summarize" }]
+    },
+    {
+      "Role": "assistant",
+      "Parts": [
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "openai.chat.reasoning_text.v1",
+            "Text": "Consider the request, then answer briefly."
+          }
+        },
+        { "Kind": "text", "Text": "Done." }
+      ]
+    }
+  ]
+}

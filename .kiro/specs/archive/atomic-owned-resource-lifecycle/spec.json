@@ -1,0 +1,24 @@
+{
+  "feature_name": "atomic-owned-resource-lifecycle",
+  "created_at": "2026-08-15T15:23:00+02:00",
+  "updated_at": "2026-08-16T19:07:15+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Harden only Go-LIP's highest-ROI long-lived resource ownership seams using a small Cordis-v4-inspired acquire-plus-release discipline: make process-owned acquisition register cleanup before the resource escapes, remove closer-slice propagation from selected ProcessServices builders, and encapsulate the existing cancel+join pattern for generation-owned background loops. Preserve ResourceLedger, immutable generations, request pinning, backend plugin ABI, routing/streaming/billing semantics, and all public APIs; add no DI container, service locator, reactive dependency graph, effect system, or whole-repo refactor."
+}

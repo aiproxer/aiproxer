@@ -1,0 +1,133 @@
+# NO-KEY LOCAL STUB — Agent Loop Guard pinned to the LEGACY explicit strategy.
+# Operator guide: docs/agent-loop-guard.md
+#
+# This row spells out `strategy: semantic_verifier`, which is behaviorally
+# identical to omitting the key entirely. Use it to make the current intent
+# visible to the next operator; it is NOT the recommended form for new
+# deployments, which should use `config/examples/agent-loop-guard-preferred.yaml`.
+#
+# The verifier-only keys below are only valid under this strategy. For an ENABLED
+# row, supplying any of them under `strategy: attempt_completion` — whatever the
+# value — is a configuration error rather than a silent no-op.
+#
+# A row-level `enabled: false` is a different case and is NOT validated: such a row
+# is skipped before the factory is called, so its entire config block is never
+# decoded and no configuration rule applies to it. Validate a config block with the
+# row enabled before disabling it; see the migration section of the guide.
+#
+# `explicit_completion_policy: trust` is the pre-existing default and lets a
+# trusted explicit-completion signal bypass verification; set `verify` when the
+# verifier must be the authority even when one is present.
+#
+# Not a live-provider configuration.
+# Validate: aipstd check-config --config config/examples/agent-loop-guard-legacy-verifier.yaml
+# This file loads and its routes inspect cleanly, but `aipstd serve` refuses to
+# start it: the `local-stub` backend has no registered security profile. Point
+# `backends` at a real provider with a registered profile before serving.
+server:
+  address: "127.0.0.1:18087"
+
+routing:
+  max_attempts: 3
+  default_route: "alg-legacy-local:stub-default"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: alg-legacy-local
+      enabled: true
+      config:
+        text: "[agent-loop-guard/semantic_verifier] local stub"
+        input_tokens: 1
+        output_tokens: 1
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    - id: agent-loop-guard
+      enabled: true
+      config:
+        strategy: semantic_verifier
+        verifier_role: loop_guard
+        verifier_timeout_seconds: 4
+        max_semantic_continuations: 3
+        no_progress_limit: 2
+        explicit_completion_policy: trust

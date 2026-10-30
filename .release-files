@@ -1,0 +1,56 @@
+# Comments and blank lines are ignored by scripts/check-release-clean.sh.
+# Release file manifest. Defines approved path patterns and exact files in the repository.
+# Non-release metadata (Kiro SDD specs, agent skills, docs, github workflows) use pattern wildcards.
+
+# Root-level configuration, metadata and documentation
+.coderabbit.yaml
+.gitattributes
+.gitignore
+.gitleaks.toml
+.golangci.yml
+.goreleaser.yaml
+.release-files
+AGENTS.md
+CLAUDE.md
+VISION.md
+Makefile
+README.md
+LICENSE
+config.yaml
+go.mod
+go.sum
+skills-lock.json
+
+# Tooling, workflows, and workspace configurations
+.github/**
+.githooks/**
+.jules/**
+.cursor/**
+.vscode/**
+
+# Kiro SDD specifications, steering, and history
+.kiro/**
+
+# Agent skills, rules, and workspace configurations
+.agents/**
+.codex/**
+.opencode/**
+.pi/**
+
+# Project documentation and specifications
+docs/**
+archived/**
+specs/**
+
+# Core source code, components, plugins, connectors, scripts, and test assets
+api/**
+cmd/**
+config/**
+connector-support/**
+connectors/**
+enterprise/**
+internal/**
+pkg/**
+scripts/**
+testdata/**
+tools/**

@@ -1,0 +1,13 @@
+{
+  "model": "gpt-4o-mini",
+  "stream": false,
+  "messages": [
+    {"role": "user", "content": "hi"},
+    {
+      "role": "assistant",
+      "content": "answer",
+      "reasoning_content": "official",
+      "reasoning": "alias"
+    }
+  ]
+}

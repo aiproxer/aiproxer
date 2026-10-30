@@ -1,0 +1,23 @@
+{
+  "feature_name": "model-system-prompt",
+  "language": "en",
+  "phase": "completed",
+  "issue": 735,
+  "approvals": {
+    "requirements": { "generated": true, "approved": true },
+    "design": { "generated": true, "approved": true },
+    "tasks": { "generated": true, "approved": true }
+  },
+  "approval_basis": "User explicitly approved the execution plan recorded in /home/mateusz/.cache/tmp/opencode/feature-735/approved-plan.md and requested faithful spec materialization and sequential delegated implementation/review. Approval does not authorize scope expansion.",
+  "ready_for_implementation": false,
+  "implementation_complete": true,
+  "completed": true,
+  "validation": {
+    "decision": "go",
+    "local_gates": "regex, quality, comprehensive tests, SQLite/PostgreSQL parity, build and service health passed",
+    "remote_race_fuzz": "All six lanes and actual backend-security/Tier-1 fuzz stages passed in run 37934438710 on c2e06ec132701bce6f4d3250ecd97a2c25284959; all downloaded tested_sha artifacts matched. Feature source is byte-identical to merged closeout baseline c2eace237f4e128e6439ce79fb616fdd3d401cc8.",
+    "evidence": "validation.md",
+    "merged_implementation": "PRs #837 and #836; integrated main merge b3cd514d54e6b375e0d354006fa01eb574792a0a",
+    "closeout_baseline": "c2eace237f4e128e6439ce79fb616fdd3d401cc8"
+  }
+}

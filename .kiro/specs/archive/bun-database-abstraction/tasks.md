@@ -1,0 +1,171 @@
+# Implementation Plan
+
+- [x] 1. Foundation: database dependency and infrastructure setup
+- [x] 1.1 Add database abstraction dependencies and package boundary
+  - Add the Bun and PostgreSQL driver dependencies needed by the managed durable path.
+  - Establish the internal database infrastructure package boundary and document that it is internal-only.
+  - Document that database infrastructure is platform infrastructure only and does not define business-facing ports or use-case contracts.
+  - The module builds with the new dependencies available and no public package imports them.
+  - _Requirements: 6.7_
+  - _Boundary: Database Infrastructure_
+- [x] 1.2 Implement database open, dialect, pool, and redaction helpers
+  - Provide helpers for opening managed database connections, wrapping database handles with the selected dialect, applying pool settings, and redacting connection strings.
+  - Include unit coverage for nil handles, unknown dialects, invalid pool settings, and secret-safe redaction.
+  - Database helper tests pass and demonstrate no full connection secret appears in returned errors.
+  - _Requirements: 1.6, 4.1, 4.2, 4.3, 4.5_
+  - _Boundary: Database Infrastructure_
+
+- [x] 2. Foundation: configuration model and validation
+- [x] 2.1 Add managed durable database config fields
+  - Add top-level database pool settings and per-store managed database connection settings.
+  - Preserve existing defaults for omitted continuity and secure-session settings.
+  - Config loading can parse memory, sqlite, and postgres examples without disturbing current memory or sqlite configs.
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.6, 5.1, 5.2, 5.3_
+  - _Boundary: Config Validation_
+- [x] 2.2 Extend persistence validation rules
+  - Accept supported persistence values for both store domains and reject unsupported values with field-specific messages.
+  - Require managed database connection settings only when a managed durable store is selected.
+  - Validation tests cover unsupported store values, missing managed DSNs, malformed or unsafe settings, and invalid pool tuning.
+  - _Requirements: 1.1, 1.2, 1.6, 1.7, 1.8, 4.1, 4.2, 4.5_
+  - _Boundary: Config Validation_
+- [x] 2.3 Generalize durable audit validation
+  - Allow durable audit with any supported durable secure-session store.
+  - Continue rejecting durable audit with non-durable secure-session storage.
+  - Validation tests show sqlite and postgres are accepted for durable audit and memory is rejected.
+  - _Requirements: 3.5, 3.6, 5.3_
+  - _Boundary: Config Validation_
+- [x] 2.4 Update sample configuration for managed durable stores
+  - Add commented examples for shared database pool tuning and managed durable continuity and secure-session stores.
+  - Keep existing memory and sqlite examples intact.
+  - The sample config documents all supported store choices without requiring client integration changes.
+  - _Requirements: 4.6, 5.1, 5.2, 5.3_
+  - _Boundary: Config Validation_
+
+- [x] 3. Core: continuity managed durable adapter
+- [x] 3.1 Create the continuity Bun store schema and constructor
+  - Prepare the continuity tables and indexes needed by the managed durable store using explicit dialect-aware DDL.
+  - Reject nil database handles and surface schema preparation failures with operation context.
+  - Constructor tests prove the store can initialize and prepare schema against an in-memory dialect-backed test handle.
+  - _Requirements: 2.1, 2.2, 2.6, 5.4_
+  - _Boundary: Continuity Bun Store_
+- [x] 3.2 Implement A-leg create, fetch, and resolve behavior
+  - Preserve continuity key uniqueness and A-leg lookup semantics for durable records.
+  - Update read-touch behavior consistently with the existing store contract.
+  - Store tests prove create, fetch, resolve, not-found, and restart-survival behavior.
+  - _Requirements: 2.1, 2.4, 5.4, 6.1_
+  - _Boundary: Continuity Bun Store_
+- [x] 3.3 Implement B-leg sequencing and weighted-first updates
+  - Allocate B-leg sequence values transactionally and monotonically for each A-leg.
+  - Preserve weighted-first-consumed update and not-found behavior.
+  - Store tests prove concurrent or repeated B-leg allocation stays monotonic and weighted-first updates behave as expected.
+  - _Requirements: 2.2, 2.3, 5.4, 6.1_
+  - _Boundary: Continuity Bun Store_
+- [x] 3.4 Implement attempt recording and ordered loading
+  - Record attempts idempotently where the existing store behavior requires upsert semantics.
+  - Return attempts in sequence order for a known A-leg.
+  - Store tests prove upsert behavior, ordered loading, and empty result behavior.
+  - _Requirements: 2.2, 2.4, 2.5, 5.4, 6.1_
+  - _Boundary: Continuity Bun Store_
+
+- [x] 4. Core: secure-session managed durable adapter
+- [x] 4.1 (P) Create secure-session Bun schema, models, and constructor
+  - Prepare secure-session tables, constraints, and indexes using explicit dialect-aware DDL.
+  - Add row conversion helpers for JSON, timestamps, and nullable fields without changing public store contracts.
+  - Constructor tests prove schema preparation and nil database rejection.
+  - _Requirements: 3.1, 3.2, 5.4_
+  - _Boundary: Secure Session Bun Store_
+- [x] 4.2 Implement session creation and lookup flows
+  - Persist and load sessions by primary identifiers, resume fingerprints, and A-leg links.
+  - Preserve policy metadata, accounting fields, and not-found behavior.
+  - Contract tests prove create and load flows match existing memory and sqlite behavior.
+  - _Requirements: 3.1, 3.2, 5.4, 6.2_
+  - _Boundary: Secure Session Bun Store_
+- [x] 4.3 Implement activity and attempt evidence flows
+  - Preserve monotonic activity updates and transactional attempt trace/outcome updates.
+  - Maintain attempt counts and evidence records consistently across durable operations.
+  - Contract or focused tests prove monotonic activity, attempt append, and outcome update behavior.
+  - _Requirements: 3.2, 3.3, 5.4, 6.2_
+  - _Boundary: Secure Session Bun Store_
+- [x] 4.4 Implement transcript, audit, and usage flows
+  - Persist transcript entries, audit entries, usage totals, and per-attempt usage evidence with existing policy semantics.
+  - Preserve usage rollup behavior for diagnostics and accounting.
+  - Contract or focused tests prove transcript append, audit append, usage totals, and rollup parity.
+  - _Requirements: 3.2, 3.3, 5.4, 6.2_
+  - _Boundary: Secure Session Bun Store_
+- [x] 4.5 Implement summaries, readiness, and evidence listing
+  - Return diagnostics summaries and readiness checks with the same observable behavior as existing stores.
+  - Merge attempt evidence and usage evidence consistently for callers.
+  - Focused validation proves database connection details are not surfaced through diagnostics behavior.
+  - Contract tests prove summary, readiness, and evidence-listing behavior.
+  - _Requirements: 3.2, 3.4, 4.3, 5.4, 6.2_
+  - _Boundary: Secure Session Bun Store_
+
+- [x] 5. Integration: runtime store selection and lifecycle wiring
+- [x] 5.1 Wire managed durable continuity selection
+  - Connect the managed durable continuity setting to the new continuity store.
+  - Apply database pool settings, fail startup on open or preparation errors, and ensure errors identify the continuity store without leaking secrets.
+  - Runtime or factory tests prove postgres selection builds the expected store path and failure does not fall back.
+  - _Depends: 1.2, 2.2, 3.4_
+  - _Requirements: 1.1, 1.3, 1.6, 2.6, 4.3, 4.4, 5.1, 5.2, 5.5_
+  - _Boundary: Runtime Wiring_
+- [x] 5.2 Wire managed durable secure-session selection
+  - Connect the managed durable secure-session setting to the new secure-session store.
+  - Apply database pool settings, register the owned closer once, and preserve existing memory and sqlite runtime paths.
+  - Runtime tests prove postgres selection builds the secure-session store, durable audit accepts it, and failure does not fall back.
+  - _Depends: 1.2, 2.3, 4.5_
+  - _Requirements: 1.2, 1.3, 1.6, 3.5, 4.3, 4.4, 5.3, 5.5_
+  - _Boundary: Runtime Wiring_
+- [x] 5.3 Verify lifecycle and no-migration behavior
+  - Ensure each managed durable store owns and closes its database handle without shared-pool assumptions.
+  - Preserve existing local durable behavior and avoid any automatic cross-product migration path.
+  - Runtime tests prove closers run for owned stores and sqlite configurations still use the existing local durable path.
+  - _Depends: 5.1, 5.2_
+  - _Requirements: 5.1, 5.2, 5.3, 5.5, 5.6_
+  - _Boundary: Runtime Wiring_
+
+- [x] 6. Validation: parity, optional PostgreSQL, and boundary guardrails
+- [x] 6.1 Add continuity parity validation for Bun-backed stores
+  - Run the continuity behavior suite against the Bun-backed store using deterministic test databases.
+  - Include restart survival, sequence monotonicity, attempt ordering, and startup failure coverage.
+  - The continuity Bun store package passes its focused test suite without requiring an external managed database.
+  - _Depends: 3.4, 5.1_
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 6.1, 6.4_
+  - _Boundary: Validation Tests_
+- [x] 6.2 Add secure-session contract validation for Bun-backed stores
+  - Register the Bun-backed secure-session store with the existing store contract tests.
+  - Add focused tests for usage rollup and diagnostics parity if the contract suite does not cover them fully.
+  - The secure-session Bun store passes the contract suite and focused parity tests without requiring an external managed database.
+  - _Depends: 4.5, 5.2_
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.2, 6.4_
+  - _Boundary: Validation Tests_
+- [x] 6.3 Add optional PostgreSQL integration validation
+  - Gate PostgreSQL tests on a managed database DSN environment variable.
+  - Skip with an explicit reason when the environment variable is unset.
+  - When the variable is set, tests verify continuity and secure-session durable behavior against PostgreSQL.
+  - _Depends: 6.1, 6.2_
+  - _Requirements: 6.1, 6.2, 6.3, 6.4_
+  - _Boundary: Validation Tests_
+- [x] 6.4 Add database abstraction boundary guard
+  - Add an import guard that prevents Bun and PostgreSQL driver usage in public contracts, protocol plugins, and unrelated core packages.
+  - Allow usage only in internal database infrastructure and approved store adapters.
+  - Verify database handles, transaction handles, Bun query builders, and SQL driver error types do not cross existing store ports.
+  - Verify concrete Bun-backed stores are selected only through factory or composition seams, not by core orchestration code directly.
+  - The guard fails on intentional forbidden imports and passes for the implemented package layout.
+  - _Requirements: 6.5, 6.6, 6.7_
+  - _Boundary: Boundary Guard_
+
+- [x] 7. Final verification and regression pass
+- [x] 7.1 Run focused package validation
+  - Run focused tests for database infrastructure, config validation, continuity Bun store, secure-session Bun store, store contracts, and runtime bundle wiring.
+  - Fix any regressions inside the task boundaries that introduced them.
+  - Focused validation completes without unexpected failures.
+  - _Depends: 6.1, 6.2, 6.3, 6.4_
+  - _Requirements: 6.1, 6.2, 6.4_
+  - _Boundary: Validation Tests_
+- [x] 7.2 Run repository quality validation
+  - Run the repository quality checks and default test suite.
+  - Confirm default validation still covers memory and local durable behavior without requiring PostgreSQL.
+  - Quality checks and default tests complete without unexpected failures.
+  - _Depends: 7.1_
+  - _Requirements: 1.4, 5.1, 5.2, 5.3, 6.4_
+  - _Boundary: Validation Tests_

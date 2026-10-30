@@ -1,0 +1,10 @@
+{
+  "plugin_id": "com.aiproxer.backend.acp",
+  "factory_kind": "acp",
+  "credential_mode": "static",
+  "access_scope": "local_only",
+  "route_prefixes": ["acp"],
+  "streaming": true,
+  "reasoning": true,
+  "cancellation": true
+}

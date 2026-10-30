@@ -1,0 +1,5 @@
+package escapepos
+
+import . "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimehost"
+
+func UseDotImport(pick func(*Coordinator) int) int { return pick(nil) }

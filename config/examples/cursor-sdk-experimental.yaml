@@ -1,0 +1,173 @@
+# EXPERIMENTAL CURSOR SDK BACKEND — schema/example (local-only, non-default).
+# Operator guide: docs/cursor-sdk-backend.md
+# Standalone plugin install (manual; AIProxer never runs npm): https://github.com/aiproxer/aiproxer-cursor-sdk
+#
+# This file keeps cursorsdk disabled so `check-config` / `routes` / `inventory` work without Node,
+# CURSOR_API_KEY, or an installed plugin. dogfood-local remains the runnable default route.
+#
+# To enable live SDK routing after installing the standalone plugin (Node >=22.13, @cursor/sdk 1.0.23):
+#   1. Install the aiproxer/aiproxer-cursor-sdk release into a trusted discovery root and
+#      provision the SDK with that plugin's documented command.
+#   2. Enable plugins.backend_discovery.paths pointing at that root (see dogfood-local-stub.yaml),
+#      and bind the instance below to the host environment root CURSOR_API_KEY through
+#      backend_discovery.instances secret_refs. Connector YAML never carries key material:
+#      a literal api_key field fails closed, and the connector never reads process
+#      environment or files for credentials on its own.
+#   3. Set CURSOR_API_KEY in the host process environment (bare name only, no _N numbering;
+#      exactly one slot is admitted per session). Never reuse Cursor CLI/Desktop login for SDK auth.
+#   4. Leave bridge_executable unset on Linux to use the packaged default companion. On Windows
+#      set it to the absolute installed launcher path (the host stages a copy of the outer
+#      executable, so the packaged default cannot resolve there).
+#   5. Set cursorsdk enabled: true, supply default_workspace, set routing.default_route to
+#      cursorsdk:cursor/<model-from-inventory>.
+#   6. Keep cursorcliacp on a distinct selector when both are enabled (no silent model-only pick).
+#
+# Start (stub path): go run ./cmd/aipstd check-config --config ./config/examples/cursor-sdk-experimental.yaml
+server:
+  address: "127.0.0.1:18081"
+
+routing:
+  max_attempts: 3
+  default_route: "dogfood-local:stub-default"
+  # After enabling cursorsdk:
+  # default_route: "cursorsdk:cursor/<model-from-inventory>"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-legacy
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+    - id: gemini
+      enabled: true
+      config: {}
+  backend_discovery:
+    enabled: false
+    # Enable discovery and point paths at the installed plugin root when the
+    # standalone plugin is installed (see step 1); keep it disabled for the
+    # stub path so check-config works with no plugin installed.
+    #paths:
+    #  - /opt/AIProxer/plugins/cursorsdk
+    #strict: true
+    # Bind the instance to CURSOR_API_KEY when enabling discovery. Connector
+    # YAML never carries key material: a literal api_key field fails closed.
+    #instances:
+    #  cursor-sdk:
+    #    kind: cursorsdk
+    #    secret_refs:
+    #      api_key: {env: CURSOR_API_KEY}
+  backends:
+    - id: openai-responses
+      enabled: false
+      config: {}
+    - id: openai-legacy
+      enabled: false
+      config: {}
+    - id: anthropic
+      enabled: false
+      config: {}
+    - id: gemini
+      enabled: false
+      config: {}
+    - id: bedrock
+      enabled: false
+      config: {}
+    - id: acp
+      enabled: false
+      config: {}
+    - id: openrouter
+      enabled: false
+      config: {}
+    - id: nvidia
+      enabled: false
+      config: {}
+    - id: opencode-go
+      enabled: false
+      config: {}
+    - id: opencode-zen
+      enabled: false
+      config: {}
+    - id: ollama
+      enabled: false
+      config: {}
+    - id: ollama-cloud
+      enabled: false
+      config: {}
+    - id: llamacpp
+      enabled: false
+      config: {}
+    - id: lmstudio
+      enabled: false
+      config: {}
+    - id: vllm
+      enabled: false
+      config: {}
+    - kind: local-stub
+      id: dogfood-local
+      enabled: true
+      config:
+        text: "[cursor-sdk-example] local stub (enable cursorsdk for live)"
+        input_tokens: 3
+        output_tokens: 7
+    # Experimental Cursor SDK — local-only; rejected under access.mode: multi_user.
+    # ACP remains available as cursorcliacp (disabled here; enable with an explicit route).
+    - kind: cursorsdk
+      id: cursor-sdk
+      enabled: false
+      config:
+        # No api_key field: literal credential YAML fails closed. The key arrives
+        # only through the backend_discovery.instances secret_refs binding above.
+        # bridge_executable: unset on Linux (packaged default companion); on Windows
+        # set the absolute installed launcher path, e.g.
+        # bridge_executable: "C:/AIProxer/plugins/cursorsdk/private/bridge/aip-cursor-sdk-bridge.exe"
+        # model: ""     # optional; prefer inventory + route selector
+        default_workspace: "/absolute/path/to/workspace"
+        setting_sources: []
+        sandbox_mode: required
+        # Windows local-only when SDK sandbox unavailable:
+        # sandbox_mode: off
+        auto_review: false
+        mcp_servers: {}
+        # bridge_env_allowlist: []
+        max_agents: 32
+        max_concurrent_runs: 8
+        bridge_start_timeout_seconds: 30
+        cancel_timeout_seconds: 5
+        shutdown_timeout_seconds: 10
+        agent_idle_timeout_seconds: 900
+    - kind: cursorcliacp
+      id: cursor-acp
+      enabled: false
+      config: {}
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}
+    - id: parts-noop
+      enabled: true
+      config: {}
+    - id: tool-reactor-noop
+      enabled: true
+      config: {}
+    - id: tool-call-repair
+      enabled: true
+      config: {}

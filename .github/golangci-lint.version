@@ -1,0 +1,5 @@
+# Single source of truth for the golangci-lint version and its published
+# linux-amd64 archive checksum. Workflows source this file before installing or
+# restoring the analyzer; scripts/lint-all-modules.sh points here too.
+GOLANGCI_LINT_VERSION=2.14.0
+GOLANGCI_LINT_SHA256=ab90aeb7b066f92a33415b638a50fe5344bbb75a0d32ad30cc248d88f81032ab

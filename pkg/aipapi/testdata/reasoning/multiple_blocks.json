@@ -1,0 +1,31 @@
+{
+  "Messages": [
+    {
+      "Role": "user",
+      "Parts": [{ "Kind": "text", "Text": "multi-block" }]
+    },
+    {
+      "Role": "assistant",
+      "Parts": [
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "openai.responses.reasoning_item.v1",
+            "Text": "block-one",
+            "Opaque": { "id": "rs_1", "summary": ["first"] }
+          }
+        },
+        { "Kind": "text", "Text": "partial visible" },
+        {
+          "Kind": "reasoning",
+          "Reasoning": {
+            "Dialect": "openai.responses.reasoning_item.v1",
+            "Text": "block-two",
+            "Opaque": { "id": "rs_2", "summary": ["second"] }
+          }
+        },
+        { "Kind": "text", "Text": "final visible" }
+      ]
+    }
+  ]
+}

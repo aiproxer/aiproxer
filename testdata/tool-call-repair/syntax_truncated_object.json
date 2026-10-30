@@ -1,0 +1,27 @@
+{
+  "name": "syntax_truncated_object",
+  "catalog": [
+    {
+      "name": "get_weather",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "input": {
+    "tool_name": "get_weather",
+    "args_json": "{\"location\":\"NYC\""
+  },
+  "expect": {
+    "action": "rewrite",
+    "args_json": "{\"location\":\"NYC\"}",
+    "require_schema_valid": true,
+    "json_valid": true,
+    "reason_code": "syntax_repaired"
+  }
+}

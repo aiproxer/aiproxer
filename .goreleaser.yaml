@@ -1,0 +1,68 @@
+version: 2
+
+project_name: aiproxer
+
+# Release versioning is driven exclusively by root `v<major>.<minor>.<patch>`
+# tags. Connector and support modules publish under nested namespaces
+# (`connector-support/...`), and ad-hoc recovery tags use `rescue/...`; none of
+# them may participate in root tag discovery, because GoReleaser feeds the
+# resolved tag straight into archive and release names. Glob patterns in
+# `ignore_tags` are supported from v2.15.4 (CI pins v2.17.1).
+git:
+  ignore_tags:
+    - "connector-support/*"
+    - "rescue/*"
+    - "rescue-snapshot/*"
+
+builds:
+  - id: aipstd
+    main: ./cmd/aipstd
+    binary: aipstd
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X main.version={{.Version}}
+
+archives:
+  - id: binaries
+    ids:
+      - aipstd
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - .github/SECURITY.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'Merge pull request'
+      - 'Merge branch'
+
+release:
+  draft: false
+  prerelease: auto
+  mode: replace

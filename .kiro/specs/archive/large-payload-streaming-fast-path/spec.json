@@ -1,0 +1,25 @@
+{
+  "feature_name": "Large-Payload Streaming Fast Path",
+  "created_at": "2026-08-27T20:41:00+02:00",
+  "updated_at": "2026-09-16T09:16:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "reviewed_against_main": "b08c60846a2a0119eeefef135cd6bbe06162a894",
+  "review_revision": "2026-09-09-post-ownership-closure-rebaseline",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

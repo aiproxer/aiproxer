@@ -1,0 +1,177 @@
+{
+  "schema": "golip.cursor-sdk-standalone.cutover-rehearsal/v1",
+  "spec": "cursor-sdk-standalone",
+  "task": "6.3",
+  "requirements": ["6.3", "6.4", "6.5", "6.6"],
+  "boundary": "Plugin certification",
+  "rehearsed_at": "2026-10-20",
+  "host": {
+    "repo": "matdev83/go-llm-interactive-proxy",
+    "post_cutover_commit": "bf29b6f73",
+    "post_cutover_binary_sha256": "12729257d8fb124907b031af6af81b4b078da7774d49c1b6986854dccb4146f6",
+    "main_binary_sha256": "ad050075aed847675730c097034b86c784a374929d1ee18ccb109b69318ba1b2",
+    "prior_release": {
+      "tag": "v0.1.0",
+      "binary_sha256": "ce52b7e3f02c12ce00f67eac6b0ee8a038af17d0f62b15ee8e11e34d130b7d3c",
+      "note": "the release that still carries the in-tree Cursor SDK connector"
+    }
+  },
+  "plugin_release": {
+    "repo": "aiproxer/aiproxer-cursor-sdk",
+    "tag": "cursorsdk-v0.1.0",
+    "archive": "cursorsdk-0.1.0-linux-amd64.tar.gz",
+    "archive_sha256": "d30d14a3e176124f032f4fde1611772f89defbb51bc0f0592109acb6567c8ef9",
+    "outer_executable_sha256": "fe57ba5ff708124a97c0ec07a22c5a44c08da00c7b3231aa33d47c2d13eeb08d",
+    "digest_evidence": "published .sha256 sidecar OK; digest present in the published checksums.txt; gh attestation verify exit 0"
+  },
+  "certification_record_correction": {
+    "field": "digests_verified_locally.outer_linux in release-certification.json",
+    "recorded": "fe57ba5ff708124a97c0ec07a22c5a44c08da00c7b3231aa33d47c2d13eeb08d",
+    "measured": "fe57ba5ff708124a97c0ec07a22c5a44c08da00c7b3231aa33d47c2d13eeb08d",
+    "note": "the recorded outer-executable digest was re-measured against the published cursorsdk-v0.1.0 archive during the cutover rehearsal and matches the published manifest and the recomputed digest of the archive's own executable. The record needed no correction; the first rehearsal pass had mistyped the digest in its own tooling, which the verifier caught as a manifest/executable mismatch."
+  },
+  "steps": [
+    {
+      "step": "install and trust the published plugin",
+      "verdict": "pass",
+      "evidence": "unpacked into an owner-only install root; shipped-state verification reports 'verify-package: ok'; private/bridge/node_modules absent, so the release ships no Cursor SDK"
+    },
+    {
+      "step": "installed-state verification before provisioning",
+      "verdict": "pass",
+      "evidence": "fails as documented and names the remedy: 'the Cursor SDK is not provisioned ... Provision it once with: cd <plugin-root>/private/bridge && ../node/node ../node/lib/node_modules/npm/bin/npm-cli.js ci --omit=dev'"
+    },
+    {
+      "step": "provision the operator-owned SDK with the plugin's private runtime",
+      "verdict": "pass",
+      "evidence": "private runtime 22.22.3 with its own bundled npm resolved @cursor/sdk 1.0.23 from the shipped lockfile; no system Node and no global npm involved"
+    },
+    {
+      "step": "installed-state verification and the bridge doctor",
+      "verdict": "pass",
+      "evidence": "3807 files present (1996 shipped, 1811 operator-provisioned), 1995 checksummed, 0 checksum mismatches; sdk required 1.0.23 = provisioned 1.0.23; 'doctor: ok bridge=0.1.0 sdk=1.0.23 node=22.22.3'"
+    },
+    {
+      "step": "the post-cutover host accepts the installed plugin",
+      "verdict": "fail",
+      "evidence": "both the post-cutover host and current main reject the published manifest: 'runtimebundle: structural plugin catalog: backendplugins/catalog: enabled kind unresolved'. Host v0.1.0 accepts the same plugin and the same config ('configuration is valid')."
+    },
+    {
+      "step": "the prior compatible artifact is a working rollback target",
+      "verdict": "pass",
+      "evidence": "host v0.1.0 with its in-tree connector and backend_discovery disabled: 'configuration is valid', and 'routes' lists the backend as kind cursorsdk, id cursor-sdk, enabled true"
+    }
+  ],
+  "blocker": {
+    "summary": "The published plugin release cursorsdk-v0.1.0 is rejected by every host built from current main, because the host now requires a versioned credential contract for a static export and the published manifest predates it.",
+    "mechanism": "internal/infra/runtimebundle/discovered_factories.go admits each discovered export through AdmitStaticExportWithCustomRoots; a static export without a credential contract is rejected with backendplugin/manifest: missing credential contract for static export, so the discovery entry never becomes discoverable and the enabled kind stays unresolved. The host-side copy was updated by the api-key-backend-credential-contract work (PR #1162, manifest/template.backendplugin.json now carries the v2 contract); the plugin project was not, and no plugin release was cut afterwards.",
+    "contract_required_by_the_host": {
+      "version": 2,
+      "class": "api_key",
+      "source": "host_env",
+      "env_root": "CURSOR_API_KEY",
+      "slot": "api_key",
+      "selection": "session_admission",
+      "quota_domain": "cursor"
+    },
+    "measured_matrix": [
+      {
+        "host": "v0.1.0 (987e1f7d)",
+        "manifest": "cursorsdk-v0.1.0 (no credential_contract)",
+        "verdict": "accepted"
+      },
+      {
+        "host": "current main",
+        "manifest": "cursorsdk-v0.1.0 (no credential_contract)",
+        "verdict": "rejected: enabled kind unresolved"
+      },
+      {
+        "host": "current main",
+        "manifest": "cursorsdk-v0.1.0 plus the v2 credential_contract",
+        "verdict": "accepted: configuration is valid"
+      },
+      {
+        "host": "v0.1.0 (987e1f7d)",
+        "manifest": "cursorsdk-v0.1.0 plus the v2 credential_contract",
+        "verdict": "rejected: the released manifest parser is closed (DisallowUnknownFields) and does not know the field"
+      }
+    ],
+    "consequence": "The two manifest dialects are mutually exclusive, so the fix cannot be host-only. The plugin needs a release whose manifest carries the v2 contract, and the host needs a release whose public plugin ABI contains the v2 contract type, because the plugin builds against the published host module (currently v0.1.0-rc.1, which predates it).",
+    "required_order": [
+      "1. publish a host release that carries the v2 credential-contract ABI (the type is already on main since PR #1162)",
+      "2. plugin: declare the v2 contract in the factory descriptor, the manifest template and the packaging renderer, bump the host module dependency to that release, and publish cursorsdk-v0.2.0 certified against it",
+      "3. merge the host cutover (the in-tree connector removal) after the compatible plugin release exists, so the Cursor SDK backend is never left without a working path",
+      "4. re-run this rehearsal against cursorsdk-v0.2.0 and the post-cutover host"
+    ],
+    "fix_implemented_and_proven_locally": {
+      "where": "aiproxer/aiproxer-cursor-sdk, branch feat/credential-contract-v2, commit 0575312",
+      "change": "the packaged manifest declares the host's registration for the cursorsdk kind (version 2, api_key, host_env, CURSOR_API_KEY, api_key, session_admission, cursor); the packager and both operator verifiers refuse a tree that drops it or names another registration; the verifiers read the manifest's own identity fields with the exports array removed, because the export declares a nested version of its own; the certification gate asserts the registration in the certified manifest.",
+      "local_proof": "the published archive was re-rendered with the plugin's own packaging tool, its shipped checksum record regenerated, and the SDK provisioned with the plugin's private runtime. Installed-state verification then reports sdk required 1.0.23 = provisioned 1.0.23 and doctor: ok, and the plugin's own real-host certification gate passes 14/14 against a host binary built from main bc0ddabf plus the Configure-rejection fix extracted as PR #1403 (host revision 39287274, binary sha256 b1b4b1a9b53b785290f7ed5063747db351b36eceb64837ad3139224c7480c716), including a case that rejects a literal api_key per command before the bound host secret is applied (discovery, trust, manifest identity, inactive discovery, secure negotiation, inventory, canonical execution, explicit capability refusal, multi-user denial, missing-artifact and missing-runtime and unprovisioned-SDK prerequisites, the companion-path contract, the unchanged-tree check, and the rejection of a literal api_key before the bound host secret is applied).",
+      "still_missing": "the plugin release itself: its release metadata names the host release the archive is certified against, and no host release yet carries the v2 credential-contract ABI."
+    }
+  },
+  "not_rehearsed": [
+    {
+      "item": "plugin-to-plugin rollback to a prior cursorsdk-v* archive",
+      "reason": "cursorsdk-v0.1.0 is the first plugin release, so no earlier plugin archive exists; the plugin documentation states this and names the previous cursorsdk-v* tag as the target from the next release onward"
+    },
+    {
+      "item": "the final no-Node host certification run",
+      "reason": "the isolation lane needs a mount namespace via 'sudo -n unshare --mount', and this development container refuses both the passwordless sudo and the unprivileged unshare, so the lane cannot run here. The lane remains owned by .github/workflows/node-independence.yml. The cutover removes the host's only Node tree (the Cursor bridge), so the post-cutover surface is strictly smaller than the tree the lane last certified."
+    },
+    {
+      "item": "publishing the host release and the plugin release",
+      "reason": "every workflow run in the host repository currently fails within seconds without executing a step, on every branch and every workflow, so the host's release workflow cannot produce the release the plugin's release has to be certified against. The plugin repository's own runners work; the missing half is the host release artifact."
+    },
+    {
+      "item": "live provider traffic",
+      "reason": "no Cursor SDK credentials; live scenarios stay opt-in and are reported separately from the default verification path"
+    }
+  ],
+  "platform_scope": {
+    "question": "the in-tree export declared four platforms; the standalone plugin declares two. The cutover must state whether the difference is a withdrawn claim or a lost capability.",
+    "in_tree_manifest_platforms": ["windows/amd64", "windows/arm64", "linux/amd64", "linux/arm64"],
+    "standalone_declared_platforms": ["windows/amd64", "linux/amd64"],
+    "published_plugin_artifacts": {
+      "release": "cursorsdk-v0.1.0",
+      "assembled": ["linux/amd64", "windows/amd64"],
+      "arm64_artifacts": "none; the release published no arm64 archive, and no arm64 certification evidence exists for it either"
+    },
+    "certification_evidence": "host certification covers linux/amd64 and windows/amd64 only",
+    "disposition": "the arm64 entries in the in-tree manifest were an unverified claim rather than a measured capability: no published standalone archive, no packaging run, and no real-host certification ever covered arm64. The cutover withdraws the claim explicitly rather than silently dropping it. Reinstating arm64 is a release-matrix decision that starts from an assembled and certified archive, not from re-adding a manifest line.",
+    "operator_reliance": "unknown. No inventory, telemetry, or issue record in either repository establishes that an operator runs this backend on arm64, and this review cannot manufacture that evidence.",
+    "approval": "approved by the maintainer on 2026-10-23 for this experimental cutover, on the condition that the release notes explicitly name the reduction. The approval covers withdrawing the unverified arm64 claims; it does not assert that arm64 users are unaffected, and it does not authorize shipping arm64 later without an assembled and certified artifact.",
+    "recommendation": "merge the removal with the two measured platforms, record arm64 as withdrawn in the release notes, and treat any arm64 reinstatement as a separate change that produces and certifies an artifact."
+  },
+  "release_preconditions": [
+    {
+      "gate": "host release",
+      "state": "blocked",
+      "detail": "every workflow run in the host repository fails without executing a step, on every branch, so the v2-capable release cannot be produced. It must be cut from main after f1caa0eb so it carries the credential-contract ABI, the Configure-rejection fix and the removal. The in-tree Cursor connector is no longer present: the fallback was traded away under the temporary waiver, so the release cannot retain it and the plugin release is the only path back to a working Cursor SDK backend. Tracked by issue #1404; GitHub Actions is expected back after 2026-10-31."
+    },
+    {
+      "gate": "plugin dependency pin",
+      "state": "pending",
+      "detail": "the plugin pins github.com/matdev83/go-llm-interactive-proxy v0.1.0-rc.1. For the 0.2.0 release it has to move to the published host version whose ABI it was certified against; the pin is part of the evidence that the archive and the host release belong together."
+    },
+    {
+      "gate": "plugin certification and publication",
+      "state": "pending",
+      "detail": "re-run the real-host gate on both declared platforms against the exact published host binaries, record the digests in release.yaml, flip host_certification back to certified with per-platform artifacts, and publish. The release notes have to name the arm64 withdrawal."
+    },
+    {
+      "gate": "host removal merge and rehearsal",
+      "state": "merged under waiver; rehearsal pending",
+      "detail": "the removal merged as f1caa0eb before the plugin release existed, under a maintainer-authorized temporary certification waiver. The rehearsal this gate demanded is therefore still owed, not discharged: re-run install, upgrade, rollback and no-Node behaviour against the published pair before closing task 6.3 and archiving the spec. Tracked by issue #1404."
+    }
+  ],
+  "cutover_merge": {
+    "commit": "f1caa0eb19954398ea5e0ab67a8eef7a642406ba",
+    "merged_at": "2026-10-23",
+    "authorization": "maintainer-authorized temporary certification waiver",
+    "accepted": "the in-tree Cursor SDK fallback was removed before a compatible standalone plugin release existed, so published Cursor SDK compatibility on main is temporarily lost",
+    "not_accepted": "this is not a permanent relaxation of the certification requirement, and it is not evidence of release certification. The local test passes recorded above were reported by the implementation session and were not independently rerun by the maintainer.",
+    "obligation": "GitHub issue #1404 tracks the host and plugin releases, Linux and Windows certification, no-Node testing, compatibility and rollback checks, and the arm64 disclosure after GitHub Actions recovers",
+    "spec_state": "task 6.3 stays open and the spec stays active; it is not archived until #1404 closes"
+  }
+}

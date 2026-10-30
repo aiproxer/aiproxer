@@ -1,0 +1,24 @@
+{
+  "feature_name": "openresponses-api-support",
+  "created_at": "2026-07-27T00:36:38+02:00",
+  "updated_at": "2026-08-02T16:54:26+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Add OpenResponses 2026-04-24 as a distinct versioned protocol surface: a client-facing HTTP, SSE, compaction, and WebSocket frontend plus a dependency-free generic backend connector for remote OpenResponses providers and routers, with ordered item fidelity, proxy-owned continuation state, capability-gated extensions, independent OpenResponses refclient and refbackend emulators, exhaustive Cartesian frontend-to-backend compatibility coverage, official conformance evidence, and no regression to existing protocol adapters."
+}

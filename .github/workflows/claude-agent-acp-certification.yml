@@ -1,0 +1,88 @@
+# Task 3.2 evidence: no provider credentials, no runtime/platform certification claim.
+name: Claude Agent ACP lifecycle evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "connectors/claudeagentacp/**"
+      - ".github/workflows/claude-agent-acp-certification.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-agent-acp-evidence-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      GOWORK: "off"
+    steps:
+      - name: Checkout exact dispatch revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded ACP Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: acp
+
+      - name: Record revision and run native shared ACP lifecycle tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/tested-sha.txt
+          go version | tee evidence/go-version.txt
+          go -C connector-support/acp test -count=1 -timeout=15m ./... 2>&1 | tee evidence/acp-native.log
+
+      # Claude's certified runtime and internal POSIX fixtures are Linux-only.
+      # Other native legs prove shared ACP and portable plugin contracts, not
+      # Windows/macOS Claude runtime support or a full internal lifecycle run.
+      - name: Full Claude lifecycle tests on certified host platform
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go -C connectors/claudeagentacp test -count=1 -timeout=15m ./... 2>&1 | tee evidence/claude-native.log
+
+      - name: Portable Claude descriptor and parity contracts
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go -C connectors/claudeagentacp test -count=1 -timeout=15m -run '^(TestParity_|TestDescribe_)' ./... 2>&1 | tee evidence/claude-portable.log
+
+      - name: Linux race evidence for connector and modified shared host paths
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go -C connector-support/acp test -race -count=1 -p=2 -parallel=4 -timeout=15m ./... 2>&1 | tee evidence/acp-race.log
+          go -C connectors/claudeagentacp test -race -count=1 -p=2 -parallel=4 -timeout=15m ./... 2>&1 | tee evidence/claude-race.log
+          go test -race -count=1 -p=2 -parallel=4 -timeout=15m ./internal/core/config ./internal/core/configreload ./internal/infra/backendplugins/processhost ./internal/infra/runtimebundle 2>&1 | tee evidence/host-race.log
+
+      - name: Upload source-bound evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: claude-agent-acp-lifecycle-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 14

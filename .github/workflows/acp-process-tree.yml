@@ -1,0 +1,167 @@
+# Narrow Phase 6 gate: native ACP process-tree cleanup + cursorcliacp module tests.
+# Not a duplicate of full QA; path-filtered and matrix-only for these packages.
+name: ACP process-tree
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "connector-support/acp/**"
+      - "connectors/cursorcliacp/**"
+      - "Makefile"
+      - ".github/workflows/acp-process-tree.yml"
+  pull_request:
+    paths:
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "connector-support/acp/**"
+      - "connectors/cursorcliacp/**"
+      - "Makefile"
+      - ".github/workflows/acp-process-tree.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acp-process-tree-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect ACP relevance
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.classify.outputs.relevant }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify ACP relevance
+        id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # Manual and initial pushes have no predecessor: retain full validation.
+          if [[ "$EVENT_NAME" != "pull_request" && "$EVENT_NAME" != "push" ]] || [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0{40}$ ]]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git rev-parse --verify "${BASE_SHA}^{commit}" >/dev/null
+          relevant=false
+          while IFS= read -r file; do
+            case "$file" in
+              .github/actions/go-cache/**|scripts/ci-go-cache.py)
+                relevant=true
+                break
+                ;;
+              connector-support/acp/**|connectors/cursorcliacp/**|.github/workflows/acp-process-tree.yml)
+                relevant=true
+                break
+                ;;
+              Makefile)
+                # Only a Makefile diff touching ACP-relevant lines justifies the
+                # native matrix; other Makefile edits must not burn it. Fail open:
+                # only an explicit exit 1 (no scope-relevant lines) may skip.
+                probe_rc=0
+                bash scripts/makefile-scope.sh --relevant "$BASE_SHA" HEAD acp || probe_rc=$?
+                if [[ "$probe_rc" != "1" ]]; then
+                  relevant=true
+                  break
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" HEAD)
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+
+  process-tree:
+    needs: changes
+    if: always() && !cancelled()
+    # Required check convention: always run the job and skip the steps so an
+    # unrelated PR reports success (not skip), never blocking the merge.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ needs.changes.outputs.relevant == 'true' && matrix.os || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "ACP scope detection failed; refusing to bypass native process-tree evidence." >&2
+          exit 1
+
+      - name: Checkout
+        if: needs.changes.outputs.relevant == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        if: needs.changes.outputs.relevant == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          # The shared composite owns cache identity, size and main publication.
+          cache: false
+
+      - name: Restore bounded acp Go cache
+        if: needs.changes.outputs.relevant == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: acp
+
+      - name: Native process-tree (Unix)
+        if: needs.changes.outputs.relevant == 'true' && runner.os != 'Windows'
+        working-directory: connector-support/acp
+        env:
+          GOWORK: "off"
+        shell: bash
+        run: go test -count=1 -timeout=10m -run 'KillProcessTree_|ProcessTree_CrossCompile' ./...
+
+      - name: Cursor connector (Unix)
+        if: needs.changes.outputs.relevant == 'true' && runner.os != 'Windows'
+        working-directory: connectors/cursorcliacp
+        env:
+          GOWORK: "off"
+        shell: bash
+        run: go test -count=1 -timeout=10m -run 'TestParity_|TestDescribe_' ./...
+
+      - name: Native process-tree (Windows)
+        if: needs.changes.outputs.relevant == 'true' && runner.os == 'Windows'
+        working-directory: connector-support/acp
+        env:
+          GOWORK: "off"
+        shell: pwsh
+        run: go test -count=1 -timeout=10m -run "KillProcessTree_|ProcessTree_CrossCompile" ./...
+
+      - name: Cursor connector (Windows)
+        if: needs.changes.outputs.relevant == 'true' && runner.os == 'Windows'
+        working-directory: connectors/cursorcliacp
+        env:
+          GOWORK: "off"
+        shell: pwsh
+        run: go test -count=1 -timeout=10m -run "TestParity_|TestDescribe_" ./...
+
+      - name: Save bounded acp Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.relevant == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: acp
+          phase: save
+
+      - name: Report unrelated ACP bypass
+        if: needs.changes.outputs.relevant != 'true'
+        shell: bash
+        run: |
+          echo "ACP process-tree matrix bypassed: no ACP-relevant changes detected."

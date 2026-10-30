@@ -1,0 +1,71 @@
+{
+  "id": "resp_reasoning_1",
+  "object": "response",
+  "created_at": 1719900200,
+  "status": "completed",
+  "model": "gpt-openresponses-1",
+  "output": [
+    {
+      "type": "reasoning",
+      "id": "rs_7c9b5e9f3c9241b8a6e2f1d3b4c5d6e7",
+      "status": "completed",
+      "summary": [
+        {
+          "type": "summary_text",
+          "text": "Determined the user wants the code word and looked it up."
+        }
+      ],
+      "content": [
+        {
+          "type": "output_text",
+          "text": "1. Interpreted task.\n2. Retrieved stored value."
+        }
+      ],
+      "encrypted_content": null
+    },
+    {
+      "type": "message",
+      "id": "msg_reasoning_final",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "The code word is cobalt."
+        }
+      ]
+    }
+  ],
+  "parallel_tool_calls": false,
+  "reasoning": {
+    "effort": null,
+    "summary": null
+  },
+  "store": true,
+  "background": false,
+  "temperature": 1,
+  "text": {},
+  "tool_choice": "auto",
+  "tools": [],
+  "top_p": 1,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 8,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 14,
+    "output_tokens_details": {
+      "reasoning_tokens": 6
+    },
+    "total_tokens": 22
+  },
+  "metadata": {},
+  "service_tier": "default",
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "instructions": null,
+  "previous_response_id": null,
+  "error": null,
+  "incomplete_details": null
+}

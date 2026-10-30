@@ -1,0 +1,115 @@
+{
+  "reviewed_sha": "efe4624909cea318c7211d5cb3734059d3210802",
+  "generator": "baseline/capture_baseline.py",
+  "module": "github.com/matdev83/go-llm-interactive-proxy",
+  "method": {
+    "lines": "go list GoFiles + physical newline count (scripts/arch-report.go countFileLines)",
+    "fan_out": "count of direct Imports under module/internal/",
+    "fan_in": "count of production packages (go list -test=false) whose Imports include the target",
+    "exports": "go/ast exported type/value/func decls in non-test .go files (scripts/arch-report.go exportedSymbols)"
+  },
+  "named_surface_packages": {
+    "internal/infra/runtimebundle": {
+      "non_test_lines": 9898,
+      "fan_out_internal": 82,
+      "fan_in": 3,
+      "importers": [
+        "cmd/lipstd",
+        "internal/stdhttp",
+        "pkg/lipruntime"
+      ]
+    },
+    "internal/infra/runtimehost": {
+      "non_test_lines": 3056,
+      "fan_out_internal": 4,
+      "fan_in": 4,
+      "importers": [
+        "cmd/lipstd",
+        "internal/infra/runtimebundle",
+        "internal/stdhttp",
+        "pkg/lipruntime"
+      ]
+    },
+    "internal/stdhttp": {
+      "non_test_lines": 2106,
+      "fan_out_internal": 20,
+      "fan_in": 2,
+      "importers": [
+        "cmd/lipstd",
+        "pkg/lipruntime"
+      ]
+    },
+    "cmd/lipstd": {
+      "non_test_lines": 935,
+      "fan_out_internal": 9,
+      "fan_in": 0,
+      "importers": []
+    },
+    "pkg/lipruntime": {
+      "non_test_lines": 1037,
+      "fan_out_internal": 5,
+      "fan_in": 0,
+      "importers": []
+    }
+  },
+  "named_surface_sum_root_stdhttp": 17032,
+  "stdhttp_recursive_non_test_lines": 4648,
+  "stdhttp_packages": {
+    "internal/stdhttp": 2106,
+    "internal/stdhttp/admin/configreload": 658,
+    "internal/stdhttp/admin/controlplane": 761,
+    "internal/stdhttp/admin/tokenaccounting": 184,
+    "internal/stdhttp/auth": 939
+  },
+  "critical_hotspot_files": [
+    {
+      "file": "internal/core/runtime/executor.go",
+      "lines": 125,
+      "budget": 150
+    },
+    {
+      "file": "internal/infra/runtimebundle/build.go",
+      "lines": 105,
+      "budget": 220
+    },
+    {
+      "file": "internal/infra/runtimebundle/options.go",
+      "lines": 233,
+      "budget": 240
+    },
+    {
+      "file": "internal/standardplugins/standard_table.go",
+      "lines": 283,
+      "budget": 320
+    },
+    {
+      "file": "internal/pluginreg/reg.go",
+      "lines": 312,
+      "budget": 320
+    },
+    {
+      "file": "internal/stdhttp/server.go",
+      "lines": 167,
+      "budget": 300
+    }
+  ],
+  "migration_hotspot_files": {
+    "internal/infra/runtimehost/coordinator.go": 797,
+    "internal/infra/runtimehost/generation.go": 575,
+    "internal/infra/runtimebundle/candidate_compile.go": 440,
+    "internal/infra/runtimebundle/compile_generation.go": 257,
+    "internal/infra/runtimebundle/process_services.go": 364,
+    "internal/infra/runtimebundle/build.go": 105,
+    "pkg/lipruntime/build.go": 367,
+    "pkg/lipruntime/normalize.go": 263,
+    "pkg/lipruntime/reload.go": 176,
+    "pkg/lipruntime/reload_map.go": 127,
+    "internal/stdhttp/request_plane.go": 175,
+    "internal/infra/runtimebundle/reload_host.go": 188
+  },
+  "exported_symbols": {
+    "pkg/lipapi": 319,
+    "pkg/lipsdk": 39,
+    "pkg/lipruntime": 46
+  }
+}

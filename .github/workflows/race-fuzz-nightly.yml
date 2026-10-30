@@ -1,0 +1,105 @@
+# Nightly strict Linux race detector + Tier-1 fuzz smoke (not merge-blocking on PRs).
+# PR feedback lives in qa.yml; this preserves release-gate depth on a schedule.
+name: Race and fuzz (nightly)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to test (use a PR head/branch for PR evidence)"
+        required: false
+        default: ""
+        type: string
+  schedule:
+    - cron: "17 4 * * *" # 04:17 UTC daily: every lane except billing
+    - cron: "47 5 * * 1" # 05:47 UTC Mondays: the billing lane only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: race-fuzz-${{ github.workflow }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  race-fuzz:
+    name: race-fuzz (${{ matrix.lane }})
+    runs-on: ubuntu-latest
+    # The complete generated billing sweeps exceeded 25m under race instrumentation.
+    timeout-minutes: ${{ (matrix.lane == 'billing' || matrix.lane == 'billingstore') && 75 || 40 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The billing sweeps take 35-58 minutes under the race detector, about
+        # half of the whole nightly, so they run weekly. Billing paths also get
+        # the non-race exhaustive schema certification in ci.yml on every PR that
+        # touches them. Manual dispatch runs every lane.
+        # Billing-store coverage remains daily, just as it was in broad; only
+        # scheduling and its measured package budget change, not test coverage.
+        lane: ${{ fromJSON(github.event.schedule == '47 5 * * 1' && '["billing"]' || github.event.schedule == '17 4 * * *' && '["broad","billingstore","support","runtime","architecture"]' || '["broad","billing","billingstore","support","runtime","architecture"]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          # Architecture/spec contracts archive pinned historical main commits.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate race scan coverage and failure reporting
+        run: bash scripts/test-race-check.sh
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: race
+
+      - name: Record tested revision
+        id: revision
+        shell: bash
+        env:
+          RACE_LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          tested_sha="$(git rev-parse HEAD)"
+          # Keep the evidence artifact under .tmp/ (git-ignored) so it never
+          # trips internal/qa's root-hygiene test, which flags loose .txt/.log
+          # files in the repo root (issue #262).
+          mkdir -p .tmp
+          printf 'tested_sha=%s\ncommand=bash scripts/race-check.sh --strict --lane %s\n' "$tested_sha" "$RACE_LANE" | tee .tmp/race-evidence.txt
+          echo "sha=$tested_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Strict Linux race detector
+        env:
+          RACE_LANE: ${{ matrix.lane }}
+        run: bash scripts/race-check.sh --strict --lane "$RACE_LANE"
+
+      - name: Upload strict race evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: strict-linux-race-${{ matrix.lane }}-${{ steps.revision.outputs.sha || github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            .tmp/race-evidence.txt
+            .tmp/race-check.log
+            .tmp/race-precheck.log
+
+      - name: Focused backend security smoke
+        if: matrix.lane == 'broad'
+        env:
+          FUZZTIME: 2s
+        run: make backend-plugin-security-checks
+
+      - name: Tier-1 fuzz smoke
+        if: matrix.lane == 'broad'
+        env:
+          FUZZTIME: 2s
+        run: make test-fuzz

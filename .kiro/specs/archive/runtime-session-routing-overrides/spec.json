@@ -1,0 +1,24 @@
+{
+  "feature_name": "runtime-session-routing-overrides",
+  "created_at": "2026-08-10T13:31:00+02:00",
+  "updated_at": "2026-08-13T19:30:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Add runtime, A-leg-scoped administrator routing overrides that replace the effective client model selector for all subsequent turns until changed or cleared. Overrides are revisioned latest-wins state, take effect only for turns admitted after the committed update, never mutate in-flight turns or B-legs, preserve the full existing selector language including aliases, failover, weighted routing, races, affinity, TTFT and [thinker]/[first] modes, survive generation reload and follow continuity-store durability, and expose a protected set/replace/get/clear operator API without requiring client disconnect or proxy restart."
+}

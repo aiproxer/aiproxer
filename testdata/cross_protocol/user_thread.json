@@ -1,0 +1,4 @@
+{
+  "canonical_user_text": "hello cross-protocol",
+  "note": "Golden anchor for Chat/Responses/Anthropic adapters sharing the same logical user turn."
+}

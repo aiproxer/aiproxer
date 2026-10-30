@@ -1,0 +1,15 @@
+# Connector release metadata — packaging indexes are generated from this file.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.ollama
+factory_kind: ollama
+module: github.com/aiproxer/aiproxer/connectors/ollama
+command: ./cmd/aip-backend-ollama
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: ollama-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

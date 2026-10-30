@@ -1,0 +1,16 @@
+{
+  "id": "chatcmpl_encode_golden",
+  "object": "chat.completion",
+  "created": 1715620000,
+  "model": "gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "golden-ok"
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}

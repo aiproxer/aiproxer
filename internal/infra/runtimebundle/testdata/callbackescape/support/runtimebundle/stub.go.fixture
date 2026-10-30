@@ -1,0 +1,11 @@
+package runtimebundle
+
+import "context"
+
+type Host struct{}
+
+func (h *Host) Close(ctx context.Context) error { return nil }
+
+type candidateAssembly struct{}
+
+type ResourceLedger struct{}

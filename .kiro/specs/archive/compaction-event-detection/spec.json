@@ -1,0 +1,24 @@
+{
+  "feature_name": "compaction-event-detection",
+  "created_at": "2026-08-13T17:50:00+02:00",
+  "updated_at": "2026-08-19T12:15:17+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Detect coding-agent session compaction from proxy-observable canonical request/response flow, emit typed started/completed lifecycle observations with explicit evidence quality, and let feature listeners subscribe through a fail-open SDK observer seam. Use protocol-native signals first, deterministic versioned agent signatures second, and a conservative cross-request history heuristic only as fallback; coalesce multi-call compaction transactions, retain only bounded hashes/metadata keyed by authoritative A-leg continuity, and do not use agent hooks, prompt-content persistence, an LLM classifier, routing mutation, or new database state."
+}

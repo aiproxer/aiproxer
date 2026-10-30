@@ -1,0 +1,24 @@
+{
+  "feature_name": "windows-task-reliability",
+  "created_at": "2026-07-31T14:55:52+02:00",
+  "updated_at": "2026-07-31T23:35:02+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Make developer-facing Make, build, lint, test, parity, backend-plugin, QA, and release-support tasks reliable and bounded on Windows 10 without weakening Linux CI, release, security, conformance, fuzz, or race evidence. The specification covers cross-platform command execution and cleanup, Windows-safe environment routing, bounded nested module checks, deterministic ACP lookup concurrency evidence, SQLite-only busy retries with cancellation, and truthful unsupported-platform skip semantics."
+}

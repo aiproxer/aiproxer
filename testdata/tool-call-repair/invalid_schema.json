@@ -1,0 +1,19 @@
+{
+  "name": "invalid_schema",
+  "catalog": [
+    {
+      "name": "broken",
+      "parameters_raw": "{\"type\":\"object\",\"properties\":{"
+    }
+  ],
+  "input": {
+    "tool_name": "broken",
+    "args_json": "{\"x\":1}"
+  },
+  "expect": {
+    "action": "unrepairable",
+    "args_json_unchanged": true,
+    "reason_code": "schema_invalid",
+    "must_not_mutate": true
+  }
+}

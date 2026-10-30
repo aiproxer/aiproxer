@@ -1,0 +1,113 @@
+{
+  "schema": "golip.cursor-sdk-standalone.release-certification/v1",
+  "spec": "cursor-sdk-standalone",
+  "task": "3.5",
+  "requirements": ["2.4", "3.5", "3.6", "6.4"],
+  "boundary": "Plugin certification",
+  "release": {
+    "repo": "aiproxer/aiproxer-cursor-sdk",
+    "tag": "cursorsdk-v0.1.0",
+    "url": "https://github.com/aiproxer/aiproxer-cursor-sdk/releases/tag/cursorsdk-v0.1.0",
+    "published_at": "2026-10-08T17:55:37Z",
+    "asset_count": 13,
+    "asset_breakdown": "2 archives + 2 sidecars + 1 checksums.txt + 2 host-cert + 6 verify logs",
+    "asset_names": [
+      "checksums.txt",
+      "cursorsdk-0.1.0-linux-amd64.tar.gz",
+      "cursorsdk-0.1.0-linux-amd64.tar.gz.sha256",
+      "cursorsdk-0.1.0-windows-amd64.zip",
+      "cursorsdk-0.1.0-windows-amd64.zip.sha256",
+      "host-cert-linux-amd64.txt",
+      "host-cert-windows-amd64.txt",
+      "verify-installed-linux-amd64.txt",
+      "verify-installed-windows-amd64.txt",
+      "verify-shipped-linux-amd64.txt",
+      "verify-shipped-windows-amd64.txt",
+      "verify-unpacked-linux-amd64.txt",
+      "verify-unpacked-windows-amd64.txt"
+    ]
+  },
+  "source": {
+    "revision": "c403e28d1d5993068ecce798c78d45349fe45964",
+    "modified": false,
+    "evidence": "compat source_revision + source_modified=false on both platforms; verify logs 'source modified: no'; tag object 71beed0130a4d2f4342b7d892f588dcf40c8347c points at this commit"
+  },
+  "workflows": {
+    "final_release_run": "37819483634",
+    "final_release_url": "https://github.com/aiproxer/aiproxer-cursor-sdk/actions/runs/37819483634",
+    "final_release_conclusion": "success",
+    "final_release_head": "943c9b33237c5a6dfcc23c62fea58106d49fbf49",
+    "final_release_branch": "main",
+    "final_release_jobs": ["guard (tag, revision, and single publication)", "package + certify (linux-amd64)", "package + certify (windows-amd64)", "publish (immutable release, checksums, provenance)"],
+    "merged_main_verify_run": "37819480701",
+    "merged_main_verify_url": "https://github.com/aiproxer/aiproxer-cursor-sdk/actions/runs/37819480701",
+    "merged_main_verify_conclusion": "success",
+    "merged_main_verify_lanes": 7
+  },
+  "digests_verified_locally": {
+    "archive_linux_tar_gz": "d30d14a3e176124f032f4fde1611772f89defbb51bc0f0592109acb6567c8ef9",
+    "archive_windows_zip": "8aeb49de886030423146d8d4a46a17fc27dfc4e0f85a90a912120ea6ca23d5dc",
+    "archive_evidence": "local sha256 recompute matches checksums.txt and both .sha256 sidecars",
+    "outer_linux": "fe57ba5ff708124a97c0ec07a22c5a44c08da00c7b3231aa33d47c2d13eeb08d",
+    "outer_windows": "8ab8f8b475fb8997dd65001573c47be0327f474ba1f150ac49b14a3b308ec2f1",
+    "outer_evidence": "local sha256 recompute equals manifest sha256 field and compat outer_executable_sha256 on both platforms",
+    "manifest_linux": "92a9a582789dbe41f9cf73057194824ac695eb969181c0ff6b5d3142f9b33484",
+    "manifest_windows": "4a562ab3e9a258bd63506b6dad8c04971c361b343e17e53308a210d8da0b03ba",
+    "manifest_evidence": "local file hash equals compat manifest_sha256; verify logs report 'manifest sha256 (recorded, matches)'"
+  },
+  "host_baseline": {
+    "repo": "matdev83/go-llm-interactive-proxy",
+    "version": "v0.1.0",
+    "source_commit": "987e1f7d527cfd84cae61d294709538de8d03815",
+    "host_linux_sha256": "ce52b7e3f02c12ce00f67eac6b0ee8a038af17d0f62b15ee8e11e34d130b7d3c",
+    "host_windows_sha256": "6a6f7462d94bd3c5fae16e799e10ec236bfc116c86baaca19544dc3fed6b20c4",
+    "host_evidence": "compat tested_host_artifacts lists both hashes on both platforms; host v0.1.0 tag and source commit verified to exist via gh"
+  },
+  "pins": {
+    "cursor_sdk_required": "1.0.23",
+    "cursor_sdk_bundled": false,
+    "cursor_sdk_evidence": "package.json + package-lock.json pin 1.0.23; private/bridge/node_modules absent in both unpacked trees; compat cursor_sdk_bundled=false with non-redistribution statement",
+    "undici": "6.28.1",
+    "undici_evidence": "package-lock node_modules/undici version 6.28.1 on both platforms",
+    "private_runtime": "v22.22.3",
+    "private_runtime_linux_source": "nodejs-official-distribution:node-v22.22.3-linux-x64.tar.gz",
+    "private_runtime_windows_source": "nodejs-official-distribution:node-v22.22.3-win-x64.zip",
+    "bridge_version": "0.1.0",
+    "bridge_node_engine": ">=22.13",
+    "host_contracts": "v0.1.0-rc.1",
+    "host_contract_modules": ["github.com/matdev83/go-llm-interactive-proxy", "github.com/matdev83/go-llm-interactive-proxy/connector-support/acp"],
+    "protocol": "major 1, min 0, max 0",
+    "plugin": "io.golip.backend.cursorsdk 0.1.0",
+    "module": "github.com/aiproxer/aiproxer-cursor-sdk"
+  },
+  "companion_contracts": [
+    {
+      "platform": "linux/amd64",
+      "contract": "packaged-default-supported",
+      "bridge_executable_rel": "private/bridge/lip-cursor-sdk-bridge",
+      "evidence": "host-cert linux logs 'packaged default companion resolution on linux/amd64: REACHABLE and supported'"
+    },
+    {
+      "platform": "windows/amd64",
+      "contract": "explicit-bridge_executable-required",
+      "bridge_executable_rel": "private/bridge/lip-cursor-sdk-bridge.exe",
+      "evidence": "host-cert windows logs 'UNREACHABLE by contract, explicit bridge_executable required'; certified spelling is absolute installed path"
+    }
+  ],
+  "certification_evidence": {
+    "host_cert_linux_duration": "4.469s",
+    "host_cert_windows_duration": "119.342s",
+    "host_cert_verdict": "16 PASS lines (top-level test + intermediate companion-contract group + 14 leaf cases) with 0 FAIL on each platform, parsed from both host-cert logs",
+    "verify_reports": 6,
+    "verify_verdict": "all 6 end with 'verify-package: ok' with 0 checksum mismatches; shipped scope is shipped-files-only, operator-provisioned tree outside the record",
+    "attestation": "gh attestation verify exit 0 for both published archives",
+    "platform_scope": "native windows/amd64 + linux/amd64 only; per-archive manifest lists a single platform; no darwin production claim; live-provider evidence remains opt-in"
+  },
+  "audit_notes": [
+    "compat build_id is the literal label 'localdev', not identity; identity is source_revision plus outer digests above.",
+    "compat package_verification_state is the literal 'not-performed' inside the archive; the 6 external verify reports are the verification evidence, kept outside the archive.",
+    "Windows ACL ownership is recorded as not machine-checkable in the verify logs; Linux ownership is 0755 owner-only-write; install into a protected plugin root on both.",
+    "external_node_required=false on both platforms; no system Node required; provisioning uses the shipped private runtime's own npm with per-platform npm-cli paths recorded in compat.",
+    "No macOS production claim and no live-provider run is recorded here."
+  ]
+}

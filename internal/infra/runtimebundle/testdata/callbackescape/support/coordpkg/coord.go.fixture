@@ -1,0 +1,6 @@
+package coordpkg
+
+// Coordinator is unrelated to runtimehost.Coordinator despite sharing its name.
+type Coordinator struct{}
+
+type StringMapper func(string) string

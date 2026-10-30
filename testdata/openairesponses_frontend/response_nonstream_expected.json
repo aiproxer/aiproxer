@@ -1,0 +1,21 @@
+{
+  "id": "resp_encode_golden",
+  "object": "response",
+  "created_at": 1715620000,
+  "status": "completed",
+  "model": "gpt-4o-mini",
+  "output": [
+    {
+      "type": "message",
+      "id": "msg_encode_golden",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "golden-ok"
+        }
+      ]
+    }
+  ]
+}

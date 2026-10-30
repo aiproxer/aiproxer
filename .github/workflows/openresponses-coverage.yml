@@ -1,0 +1,160 @@
+name: OpenResponses coverage evidence
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openresponses-coverage-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect OpenResponses coverage scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_suite: ${{ steps.filter.outputs.run_suite }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate CI scope matcher
+        shell: bash
+        run: bash scripts/ci-scope.sh --self-test
+
+      - name: Set up Go for dependency scope
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Classify coverage scope
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" != "pull_request" && "$EVENT_NAME" != "push" ]]; then
+            echo "run_suite=true" >> "$GITHUB_OUTPUT"
+          else
+            run_suite="$(bash scripts/ci-scope.sh --outputs "${BASE_SHA:-}" HEAD | awk -F= '$1 == "openresponses_coverage" {print $2}')"
+            if [[ "$run_suite" == true ]]; then
+              if ! run_suite="$(bash scripts/openresponses-coverage-scope.sh "${BASE_SHA:-}" HEAD)"; then
+                run_suite=true
+              fi
+            fi
+            case "$run_suite" in
+              true|false) echo "run_suite=$run_suite" >> "$GITHUB_OUTPUT" ;;
+              *) echo "invalid OpenResponses coverage scope result: $run_suite" >&2; exit 1 ;;
+            esac
+          fi
+
+  coverage:
+    name: Measured OpenResponses coverage
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "OpenResponses coverage scope detection failed; refusing to bypass measured coverage." >&2
+          exit 1
+
+      - name: Check out exact tested SHA
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded coverage Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: coverage
+
+      - name: Generate profiles and summaries
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true'
+        shell: bash
+        env:
+          TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/openresponses-coverage
+          declare -A packages=(
+            [protocols-openresponses]=./internal/plugins/protocols/openresponses
+            [refclient-openresponses]=./internal/refclient/openresponses
+            [refbackend-openresponses]=./internal/refbackend/openresponses
+            [frontends-openresponses]=./internal/plugins/frontends/openresponses
+            [backends-openresponsescompat]=./internal/plugins/backends/openresponsescompat
+          )
+          for name in "${!packages[@]}"; do
+            profile="artifacts/openresponses-coverage/${name}.coverprofile"
+            summary="artifacts/openresponses-coverage/${name}.summary.txt"
+            if [[ "$name" == "frontends-openresponses" ]]; then
+              # This package contains timing-sensitive websocket/goroutine tests.
+              # Aggregate three uncached serialized runs to make evidence stable;
+              # the normal unit/QA test behavior is unchanged.
+              go test -p=1 -parallel=1 -count=3 -covermode=atomic -coverprofile="$profile" "${packages[$name]}"
+            else
+              go test -covermode=atomic -coverprofile="$profile" "${packages[$name]}"
+            fi
+            go tool cover -func="$profile" > "$summary"
+            printf 'tested_sha=%s\npackage=%s\n' "$TESTED_SHA" "${packages[$name]}" >> "$summary"
+          done
+
+      - name: Enforce measured thresholds
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gate='./coverage-gate'
+          trap 'rm -f "$gate" "$gate.exe"' EXIT
+          go build -o "$gate" ./tools/coverage-gate
+          "$gate" -func artifacts/openresponses-coverage/refclient-openresponses.summary.txt -threshold 90 -name refclient/openresponses
+          "$gate" -func artifacts/openresponses-coverage/refbackend-openresponses.summary.txt -threshold 90 -name refbackend/openresponses
+          "$gate" -func artifacts/openresponses-coverage/protocols-openresponses.summary.txt -threshold 84.2 -name protocols/openresponses
+          "$gate" -func artifacts/openresponses-coverage/frontends-openresponses.summary.txt -threshold 79.7 -name frontends/openresponses
+          "$gate" -func artifacts/openresponses-coverage/backends-openresponsescompat.summary.txt -threshold 83.0 -name backends/openresponsescompat
+
+      - name: Upload profiles and summaries for exact SHA
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4
+        with:
+          name: openresponses-coverage-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/openresponses-coverage
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.run_suite != 'true'
+        shell: bash
+        run: |
+          echo "OpenResponses coverage bypassed: no measured-surface changes detected."
+
+      - name: Save bounded coverage Go cache
+        if: success() && (needs.changes.result == 'success' && needs.changes.outputs.run_suite == 'true')
+        uses: ./.github/actions/go-cache
+        with:
+          lane: coverage
+          phase: save

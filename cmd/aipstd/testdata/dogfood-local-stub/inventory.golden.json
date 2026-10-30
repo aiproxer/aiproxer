@@ -1,0 +1,352 @@
+{
+  "frontends": [
+    {
+      "id": "openai-responses",
+      "factory_kind": "openai-responses",
+      "enabled": true
+    },
+    {
+      "id": "openai-legacy",
+      "factory_kind": "openai-legacy",
+      "enabled": true
+    },
+    {
+      "id": "anthropic",
+      "factory_kind": "anthropic",
+      "enabled": true
+    },
+    {
+      "id": "gemini",
+      "factory_kind": "gemini",
+      "enabled": true
+    }
+  ],
+  "backends": [
+    {
+      "id": "openai-responses",
+      "factory_kind": "openai-responses",
+      "enabled": false
+    },
+    {
+      "id": "openai-legacy",
+      "factory_kind": "openai-legacy",
+      "enabled": false
+    },
+    {
+      "id": "anthropic",
+      "factory_kind": "anthropic",
+      "enabled": false
+    },
+    {
+      "id": "gemini",
+      "factory_kind": "gemini",
+      "enabled": false
+    },
+    {
+      "id": "bedrock",
+      "factory_kind": "bedrock",
+      "enabled": false
+    },
+    {
+      "id": "acp",
+      "factory_kind": "acp",
+      "enabled": false
+    },
+    {
+      "id": "openrouter",
+      "factory_kind": "openrouter",
+      "enabled": false
+    },
+    {
+      "id": "nvidia",
+      "factory_kind": "nvidia",
+      "enabled": false
+    },
+    {
+      "id": "opencode-go",
+      "factory_kind": "opencode-go",
+      "enabled": false
+    },
+    {
+      "id": "opencode-zen",
+      "factory_kind": "opencode-zen",
+      "enabled": false
+    },
+    {
+      "id": "ollama",
+      "factory_kind": "ollama",
+      "enabled": false
+    },
+    {
+      "id": "ollama-cloud",
+      "factory_kind": "ollama-cloud",
+      "enabled": false
+    },
+    {
+      "id": "llamacpp",
+      "factory_kind": "llamacpp",
+      "enabled": false
+    },
+    {
+      "id": "lmstudio",
+      "factory_kind": "lmstudio",
+      "enabled": false
+    },
+    {
+      "id": "vllm",
+      "factory_kind": "vllm",
+      "enabled": false
+    },
+    {
+      "id": "dogfood-local",
+      "factory_kind": "local-stub",
+      "enabled": true
+    }
+  ],
+  "features": [
+    {
+      "id": "submit-noop",
+      "factory_kind": "submit-noop",
+      "enabled": true
+    },
+    {
+      "id": "parts-noop",
+      "factory_kind": "parts-noop",
+      "enabled": true
+    },
+    {
+      "id": "tool-reactor-noop",
+      "factory_kind": "tool-reactor-noop",
+      "enabled": true
+    },
+    {
+      "id": "tool-call-repair",
+      "factory_kind": "tool-call-repair",
+      "enabled": true
+    },
+    {
+      "id": "reasoning-output-preservation",
+      "factory_kind": "reasoning-output-preservation",
+      "enabled": true
+    }
+  ],
+  "extensions": {
+    "legal_pipeline": [
+      "transport_authentication",
+      "session_open",
+      "secret_guard",
+      "session_classification",
+      "submit_request",
+      "tool_catalog_filter",
+      "request_wide_shaping",
+      "pre_request_admission",
+      "route_hinting",
+      "candidate_attempt_transform",
+      "attempt_lifecycle",
+      "stream_event_mutation",
+      "tool_event_reaction",
+      "completion_gating",
+      "final_stream_observation",
+      "traffic_observation",
+      "egress_encoding"
+    ],
+    "stages": [
+      {
+        "id": "transport_authentication",
+        "default_failure": "fail_closed"
+      },
+      {
+        "id": "session_open",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "secret_guard",
+        "default_failure": "fail_closed"
+      },
+      {
+        "id": "session_classification",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "submit_request",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "tool_catalog_filter",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "request_wide_shaping",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "pre_request_admission",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "route_hinting",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "candidate_attempt_transform",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "attempt_lifecycle",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "stream_event_mutation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "tool_event_reaction",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "completion_gating",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "final_stream_observation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "traffic_observation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "egress_encoding",
+        "default_failure": "fail_closed"
+      }
+    ],
+    "features": [
+      {
+        "instance_id": "submit-noop",
+        "factory_kind": "submit-noop",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "submit_request",
+            "handler_ids": [
+              "submit-noop"
+            ],
+            "count": 1
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "parts-noop",
+        "factory_kind": "parts-noop",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "request_wide_shaping",
+            "handler_ids": [
+              "request_part:parts-noop"
+            ],
+            "count": 1
+          },
+          {
+            "stage_id": "stream_event_mutation",
+            "handler_ids": [
+              "parts-noop"
+            ],
+            "count": 1
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "tool-reactor-noop",
+        "factory_kind": "tool-reactor-noop",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "tool_event_reaction",
+            "handler_ids": [
+              "tool-reactor-noop"
+            ],
+            "count": 1
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "tool-call-repair",
+        "factory_kind": "tool-call-repair",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "tool_event_reaction",
+            "handler_ids": [
+              "tool_finalizer:tool-call-repair"
+            ],
+            "count": 1
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      },
+      {
+        "instance_id": "reasoning-output-preservation",
+        "factory_kind": "reasoning-output-preservation",
+        "enabled": true,
+        "stage_occupancy": [
+          {
+            "stage_id": "candidate_attempt_transform",
+            "handler_ids": [
+              "attempt_transform:reasoning-output-preservation-transform"
+            ],
+            "count": 1
+          },
+          {
+            "stage_id": "final_stream_observation",
+            "handler_ids": [
+              "stream_observer:reasoning-output-preservation-observer"
+            ],
+            "count": 1
+          }
+        ],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": true,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      }
+    ],
+    "generic_ports": {
+      "attempt_transform_occupied": true,
+      "attempt_transform_handlers": 1,
+      "final_stream_observation_occupied": true,
+      "final_stream_observation_handlers": 1
+    }
+  },
+  "server_limits": {
+    "max_request_body_bytes": 8388608,
+    "max_concurrent_decodes": 32,
+    "max_inflight_decode_bytes": 67108864,
+    "max_pending_wire_events": 0
+  }
+}

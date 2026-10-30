@@ -1,0 +1,20 @@
+package deepalias
+
+import rh "github.com/aiproxer/aiproxer/internal/infra/runtimebundle/testdata/callbackescape/support/runtimehost"
+
+type (
+	L1              = *rh.Coordinator
+	L2              = L1
+	DeepCoordPicker = func(L2) int
+)
+
+func ImportedStoredMarker() *rh.Coordinator     { return nil }
+func ImportedCompositeMarker() *rh.Coordinator  { return nil }
+func ImportedArgMarker(*rh.Coordinator)         {}
+func ImportedReturnMarker() *rh.Coordinator     { return nil }
+func ImportedGenericMarker(*rh.Coordinator) int { return 0 }
+func ImportedDirectAllowed() *rh.Coordinator    { return nil }
+
+func ImportedImmediateFactory() func(*rh.Coordinator) int {
+	return func(*rh.Coordinator) int { return 0 }
+}

@@ -1,0 +1,8 @@
+# Quarantined Go tests: failing on main and skipped by `make` test targets,
+# `make dev-test*`, and CI until the linked issue is fixed.
+#
+# Format, one per line:  <TopLevelTestName> <https://github.com/aiproxer/aiproxer-enterprise/issues/N>
+# Rules:
+#   - only for failures that reproduce on origin/main and are not caused by the branch adding the entry;
+#   - every entry links an open issue; the fixing PR removes the entry;
+#   - `go run ./tools/devcheck -task=quarantine` validates entries and fails on names that no longer exist.

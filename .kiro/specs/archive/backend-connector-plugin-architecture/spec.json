@@ -1,0 +1,32 @@
+{
+  "feature_name": "backend-connector-plugin-architecture",
+  "created_at": "2026-07-19T01:03:15+02:00",
+  "updated_at": "2026-07-28T20:35:34+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "implementation_complete": true,
+  "completed": true,
+  "completion_sha": "e796998cc8f7095bce65e450211cb1aef3b76def",
+  "completion_evidence": {
+    "acp_process_tree_run": 30382805122,
+    "cross_platform_run": 30382807401,
+    "release_gates_run": 30382809655,
+    "codex_race_run": 30382811954
+  },
+  "project_description": "Completed hybrid backend connector architecture: essential backends remain static builtins while optional connectors are independently buildable executable gRPC plugins with a versioned ABI, closed trusted manifest discovery, digest-bound launch, secure local IPC, lazy declared process activation, fail-closed unsupported-platform posture, and root-module isolation. Local release/security/cross-platform/parity gates and exact-SHA Windows, Ubuntu, and macOS workflow evidence are recorded."
+}

@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "feature": "decoupled-exposure-and-post-usage-billing",
+  "phase": "0.1-brownfield-baseline",
+  "require_net_loc_reduction": true,
+  "forbid_hold_symbols": true,
+  "authoritative_flow": "current",
+  "current_flow": "quote -> financial authorization hold -> authorization journal + reserved_nano -> execute -> runtime TUR aggregation/barrier -> all-or-nothing customer+provider settlement -> authorization release",
+  "target_flow": "cheap settled-credit read -> route + pessimistic quote -> atomic open-exposure insert -> execute with no billing/exposure mutation -> durable terminal usage records -> deterministic customer rating -> idempotent double-entry customer posting + exposure close",
+  "baseline_total": 10786,
+  "surfaces": [
+    {
+      "id": "core-billing",
+      "kind": "package",
+      "path": "internal/core/billing",
+      "baseline_lines": 4123
+    },
+    {
+      "id": "billingstore",
+      "kind": "package",
+      "path": "internal/infra/billingstore",
+      "baseline_lines": 4579
+    },
+    {
+      "id": "billingcompose",
+      "kind": "package",
+      "path": "internal/infra/billingcompose",
+      "baseline_lines": 609
+    },
+    {
+      "id": "billingadmission",
+      "kind": "package",
+      "path": "internal/infra/billingadmission",
+      "baseline_lines": 243
+    },
+    {
+      "id": "runtime-billing",
+      "kind": "glob",
+      "path": "internal/core/runtime",
+      "match": "billing_*.go",
+      "baseline_lines": 1057
+    },
+    {
+      "id": "runtimebundle-billing",
+      "kind": "glob",
+      "path": "internal/infra/runtimebundle",
+      "match": "billing_*.go",
+      "baseline_lines": 175
+    }
+  ],
+  "deletion_targets": [
+    {
+      "id": "Authorization",
+      "kind": "type",
+      "package": "internal/core/billing",
+      "name": "AdmissionService",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Hold-based AdmissionService must not remain after exposure cutover."
+    },
+    {
+      "id": "AuthorizationStore",
+      "kind": "type",
+      "package": "internal/core/billing",
+      "name": "LegacyAuthorizationStore",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "LegacyAuthorizationStore.Authorize must not remain as call-path ownership."
+    },
+    {
+      "id": "AuthorizationLookup",
+      "kind": "type",
+      "package": "internal/core/billing",
+      "name": "LegacyAuthorizationLookup",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Hold-bound rating lookup interface must not remain after exposure cutover."
+    },
+    {
+      "id": "HoldReleaser",
+      "kind": "type",
+      "package": "internal/core/billing",
+      "name": "LegacyHoldReleaser",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "LegacyHoldReleaser must not remain as billing ownership after exposure cutover."
+    },
+    {
+      "id": "BillingAdmissionCleanup",
+      "kind": "type",
+      "package": "internal/core/runtime",
+      "name": "BillingAdmissionCleanup",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Runtime hold-release cleanup must remain absent after exposure cutover."
+    },
+    {
+      "id": "authorization_holds",
+      "kind": "schema",
+      "files": ["internal/infra/billingstore/20260812000000_billing_baseline.go"],
+      "marker": "authorization_holds",
+      "legacy_recovery_files": [
+        "internal/infra/billingstore/authorization_store.go",
+        "internal/infra/billingstore/operator_queries.go",
+        "internal/infra/billingstore/legacy_hold_reconcile.go",
+        "internal/infra/billingstore/reports.go"
+      ],
+      "retirement_verifier_files": [
+        "internal/infra/billingstore/store.go"
+      ],
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "authorization_holds is retired from admission; only explicit legacy-recovery readers, retirement verifiers, and migration DDL may mention it."
+    },
+    {
+      "id": "reserved_nano",
+      "kind": "schema",
+      "files": [
+        "internal/core/billing/account.go",
+        "internal/infra/billingstore/trusted_operations.go",
+        "internal/infra/billingstore/reconcile.go"
+      ],
+      "marker": "checkedSub(available, a.ReservedNano)",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Spendable/admission money math must not subtract reserved_nano; column may remain always-zero dead schema."
+    },
+    {
+      "id": "JournalBookLegacyAuthorization",
+      "kind": "ident",
+      "files": [
+        "internal/core/billing/settlement.go",
+        "internal/core/billing/commands.go",
+        "internal/core/billing/authorize.go",
+        "internal/infra/billingstore/call_settlement.go",
+        "internal/infra/billingstore/trusted_operations.go"
+      ],
+      "marker": "JournalBookLegacyAuthorization",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Call-path writers must not construct authorization-book journal postings; historical decode/replay may retain the book name."
+    },
+    {
+      "id": "hold_expiry",
+      "kind": "ident",
+      "files": ["internal/core/billing/hold.go"],
+      "marker": "DefaultHoldTTL",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Hold create-path TTL defaults must remain absent after exposure cutover."
+    },
+    {
+      "id": "hold_remainder",
+      "kind": "ident",
+      "files": ["internal/infra/billingstore/trusted_operations.go"],
+      "marker": "remaining := hold.AmountNano - hold.ReleasedAmount",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Hold remainder release math must remain absent after exposure cutover."
+    },
+    {
+      "id": "hold_release",
+      "kind": "ident",
+      "files": ["internal/infra/billingstore/trusted_operations.go", "internal/core/billing/authorize.go"],
+      "marker": "ReleaseLegacyAuthorization",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "ReleaseLegacyAuthorization must remain absent as billing ownership after exposure cutover."
+    },
+    {
+      "id": "evidenceByALeg",
+      "kind": "ident",
+      "files": ["internal/core/runtime/billing_collector.go"],
+      "marker": "evidenceByALeg",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Runtime must not aggregate B-leg financial evidence in memory by A-leg."
+    },
+    {
+      "id": "billing_parallel_barrier",
+      "kind": "ident",
+      "files": ["internal/core/runtime/billing_collector.go"],
+      "marker": "barrierByALeg",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Runtime must not use a billing-specific parallel barrier before settlement."
+    },
+    {
+      "id": "tur_rebuild_from_remembered_legs",
+      "kind": "ident",
+      "files": ["internal/core/runtime/billing_collector.go"],
+      "marker": "sealableBillingLegs(c.peek(job.ALegID))",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Handoff retry must not rebuild a mutable TUR from remembered legs."
+    },
+    {
+      "id": "provider_cost_complete_prerequisite",
+      "kind": "ident",
+      "files": ["internal/core/billing/settlement.go"],
+      "marker": "provider cost is unreconciled",
+      "present": false,
+      "status": "record-current-presence",
+      "reason": "Customer settlement must not require provider-cost reconciliation first."
+    }
+  ],
+  "planned_ratchets": [
+    {
+      "id": "stream_money_mutation",
+      "status": "active",
+      "activation_task": "already-enforced",
+      "requirements": ["7.1", "7.4", "17.8"],
+      "end_state": "runtime stream handlers must not import or invoke financial journal posting, customer settlement, provider-cost settlement, or account balance mutation"
+    },
+    {
+      "id": "hold_lifecycle",
+      "status": "active",
+      "activation_flag": "forbid_hold_symbols",
+      "activation_task": "7.1",
+      "requirements": ["7.7", "13.1", "13.2", "13.3", "13.4", "13.5", "13.6", "13.8", "17.9"],
+      "deletion_target_ids": [
+        "Authorization",
+        "AuthorizationStore",
+        "AuthorizationLookup",
+        "HoldReleaser",
+        "BillingAdmissionCleanup",
+        "authorization_holds",
+        "reserved_nano",
+        "JournalBookLegacyAuthorization",
+        "hold_expiry",
+        "hold_remainder",
+        "hold_release"
+      ],
+      "end_state": "authorization-book and reserved-balance hold lifecycle must not return to the normal call path"
+    },
+    {
+      "id": "a_leg_only_settlement_identity",
+      "status": "active",
+      "activation_task": "already-enforced",
+      "requirements": ["2.2", "2.3", "9.7", "17.6"],
+      "files": ["internal/core/billing/settlement.go"],
+      "current_markers": ["one sealed A-leg", "CustomerSettlementSourceKey(turKey"],
+      "forbidden_when_activated": ["one sealed A-leg", "CustomerSettlementSourceKey(turKey"],
+      "required_when_activated": ["BillingCallID"],
+      "end_state": "customer settlement key is account+BillingCallID, not A-leg or session alone"
+    },
+    {
+      "id": "runtime_financial_evidence_barrier",
+      "status": "active",
+      "activation_flag": "forbid_hold_symbols",
+      "activation_task": "7.1",
+      "requirements": ["14.1", "14.2", "14.6"],
+      "deletion_target_ids": [
+        "evidenceByALeg",
+        "billing_parallel_barrier",
+        "tur_rebuild_from_remembered_legs"
+      ],
+      "end_state": "runtime must not aggregate financial evidence by A-leg, use a billing-specific parallel barrier, or rebuild a mutable TUR from remembered legs"
+    },
+    {
+      "id": "net_loc_reduction",
+      "status": "active",
+      "activation_flag": "require_net_loc_reduction",
+      "activation_task": "7.2",
+      "requirements": ["14.8", "17.11"],
+      "end_state": "billing-convergence production surfaces must have a net reduction versus the locked pre-spec baseline; test/docs/migration lines must not mask growth"
+    }
+  ]
+}

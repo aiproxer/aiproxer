@@ -1,0 +1,46 @@
+# Built-in Anthropic Messages compatible backend (env-root credentials).
+# Validate: go run ./cmd/aipstd check-config --config config/examples/custom-anthropic-compatible.yaml
+server:
+  address: "127.0.0.1:18092"
+
+routing:
+  max_attempts: 3
+  default_route: "provider-anthropic:provider-anthropic/claude-a"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: anthropic
+      enabled: true
+      config: {}
+  backends:
+    - id: provider-anthropic
+      kind: custom-anthropic-compatible
+      enabled: true
+      config:
+        backend_prefix: provider-anthropic
+        base_url: https://api.provider-anthropic.example
+        api_key_env_var_root: PROVIDER_ANTHROPIC_API_KEY
+        models:
+          source: inline
+          items:
+            - canonical_id: provider-anthropic/claude-a
+              native_id: claude-a
+              display_name: Provider Anthropic Claude A
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}

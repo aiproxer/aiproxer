@@ -1,0 +1,39 @@
+# Tool-name-correction feature-stub-smoke scenario template, adapted from the
+# session-transcript recipe (scratch fu-infra/smoke.yaml). The smoke script
+# substitutes __PROXY_ADDR__ (host:port) and __BACKEND_BASE_URL__ (http
+# backend URL) with per-run free ports before serving.
+server:
+  address: "__PROXY_ADDR__"
+access:
+  mode: single_user
+routing:
+  max_attempts: 2
+  default_route: "invented:model-a"
+continuity:
+  in_memory: true
+  store: memory
+logging:
+  level: info
+  format: text
+plugins:
+  frontends:
+    - id: openai-legacy
+      enabled: true
+      config: {}
+  backends:
+    - id: invented
+      kind: custom-openai-legacy-compatible
+      enabled: true
+      config:
+        backend_prefix: invented
+        base_url: __BACKEND_BASE_URL__
+        models:
+          source: inline
+          items:
+            - canonical_id: model-a
+              native_id: model-a
+  features:
+    - id: tool-name-correction
+      enabled: true
+      config:
+        max_corrections_per_turn: 1

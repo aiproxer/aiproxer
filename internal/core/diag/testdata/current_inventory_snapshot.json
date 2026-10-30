@@ -1,0 +1,140 @@
+{
+  "frontends": [
+    {
+      "id": "openai-responses",
+      "factory_kind": "openai-responses",
+      "enabled": true
+    }
+  ],
+  "backends": [
+    {
+      "id": "anthropic",
+      "factory_kind": "anthropic",
+      "enabled": false
+    }
+  ],
+  "features": [
+    {
+      "id": "submit-noop",
+      "factory_kind": "submit-noop",
+      "enabled": true
+    }
+  ],
+  "extensions": {
+    "legal_pipeline": [
+      "transport_authentication",
+      "session_open",
+      "secret_guard",
+      "session_classification",
+      "submit_request",
+      "tool_catalog_filter",
+      "request_wide_shaping",
+      "pre_request_admission",
+      "route_hinting",
+      "candidate_attempt_transform",
+      "attempt_lifecycle",
+      "stream_event_mutation",
+      "tool_event_reaction",
+      "completion_gating",
+      "final_stream_observation",
+      "traffic_observation",
+      "egress_encoding"
+    ],
+    "stages": [
+      {
+        "id": "transport_authentication",
+        "default_failure": "fail_closed"
+      },
+      {
+        "id": "session_open",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "secret_guard",
+        "default_failure": "fail_closed"
+      },
+      {
+        "id": "session_classification",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "submit_request",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "tool_catalog_filter",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "request_wide_shaping",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "pre_request_admission",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "route_hinting",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "candidate_attempt_transform",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "attempt_lifecycle",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "stream_event_mutation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "tool_event_reaction",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "completion_gating",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "final_stream_observation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "traffic_observation",
+        "default_failure": "fail_open"
+      },
+      {
+        "id": "egress_encoding",
+        "default_failure": "fail_closed"
+      }
+    ],
+    "features": [
+      {
+        "instance_id": "submit-noop",
+        "factory_kind": "submit-noop",
+        "enabled": true,
+        "stage_occupancy": [],
+        "privileges": {
+          "raw_capture": false,
+          "auxiliary_requests": false,
+          "auth_provider": false,
+          "completion_gate": false
+        }
+      }
+    ],
+    "generic_ports": {
+      "attempt_transform_occupied": false,
+      "attempt_transform_handlers": 0,
+      "final_stream_observation_occupied": false,
+      "final_stream_observation_handlers": 0
+    }
+  },
+  "server_limits": {
+    "max_request_body_bytes": 8388608,
+    "max_concurrent_decodes": 32,
+    "max_inflight_decode_bytes": 67108864,
+    "max_pending_wire_events": 0
+  }
+}

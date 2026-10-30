@@ -1,0 +1,949 @@
+name: CI
+
+on:
+  # Feature branches are validated by their pull request. Restricting push
+  # avoids running the same commit twice after a PR has been opened.
+  push:
+    branches:
+      - main
+    # A push that only touches documentation or specs has nothing to build, but it
+    # would still take the main concurrency slot and replace a queued code push
+    # whose run publishes the Go caches. Same extension-bound set as
+    # is_documentation_path in scripts/ci-scope.sh (PRs still classify by that).
+    paths-ignore:
+      - "*.md"
+      - "docs/**/*.md"
+      - "docs/**/*.txt"
+      - "docs/**/*.png"
+      - "docs/**/*.svg"
+      - ".kiro/specs/**/*.md"
+      - ".kiro/specs/**/*.json"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  # The merge queue re-runs the required checks on the queued merge commit.
+  merge_group:
+  # Windows and macOS legs run here, not on every PR. Linux is the PR gate.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AIP_ALLOW_LARGE_CHANGE: ${{ contains(github.event.pull_request.labels.*.name, 'allow-large-change') && '1' || '' }}
+
+concurrency:
+  # Push and PR events for the same branch share a group, avoiding duplicate runs.
+  # The daily schedule / manual runs get their own group: sharing main's group let
+  # a ~7 minute scheduled run hold the slot while a newer push replaced the queued
+  # push run, so that push never published its caches.
+  group: ci-${{ github.head_ref || github.ref_name }}${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '-scheduled' || '' }}
+  # Runs on main publish the Go build caches (a cancelled run saves nothing), so
+  # only superseded PR / merge-queue runs are cancelled; a newer main push waits.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+
+jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      test: ${{ steps.filter.outputs.test }}
+      test_cost: ${{ steps.filter.outputs.test_cost }}
+      billing_schema: ${{ steps.filter.outputs.billing_schema }}
+      os_sensitive: ${{ steps.filter.outputs.os_sensitive }}
+      proto: ${{ steps.filter.outputs.proto }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate CI scope matcher
+        shell: bash
+        run: bash scripts/ci-scope.sh --self-test
+
+      - name: Classify changed files
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
+            bash scripts/ci-scope.sh --outputs "${BASE_SHA:-}" HEAD >> "$GITHUB_OUTPUT"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            # A push has a real diff too. Do not force the historical Windows
+            # benchmark (or all native runners for docs) on every main commit.
+            # The initial branch push has no predecessor: retain full checks.
+            if [[ "${PUSH_BASE_SHA:-}" =~ ^0{40}$ ]]; then PUSH_BASE_SHA=""; fi
+            bash scripts/ci-scope.sh --outputs "${PUSH_BASE_SHA:-}" HEAD >> "$GITHUB_OUTPUT"
+          else
+            bash scripts/ci-scope.sh --outputs "" HEAD >> "$GITHUB_OUTPUT"
+          fi
+
+  repo-hygiene:
+    name: Repo hygiene
+    needs: [changes, preflight, db-parity, billing-schema, suite, owner-gate, lint]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass required evidence." >&2
+          exit 1
+
+      - name: Fail closed if database parity failed
+        if: always() && needs.db-parity.result != 'success'
+        shell: bash
+        run: |
+          echo "Database parity check failed or was cancelled; refusing to satisfy required repo hygiene status." >&2
+          exit 1
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
+        run: echo "Repo hygiene manifest check bypassed"
+      - name: Require scope, preflight, database parity, billing certification, Go suite, owner-callback gate and lint success
+        env:
+          SCOPE_RESULT: ${{ needs.changes.result }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
+          PARITY_RESULT: ${{ needs.db-parity.result }}
+          BILLING_RESULT: ${{ needs.billing-schema.result }}
+          SUITE_RESULT: ${{ needs.suite.result }}
+          OWNER_GATE_RESULT: ${{ needs.owner-gate.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+        run: test "$SCOPE_RESULT" = success && test "$PREFLIGHT_RESULT" = success && test "$PARITY_RESULT" = success && test "$BILLING_RESULT" = success && test "$SUITE_RESULT" = success && test "$OWNER_GATE_RESULT" = success && test "$LINT_RESULT" = success
+
+  preflight:
+    name: Repository preflight
+    needs: changes
+    if: always() && !cancelled()
+    # This is a required status check. A job-level `if` would skip the whole
+    # job on docs-only PRs, and GitHub does not count a skipped required
+    # check as satisfied, permanently blocking the merge. Always run the job
+    # and skip the work steps instead so the check reports success.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass required evidence." >&2
+          exit 1
+
+      - name: Check out repository
+        # Every PR runs the local-environment scan, including docs-only PRs.
+        # Other events still need checkout only for code-relevant work.
+        if: needs.changes.result == 'success' && (needs.changes.outputs.code == 'true' || github.event_name == 'pull_request')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Check change size
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # HEAD is a synthetic merge that can include base changes newer than the event.
+        run: go run ./tools/changesize --base "$BASE_SHA" --head "$HEAD_SHA"
+
+      - name: Validate staged commit quality checks
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          bash scripts/test-quality-checks.sh
+          bash scripts/test-quality-gate-fast-owner-skip.sh
+
+      # The local pre-commit hook cannot run on the GitHub side, so the same
+      # guard re-scans the pushed range here. Deliberately NOT gated on the
+      # code scope: docs-only PRs (.kiro/specs, docs/) are the most likely
+      # place for a pasted local path, and gating on code would skip them.
+      - name: Scan PR for local-environment strings
+        if: needs.changes.result == 'success' && github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check-local-specifics.sh --range "$BASE_SHA...HEAD" --commits "$BASE_SHA..HEAD"
+
+      # The guard self-test builds throwaway repositories and needs no network
+      # and no Go toolchain.
+      - name: Validate local-specifics guard
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/test-check-local-specifics.sh
+
+      # The bootstrap script is the only supported way to create a task
+      # worktree, so its refusals are part of the contract: a wrong path must be
+      # rejected before git writes anything. The self-test builds a real
+      # container fixture and needs no network.
+      - name: Validate worktree bootstrap
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/worktree-create.sh --self-test
+
+      # The pre-push size gate must measure the PR diff even after a rebase
+      # rewrites history; otherwise rebased pushes sweep in upstream drift and
+      # trip the limit on small slices. The self-test builds throwaway
+      # repositories and needs no network and no Go toolchain.
+      - name: Validate pre-push size-gate base
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/test-prepush-base.sh
+
+      # Pushing a task branch must survive stale remote-tracking refs: a plain
+      # `fetch origin main` never refreshes origin/<branch>, so a no-argument
+      # lease fails with "stale info". The self-test builds throwaway
+      # repositories and needs no network and no Go toolchain.
+      - name: Validate worktree push helper
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/worktree-push.sh --self-test
+
+      # Delivery tooling is part of the repository's contract: its classification
+      # (ready / failed / blocked / stale) is what an agent or reviewer reads
+      # instead of raw check output. The self-test needs no network and no Go
+      # toolchain: it stubs gh and git.
+      - name: Validate delivery status tooling
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/pr-status.sh self-test
+
+      - name: Validate test quarantine
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        run: go run ./tools/devcheck -task=quarantine
+
+      # A workflow GitHub rejects produces no check runs at all, so its required
+      # checks never start and an older head can look green. Lint workflow edits
+      # here, with a pinned actionlint and the same retry policy as buf.
+      - name: Lint workflows
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "$BASE_SHA...HEAD" -- .github/workflows)
+          if [[ -z "$changed" ]]; then
+            echo "Workflow lint bypassed: no workflow changes detected."
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            if go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7; then
+              gopath=$(go env GOPATH)
+              export PATH="$gopath/bin:$PATH"
+              break
+            fi
+            echo "go install actionlint failed (attempt $attempt/3)" >&2
+            sleep $((attempt * 15))
+            [[ $attempt -lt 3 ]] || exit 1
+          done
+          bash scripts/check-workflows.sh
+
+      - name: Install buf
+        if: needs.changes.result == 'success' && needs.changes.outputs.proto == 'true' && github.event_name == 'pull_request'
+        # buf pulls ~100 modules from proxy.golang.org; a single transient proxy error
+        # (e.g. "stream error ... INTERNAL_ERROR") otherwise fails the required check
+        # before any gate has run. Retry the download only; real build errors still fail.
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if go install github.com/bufbuild/buf/cmd/buf@v1.66.0; then exit 0; fi
+            echo "go install buf failed (attempt $attempt/3)" >&2
+            sleep $((attempt * 15))
+          done
+          exit 1
+
+      - name: Protobuf contract gate
+        if: needs.changes.result == 'success' && needs.changes.outputs.proto == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/proto-check.sh
+
+      - name: Check repository file manifest
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true'
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PUSHED_REF: ${{ github.ref }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
+            # The final PR tree is authoritative; the manifest may be completed
+            # by a later commit than the files it approves.
+            commits=""
+          elif [[ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            commits=$(git rev-list --reverse "$BEFORE_SHA..HEAD")
+          else
+            # For a new branch, exclude commits reachable from other tracking
+            # refs on origin, but not the just-created destination ref itself.
+            exclusions=()
+            while read -r tracking_ref; do
+              [[ "$tracking_ref" == "refs/remotes/origin/${PUSHED_REF#refs/heads/}" ]] && continue
+              exclusions+=("$tracking_ref")
+            done < <(git for-each-ref --format='%(refname)' refs/remotes/origin)
+            commits=$(git rev-list --reverse HEAD --not "${exclusions[@]}")
+          fi
+
+          while read -r commit; do
+            [[ -n "$commit" ]] && bash scripts/check-release-clean.sh --ref "$commit"
+          done <<< "$commits"
+
+          bash scripts/check-release-clean.sh --ref HEAD
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'
+        shell: bash
+        run: |
+          echo "Repo hygiene manifest check bypassed: no code-relevant changes detected."
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: changes
+    if: always() && !cancelled()
+    # Required status check: see repo-hygiene above. Always run the job so the
+    # matrix variants report success (not skip) on docs-only PRs; guard steps.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            packages: ./cmd/aipstd ./pkg/credpool ./pkg/aipapi ./pkg/aipsdk/... ./pkg/streampump
+          - os: windows-latest
+            packages: ./pkg/credpool ./pkg/aipapi ./pkg/aipsdk/... ./pkg/streampump
+          - os: macos-latest
+            packages: ./pkg/credpool ./pkg/aipapi ./pkg/aipsdk/... ./pkg/streampump
+    # Linux is the PR gate. Windows/macOS legs only do real work when an
+    # OS-sensitive path changed, the `full-ci` label is set, or on the daily
+    # schedule; otherwise they report success from a cheap Linux runner so the
+    # check names stay stable.
+    env:
+      RUN_LEG: ${{ needs.changes.outputs.test == 'true' && (matrix.os == 'ubuntu-latest' || needs.changes.outputs.os_sensitive == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci')) && 'true' || 'false' }}
+      RUN_CERT: ${{ needs.changes.outputs.test == 'true' && (needs.changes.outputs.os_sensitive == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci')) && 'true' || 'false' }}
+    runs-on: ${{ (needs.changes.outputs.test == 'true' && (matrix.os == 'ubuntu-latest' || needs.changes.outputs.os_sensitive == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'full-ci'))) && matrix.os || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass required evidence." >&2
+          exit 1
+
+      # Historical Windows comparisons are paused. Every platform keeps the
+      # ordinary scoped unit/build check on a shallow checkout.
+      - name: Check out repository
+        if: needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        env:
+          GIT_CONFIG_COUNT: 2
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: "false"
+          GIT_CONFIG_KEY_1: core.eol
+          GIT_CONFIG_VALUE_1: lf
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          # The shared setup-go cache is a first-write-wins partial snapshot;
+          # this matrix job restores a dedicated full Go cache below instead.
+          cache: false
+
+      # Publish one immutable snapshot per source revision and job. Seed the
+      # next revision from the latest compatible snapshot so source-only work
+      # does not repeatedly rebuild against a frozen dependency-era cache.
+      - name: Restore bounded ci-unit Go cache
+        if: needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-unit
+
+      - name: Fast unit tests
+        if: needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        # CLI integration and architecture gates run once on Ubuntu in QA. The
+        # platform matrix covers portable public packages without invoking
+        # host security posture checks on administrative Windows runners.
+        run: go test -timeout=8m ${{ matrix.packages }}
+
+      - name: Native source identity and reload tests
+        if: needs.changes.result == 'success' && env.RUN_LEG == 'true' && matrix.os == 'windows-latest'
+        shell: bash
+        run: go test -count=1 ./internal/infra/configsource/... ./internal/infra/runtimehost/...
+
+      # The fault checks run with -race on GitHub, which builds a second,
+      # race-instrumented copy of the whole dependency tree. In the shared cache it
+      # was the newest data, so the ci-unit snapshot bound discarded the non-race
+      # test objects and every later run recompiled cmd/aipstd from scratch (Fast
+      # unit tests 60s -> 130-180s). It therefore keeps its own cache directory and
+      # its own lane: cold the two certification scripts take ~5 min (93 s + 203 s
+      # locally), warm ~20 s. This job (ubuntu leg) is the lane's only producer.
+      - name: Restore bounded ci-cert Go cache
+        if: needs.changes.result == 'success' && env.RUN_CERT == 'true' && matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/go-cache
+        env:
+          GOCACHE: ${{ runner.temp }}/go-build-cert
+        with:
+          lane: ci-cert
+
+      - name: Certify pinned source lifetime on ext4
+        if: needs.changes.result == 'success' && env.RUN_CERT == 'true' && matrix.os == 'ubuntu-latest'
+        shell: bash
+        env:
+          GOCACHE: ${{ runner.temp }}/go-build-cert
+        run: |
+          set -euo pipefail
+          bash scripts/test-configsource-fault-check.sh
+          bash scripts/test-go-dev-guard.sh
+          bash scripts/test-dev-setup.sh
+          bash scripts/test-require-ext4-tmpdir.sh
+          bash scripts/test-check-merge-receiver-branch.sh
+          image="$RUNNER_TEMP/configsource-ext4.img"
+          mountpoint="$RUNNER_TEMP/configsource-ext4-mount"
+          cleanup() {
+            sudo umount "$mountpoint" 2>/dev/null || true
+            rm -f "$image"
+            rmdir "$mountpoint" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          mkdir -p "$mountpoint"
+          mkdir -p "$RUNNER_TEMP/go-tmp-executable"
+          truncate -s 256M "$image"
+          mkfs.ext4 -F -q "$image"
+          sudo mount -o loop,noexec,nosuid,nodev "$image" "$mountpoint"
+          sudo chown "$(id -u):$(id -g)" "$mountpoint"
+          mkdir "$mountpoint/tmp"
+          export TMPDIR="$mountpoint/tmp"
+          export GOTMPDIR="$RUNNER_TEMP/go-tmp-executable"
+          bash scripts/configsource-certify.sh
+          bash scripts/configsource-fault-check.sh
+
+      - name: Save bounded ci-cert Go cache
+        if: success() && needs.changes.result == 'success' && env.RUN_CERT == 'true' && matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/go-cache
+        env:
+          GOCACHE: ${{ runner.temp }}/go-build-cert
+        with:
+          lane: ci-cert
+          phase: save
+
+      - name: Build release binary
+        if: needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        # No -trimpath: it keys separate compiler objects (a second ~1.1 GB set), which
+        # overflowed the ci-unit snapshot and forced every PR to recompile cmd/aipstd's
+        # whole dependency tree (~2 min). Release artifacts keep -trimpath via .goreleaser.yaml.
+        run: go build ./cmd/aipstd
+
+      # Publish successful per-OS unit/build snapshots for the next main or PR run.
+      - name: Save bounded ci-unit Go cache
+        if: success() && needs.changes.result == 'success' && env.RUN_LEG == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-unit
+          phase: save
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && env.RUN_LEG != 'true'
+        shell: bash
+        run: |
+          echo "CI test/build matrix bypassed: no test-relevant changes detected."
+          echo "(Windows/macOS legs also bypass unless an OS-sensitive path changed, full-ci is labelled, or the daily schedule runs.)"
+
+  # The complete root suite and lint run here once per PR, so the local
+  # pre-commit hook only tests and lints what a commit affects. Repo hygiene
+  # (a required check) fails when either job fails.
+  # Three shards on three runners: the packages whose tests dominate wall time
+  # (heavy) and the rest split in two halves. scripts/ci-suite-shard.sh assigns
+  # every package to exactly one shard, so a stale list only costs balance,
+  # never coverage.
+  suite:
+    name: Go suite (Linux, ${{ matrix.shard }})
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [heavy, rest, rest-2]
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass the Go suite." >&2
+          exit 1
+
+      - name: Check out repository
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Kiro spec checks resolve recorded commit SHAs.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded ci-suite Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && matrix.shard == 'rest'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-suite
+
+      - name: Restore bounded ci-suite-heavy Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && matrix.shard == 'heavy'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-suite-heavy
+
+      - name: Restore bounded ci-suite-2 Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && matrix.shard == 'rest-2'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-suite-2
+
+      # QA runs internal/archtest; everything else in the root module runs here.
+      # The owner-callback escape gate type-checks the whole module for two
+      # operating systems (~2 min on its own) and runs in the parallel
+      # owner-gate job instead, so it does not set this job's wall time.
+      - name: Complete root suite with runtimebundle integration coverage
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mapfile -t all < <(go list -tags=precommit ./... | grep -vE '/internal/archtest(/|$)')
+          mapfile -t packages < <(printf '%s\n' "${all[@]}" | bash scripts/ci-suite-shard.sh "$SHARD")
+          echo "shard $SHARD: ${#packages[@]} of ${#all[@]} packages"
+          [[ ${#packages[@]} -gt 0 ]] || { echo "shard $SHARD selected no packages" >&2; exit 1; }
+          # go keeps only the last -skip, and the cache action may have put the
+          # quarantine list in GOFLAGS; merge so neither is lost.
+          skip='TestRuntimebundle_NoCompleteOwnerCallbackEscapes'
+          if [[ "${GOFLAGS:-}" =~ -skip=\^\(([^\)]*)\)\$ ]]; then
+            skip="${BASH_REMATCH[1]}|${skip}"
+          fi
+          # -w drops DWARF from the ~400 test binaries (~30% faster links); stack traces
+          # and test behaviour are unchanged.
+          # Run runtimebundle once with its slow real-stack sentinels enabled.
+          # Keep integration tags off the other packages so unrelated exhaustive
+          # and external-topology tests do not add work to this required suite.
+          unit_packages=()
+          integration_packages=()
+          for pkg in "${packages[@]}"; do
+            if [[ "$pkg" == */internal/infra/runtimebundle ]]; then
+              integration_packages+=("$pkg")
+            else
+              unit_packages+=("$pkg")
+            fi
+          done
+          if [[ ${#unit_packages[@]} -gt 0 ]]; then
+            go test -tags=precommit -ldflags=-w -timeout=25m -skip "^(${skip})\$" "${unit_packages[@]}"
+          fi
+          if [[ ${#integration_packages[@]} -gt 0 ]]; then
+            go test -tags=precommit,integration -ldflags=-w -timeout=25m -skip "^(${skip})\$" "${integration_packages[@]}"
+          fi
+
+      - name: Save bounded ci-suite Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && matrix.shard == 'rest'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-suite
+          phase: save
+
+      - name: Save bounded ci-suite-heavy Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && matrix.shard == 'heavy'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-suite-heavy
+          phase: save
+
+      - name: Save bounded ci-suite-2 Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && matrix.shard == 'rest-2'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-suite-2
+          phase: save
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.test != 'true'
+        run: echo "Go suite bypassed, no test-relevant changes detected."
+
+  owner-gate:
+    name: Owner callback gate (Linux)
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass the owner-callback gate." >&2
+          exit 1
+
+      - name: Check out repository
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The gate type-checks the module for Linux and for Windows; the suite lane
+      # only holds Linux objects, so every run recompiled the Windows tree (164 s
+      # of a 195 s step; 6 s with both warm). It owns its lane, and this job is
+      # the lane's only producer.
+      - name: Restore bounded ci-owner-gate Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-owner-gate
+
+      - name: Owner callback escape gate
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        # Discovery in child go list processes can find a new owner-reaching
+        # importer without changing runtimebundle's test-result cache inputs.
+        run: go test -count=1 -tags=precommit -timeout=25m -run '^TestRuntimebundle_NoCompleteOwnerCallbackEscapes$' ./internal/infra/runtimebundle/
+
+      - name: Save bounded ci-owner-gate Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-owner-gate
+          phase: save
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.test != 'true'
+        run: echo "Owner callback gate bypassed, no test-relevant changes detected."
+
+  lint:
+    name: Lint (Linux)
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass lint." >&2
+          exit 1
+
+      - name: Check out repository
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Read golangci-lint pin
+        id: lint-pin
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . .github/golangci-lint.version
+          set +a
+          echo "version=$GOLANGCI_LINT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$GOLANGCI_LINT_SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # This lane typechecks every module and writes its work space under
+      # /tmp; with a cold compiler snapshot (an evicted ci-lint lane) the
+      # 14 GiB root disk fills and golangci-lint dies with "no space left on
+      # device" before any lint result exists. Drop preinstalled toolchains
+      # this job never invokes so the gate has room to finish cold.
+      - name: Free unused runner disk space
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Restore bounded ci-lint Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-lint
+
+      - name: Restore golangci-lint analysis cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/golangci-lint
+          key: golangci-lint-${{ steps.lint-pin.outputs.version }}-${{ github.sha }}
+          restore-keys: golangci-lint-${{ steps.lint-pin.outputs.version }}-
+
+      - name: Install golangci-lint
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        env:
+          GOLANGCI_LINT_VERSION: ${{ steps.lint-pin.outputs.version }}
+          GOLANGCI_LINT_SHA256: ${{ steps.lint-pin.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          archive="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz"
+          curl -sSfLo "$RUNNER_TEMP/$archive" "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/$archive"
+          echo "$GOLANGCI_LINT_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64" >> "$GITHUB_PATH"
+
+      # PRs lint the packages their diff affects (every module when a shared
+      # lint input changed); main and scheduled runs lint every module.
+      - name: Lint
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          AIP_LINT_JOBS: 2
+          AIP_LINT_CONCURRENCY: 4
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
+            bash scripts/lint-all-modules.sh --base "$BASE_SHA"
+          else
+            bash scripts/lint-all-modules.sh
+          fi
+
+      - name: Save golangci-lint analysis cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/golangci-lint
+          key: golangci-lint-${{ steps.lint-pin.outputs.version }}-${{ github.sha }}
+
+      - name: Save bounded ci-lint Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-lint
+          phase: save
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.test != 'true'
+        run: echo "Lint bypassed, no test-relevant changes detected."
+
+  db-parity:
+    name: Database parity
+    needs: changes
+    if: always() && !cancelled()
+    # Required status check: see repo-hygiene above. Always run the job so it
+    # reports success (not skip) on docs-only PRs; guard steps.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PG_BIN: /usr/lib/postgresql/17/bin
+      PGPASSWORD: aip
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "CI scope detection failed; refusing to bypass required evidence." >&2
+          exit 1
+
+      - name: Check out repository
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Keep PostgreSQL 17 coverage without relying on Docker Hub's shared
+      # anonymous pull quota. The disposable cluster belongs to this job only.
+      - name: Provision native PostgreSQL 17
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PG_DATA="$RUNNER_TEMP/aip-postgres-parity"
+          echo "PG_DATA=$PG_DATA" >> "$GITHUB_ENV"
+          key="$RUNNER_TEMP/postgresql-key.asc"
+          curl --fail --silent --show-error --retry 3 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "$key"
+          fingerprint=$(gpg --show-keys --with-colons "$key" | awk -F: '$1 == "fpr" { print $10; exit }')
+          test "$fingerprint" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          sudo install -m 644 "$key" /usr/share/keyrings/aip-postgresql.asc
+          echo 'deb [signed-by=/usr/share/keyrings/aip-postgresql.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/aip-postgresql.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-17
+          sudo systemctl stop postgresql
+          "$PG_BIN/postgres" --version | grep -E '^postgres \(PostgreSQL\) 17\.'
+          install -d -m 700 "$PG_DATA"
+          password_file="$RUNNER_TEMP/aip-postgres-password"
+          umask 077
+          printf '%s\n' "$PGPASSWORD" > "$password_file"
+          "$PG_BIN/initdb" -D "$PG_DATA" -U aip --auth-local=trust --auth-host=scram-sha-256 --pwfile="$password_file"
+          rm -f "$password_file"
+          "$PG_BIN/pg_ctl" -D "$PG_DATA" -l "$RUNNER_TEMP/aip-postgres.log" -o "-h 127.0.0.1 -p 5433 -k $PG_DATA" -w -t 60 start
+          "$PG_BIN/createdb" -h 127.0.0.1 -p 5433 -U aip aip_test
+          echo "$PG_BIN" >> "$GITHUB_PATH"
+
+      - name: Set up Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded ci-db Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-db
+
+      - name: Verify PostgreSQL test environment
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        env:
+          AIP_REQUIRE_POSTGRES: '1'
+          AIP_TEST_POSTGRES_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
+          AIP_TEST_POSTGRES_ADMIN_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
+        run: |
+          set -euo pipefail
+          if [[ -z "${AIP_TEST_POSTGRES_DSN:-}" || -z "${AIP_TEST_POSTGRES_ADMIN_DSN:-}" ]]; then
+            echo "Error: required PostgreSQL test DSN is unset" >&2
+            exit 1
+          fi
+          if [[ "${AIP_TEST_POSTGRES_DSN}" == *"POOLER"* || "${AIP_TEST_POSTGRES_ADMIN_DSN}" == *"POOLER"* ]]; then
+            echo "Error: direct PostgreSQL test DSN must not target a transaction pooler" >&2
+            exit 1
+          fi
+          if [[ "${AIP_REQUIRE_POSTGRES:-}" != "1" ]]; then
+            echo "Error: AIP_REQUIRE_POSTGRES must be set to 1" >&2
+            exit 1
+          fi
+          pg_isready -h 127.0.0.1 -p 5433 -U aip -d aip_test
+          echo "PostgreSQL test environment verified for direct parity execution."
+
+      - name: Run database dialect parity tests
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        env:
+          AIP_REQUIRE_POSTGRES: '1'
+          AIP_TEST_POSTGRES_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
+          AIP_TEST_POSTGRES_ADMIN_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
+          AIP_TEST_PARALLEL: '4'
+        run: make test-db-parity
+
+      - name: Stop native PostgreSQL
+        if: always() && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          if [[ -f "$PG_DATA/postmaster.pid" ]]; then
+            "$PG_BIN/pg_ctl" -D "$PG_DATA" -m fast -w -t 60 stop
+          fi
+
+      - name: Save bounded ci-db Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-db
+          phase: save
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.test != 'true'
+        shell: bash
+        run: |
+          echo "Database parity bypassed: documentation-only changes detected."
+
+  billing-schema:
+    name: Billing schema certification
+    needs: changes
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
+      - name: Checkout
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded billing-schema Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: billing-schema
+
+      - name: Discover complete certification population
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          selector='^(TestGeneratedSchema|TestSchemaModel(Structure|Commercial)Sweep|TestSchemaModelOrderInvariance|TestMetamorphic(PricingMetamorphism|StructuralVerdictAgreesWithModel)|TestSupportAgreementShadowPredicate|TestReplayDeepestPublishableChainTraversalIsBounded)'
+          go test -tags=integration -list "$selector" ./enterprise/internal/core/billing > "$RUNNER_TEMP/billing-schema-tests.txt"
+          count=$(grep -c '^Test' "$RUNNER_TEMP/billing-schema-tests.txt")
+          test "$count" -eq 12
+
+      - name: Run every exhaustive schema case and assertion
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        run: make test-billing-schema
+
+      - name: Save bounded billing-schema Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: billing-schema
+          phase: save
+
+      - name: Report unrelated change bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema != 'true'
+        run: echo "Billing schema certification bypassed; no billing, SDK, oracle or certification-policy changes."

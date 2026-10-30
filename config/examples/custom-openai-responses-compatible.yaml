@@ -1,0 +1,47 @@
+# Built-in OpenAI Responses compatible backend (env-root credentials).
+# Validate: go run ./cmd/aipstd check-config --config config/examples/custom-openai-responses-compatible.yaml
+server:
+  address: "127.0.0.1:18091"
+
+routing:
+  max_attempts: 3
+  default_route: "provider123-responses:provider123-responses/model-a"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+hooks:
+  tool_reactor_error_policy: fail_open
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+  backends:
+    - id: provider123-responses
+      kind: custom-openai-responses-compatible
+      enabled: true
+      config:
+        backend_prefix: provider123-responses
+        base_url: https://api.provider123.example/v1
+        api_key_env_var_root: PROVIDER123_RESPONSES_API_KEY
+        tokenizer: o200k_base
+        models:
+          source: inline
+          items:
+            - canonical_id: provider123-responses/model-a
+              native_id: model-a
+              display_name: Provider123 Responses Model A
+  features:
+    - id: submit-noop
+      enabled: true
+      config: {}

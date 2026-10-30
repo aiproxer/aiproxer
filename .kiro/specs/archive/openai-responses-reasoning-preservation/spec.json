@@ -1,0 +1,26 @@
+{
+  "feature_name": "openai-responses-reasoning-preservation",
+  "created_at": "2026-07-19T12:36:00+02:00",
+  "updated_at": "2026-07-28T16:29:56+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "implementation_complete": true,
+  "completed": true,
+  "completion_decision": "Human release-owner decision 2026-07-28: Linux race, full 1000x100 soak, and live-provider smoke are waived as disproportionate closeout requirements; deterministic local and selected 100-turn soak evidence is accepted.",
+  "project_description": "Completed OpenAI Responses reasoning-output preservation via exact opaque replay, dialect-aware canonical carriers, backend ingestion, frontend fidelity, and a full Chat/Responses combination matrix. Local quality/unit/parity/QA, targeted fuzz, deterministic matrices, retention-aware regressions, and selected 100-turn soak seeds provide accepted closeout evidence. Progressive presentation UX remains explicitly deferred."
+}

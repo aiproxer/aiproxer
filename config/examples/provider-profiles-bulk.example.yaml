@@ -1,0 +1,71 @@
+# First-class standard provider profiles configuration example.
+# Operators specify runtime `id`, `kind: provider-profile`, and `config.profile`.
+# Endpoint, authentication env-var root, model inventory, and capability ceilings
+# are derived automatically from the compiled profile in AIProxer's embedded catalog.
+#
+# Validate: go run ./cmd/aipstd check-config --config config/examples/provider-profiles-bulk.example.yaml
+
+server:
+  address: "127.0.0.1:18092"
+
+routing:
+  max_attempts: 3
+  default_route: "groq:llama-3.3-70b-versatile"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+plugins:
+  frontends:
+    - id: openai-responses
+      enabled: true
+      config: {}
+    - id: openai-chat
+      enabled: true
+      config: {}
+    - id: anthropic
+      enabled: true
+      config: {}
+  backends:
+    # 1. Bare Responses provider (preferred native OpenAI Responses format)
+    - id: groq
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: groq
+
+    # 2. Split Responses/Chat provider (Responses flavor is preferred for Responses traffic)
+    - id: deepseek-responses
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: deepseek-responses
+
+    # 3. Split Responses/Chat provider (Chat flavor provides broader Chat model inventory)
+    - id: deepseek-openai
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: deepseek-openai
+
+    # 4. Standard Chat provider
+    - id: together
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: together
+
+    # 5. Anthropic Messages provider (uses Anthropic SDK base root and KIMI_API_KEY)
+    - id: kimi-coding
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: kimi-coding

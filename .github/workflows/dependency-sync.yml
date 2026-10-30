@@ -1,0 +1,112 @@
+name: Go module synchronization
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "go.mod"
+      - "go.sum"
+      - "connectors/**/go.mod"
+      - "connectors/**/go.sum"
+      - "connectors/claudeagentacp/**"
+      - "connector-support/**/go.mod"
+      - "connector-support/**/go.sum"
+      - "testdata/enterprise_module/go.mod"
+      - "testdata/enterprise_module/go.sum"
+      - "testdata/external_connector/go.mod"
+      - "testdata/external_connector/go.sum"
+      - "testdata/external_feature_sdk/go.mod"
+      - "testdata/external_feature_sdk/go.sum"
+      - "testdata/external_billing_binding/go.mod"
+      - "testdata/external_billing_binding/go.sum"
+      - "scripts/tidy-all-modules.sh"
+      - "scripts/check-all-modules.sh"
+      - "tools/backendplugin/discover_modules/**"
+      - ".github/workflows/dependency-sync.yml"
+      - ".github/dependabot.yml"
+
+  pull_request:
+    paths:
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "go.mod"
+      - "go.sum"
+      - "connectors/**/go.mod"
+      - "connectors/**/go.sum"
+      - "connectors/claudeagentacp/**"
+      - "connector-support/**/go.mod"
+      - "connector-support/**/go.sum"
+      - "testdata/enterprise_module/go.mod"
+      - "testdata/enterprise_module/go.sum"
+      - "testdata/external_connector/go.mod"
+      - "testdata/external_connector/go.sum"
+      - "testdata/external_feature_sdk/go.mod"
+      - "testdata/external_feature_sdk/go.sum"
+      - "testdata/external_billing_binding/go.mod"
+      - "testdata/external_billing_binding/go.sum"
+      - "scripts/tidy-all-modules.sh"
+      - "scripts/check-all-modules.sh"
+      - "tools/backendplugin/discover_modules/**"
+      - ".github/workflows/dependency-sync.yml"
+      - ".github/dependabot.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Weekly schedule / manual runs get their own group so a main push cannot
+  # cancel the module-sync evidence mid-run; only superseded PR runs are
+  # cancelled (see ci.yml for the same rule).
+  group: module-sync-${{ github.head_ref || github.ref_name }}${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '-scheduled' || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  modules:
+    name: All Go modules tidy and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded modules Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: modules
+
+      - name: Set up Node for Claude ACP identity contracts
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.23.4"
+
+      - name: Download complete root module graph
+        run: go mod download
+
+      - name: Check every independent module
+        env:
+          AIP_MODULE_CHECK_JOBS: "2"
+          GOFLAGS: -p=2
+        run: bash scripts/check-all-modules.sh
+
+      - name: Verify root synchronization helper
+        run: bash scripts/tidy-all-modules.sh --check
+
+      - name: Save bounded modules Go cache
+        if: success()
+        uses: ./.github/actions/go-cache
+        with:
+          lane: modules
+          phase: save

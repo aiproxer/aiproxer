@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "description": "Extension plane declaration, generation currency, and progressive mirror migration baseline.",
+  "active_wave": "W5c_Residual",
+  "active_wave_ordinal": 7,
+  "total_planes": 28,
+  "total_remaining_mirrors": 0,
+  "active_forbidden_mirrors": 0,
+  "manifest": {
+    "plane_count": 28,
+    "plane_ids": [
+      "attempt_transforms",
+      "compaction_observers",
+      "compaction_preservers",
+      "completion_gates",
+      "control_tool_provider",
+      "local_turn_handlers",
+      "pre_request_handlers",
+      "raw_capture_sinks",
+      "request_part_hooks",
+      "request_transforms",
+      "response_part_hooks",
+      "route_hint_providers",
+      "secret_guard_execution",
+      "secret_guards",
+      "session_classifier",
+      "session_openers",
+      "stream_observer_factories",
+      "submit_hooks",
+      "terminal_decision_provider",
+      "tool_call_finalization_max_args_bytes",
+      "tool_call_finalizers",
+      "tool_call_policies",
+      "tool_catalog_filters",
+      "tool_reactors",
+      "traffic_observers",
+      "traffic_redactors",
+      "usage_observers",
+      "workspace_resolvers"
+    ],
+    "generated_output_currency": "up to date (in sync with manifest)",
+    "is_generated_up_to_date": true,
+    "manifest_path": "pkg/aipsdk/feature/plane_manifest.go",
+    "generated_path": "pkg/aipsdk/feature/plane_generated.go",
+    "eligibility_generated_path": "internal/core/largebody/plane_catalog_generated.go",
+    "eligibility_generated_currency": "up to date (in sync with manifest)"
+  },
+  "wave_measurements": [
+    {
+      "wave": 0,
+      "wave_name": "W0_Baseline",
+      "family_name": "Baseline",
+      "description": "Baseline before wave migration (0 planes migrating)",
+      "plane_count": 0,
+      "planes": [],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 1,
+      "wave_name": "W1_HookBus",
+      "family_name": "HookBus",
+      "description": "Hook-bus family (submit, request-part, response-part, tool-reactors)",
+      "plane_count": 4,
+      "planes": [
+        "submit_hooks",
+        "request_part_hooks",
+        "response_part_hooks",
+        "tool_reactors"
+      ],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 2,
+      "wave_name": "W2_Observers",
+      "family_name": "Observers",
+      "description": "Observer and telemetry family (traffic, usage, raw capture, redactors, stream observers)",
+      "plane_count": 5,
+      "planes": [
+        "traffic_observers",
+        "usage_observers",
+        "raw_capture_sinks",
+        "traffic_redactors",
+        "stream_observer_factories"
+      ],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 3,
+      "wave_name": "W3_RequestShaping",
+      "family_name": "RequestShaping",
+      "description": "Request shaping family (transforms, pre-request, route hints, gates, attempts, sessions, workspaces)",
+      "plane_count": 7,
+      "planes": [
+        "request_transforms",
+        "pre_request_handlers",
+        "route_hint_providers",
+        "completion_gates",
+        "attempt_transforms",
+        "session_openers",
+        "workspace_resolvers"
+      ],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 4,
+      "wave_name": "W4_Tools",
+      "family_name": "Tools",
+      "description": "Tool execution and policy family (filters, policies, finalizers, arg limits, proxy control tool provider)",
+      "plane_count": 5,
+      "planes": [
+        "tool_catalog_filters",
+        "tool_call_policies",
+        "tool_call_finalizers",
+        "tool_call_finalization_max_args_bytes",
+        "control_tool_provider"
+      ],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 5,
+      "wave_name": "W5a_GuardsCompaction",
+      "family_name": "GuardsCompaction",
+      "description": "Secret guard and compaction family (guards, guard execution posture, compaction observers, compaction preservers)",
+      "plane_count": 4,
+      "planes": [
+        "secret_guards",
+        "secret_guard_execution",
+        "compaction_observers",
+        "compaction_preservers"
+      ],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 6,
+      "wave_name": "W5b_LocalTurnTerminal",
+      "family_name": "LocalTurnTerminal",
+      "description": "Local turn and terminal decision family (local turns, terminal decision provider)",
+      "plane_count": 2,
+      "planes": [
+        "local_turn_handlers",
+        "terminal_decision_provider"
+      ],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    },
+    {
+      "wave": 7,
+      "wave_name": "W5c_Residual",
+      "family_name": "Residual",
+      "description": "Residual struct cleanups and change-surface verification",
+      "plane_count": 0,
+      "planes": [],
+      "measured_mirrors": 0,
+      "active_forbidden": 0
+    }
+  ],
+  "path_classifications": {
+    "generated": [
+      {
+        "path": "pkg/aipsdk/feature/plane_generated.go",
+        "category": "generated",
+        "role": "Generated typed storage, hook projection, dispatch, and metadata adapters",
+        "description": "Emitted by generate-feature-planes.go from plane_manifest.go; zero reflection/unsafe"
+      },
+      {
+        "path": "internal/core/largebody/plane_catalog_generated.go",
+        "category": "generated",
+        "role": "Generated core-local wire eligibility catalog",
+        "description": "Emitted by generate-feature-planes.go from plane_manifest.go; ordered IDs and access classes"
+      }
+    ],
+    "hand_authored": [
+      {
+        "path": "pkg/aipsdk/feature/plane.go",
+        "category": "hand_authored",
+        "role": "Plane[T] contracts and descriptors",
+        "description": "Core generic plane types, multiplicity, nil policy, and diagnostics descriptors"
+      },
+      {
+        "path": "pkg/aipsdk/feature/plane_manifest.go",
+        "category": "hand_authored",
+        "role": "Single-site canonical plane declaration manifest",
+        "description": "The single hand-authored declaration table defining all standard feature planes"
+      },
+      {
+        "path": "pkg/aipsdk/feature/contributions.go",
+        "category": "hand_authored",
+        "role": "ContributionSet builder contract",
+        "description": "Type-safe contribution accumulation with error attribution"
+      },
+      {
+        "path": "pkg/aipsdk/feature/frozen.go",
+        "category": "hand_authored",
+        "role": "FrozenPlaneSet contracts and generic accessors",
+        "description": "Immutable published snapshot store with package-level Get/Contribute"
+      },
+      {
+        "path": "pkg/aipsdk/feature/bundle.go",
+        "category": "hand_authored",
+        "role": "FeatureBundle SDK integration",
+        "description": "Plugin SDK bundle carrying ContributionSet and lifecycle registrations"
+      },
+      {
+        "path": "internal/featurebundle/merge_surface.go",
+        "category": "hand_authored",
+        "role": "GeneratedMergeSurface composition/registry assembly",
+        "description": "Registration-order merge over catalog; conflict rejection and deterministic reduce"
+      },
+      {
+        "path": "internal/infra/runtimebundle/build_extension.go",
+        "category": "hand_authored",
+        "role": "Runtime snapshot composition",
+        "description": "Builds the request runtime snapshot from the frozen plane set (workspace, traffic, usage, secret-guard, policy) and assembles the policy observer chain"
+      },
+      {
+        "path": "internal/infra/runtimebundle/build_feature_hooks.go",
+        "category": "hand_authored",
+        "role": "Hook-bus composition consumer",
+        "description": "Direct consumption of generated ProjectHookConfig into hooks.Config"
+      },
+      {
+        "path": "internal/infra/runtimebundle/generation_bundle.go",
+        "category": "hand_authored",
+        "role": "Generation operations freeze",
+        "description": "Immutable generation operations holding FrozenPlaneSet"
+      },
+      {
+        "path": "internal/core/extensions/snapshot.go",
+        "category": "hand_authored",
+        "role": "RequestRuntimeSnapshot freeze and stage accessors",
+        "description": "Pinned request snapshot delegating stage reads to FrozenPlaneSet"
+      },
+      {
+        "path": "internal/core/diag/inventory_extensions.go",
+        "category": "hand_authored",
+        "role": "Diagnostics inventory projection",
+        "description": "Catalog-driven stage occupancy and privilege projection"
+      },
+      {
+        "path": "internal/archtest/plane_rules.go",
+        "category": "hand_authored",
+        "role": "Architecture mirror ratchets and gates",
+        "description": "AST scanner rejecting forbidden hand-authored mirror shapes past their migration wave"
+      },
+      {
+        "path": "scripts/generate-feature-planes.go",
+        "category": "hand_authored",
+        "role": "Deterministic code generator for extension planes",
+        "description": "Parses manifest, derives SDK imports, generates typed storage and dispatch adapters"
+      }
+    ]
+  }
+}

@@ -1,0 +1,177 @@
+# Native taskrunner process-tree coverage. Windows Job Object tests are
+# intentionally remote-only because local Windows process scheduling/temp
+# environments are not reliable enough for this contract.
+name: Taskrunner process-tree
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/taskrunner/**"
+      - "tools/devcheck/**"
+      - "tools/internal/scopeplan/**"
+      - "tools/localscope/**"
+      - "tools/worktreeclean/**"
+      - "scripts/worktree-create.sh"
+      - ".github/workflows/taskrunner-process-tree.yml"
+      - ".github/actions/go-cache/**"
+      - "scripts/ci-go-cache.py"
+      - "go.mod"
+      - "go.sum"
+  # Keep the workflow present for every pull request so a required matrix check
+  # reports a successful bypass instead of becoming skipped on unrelated PRs.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: taskrunner-process-tree-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Detect process-tree scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_suite: ${{ steps.scope.outputs.run_suite }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect relevant changes
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" != "pull_request" && "$EVENT_NAME" != "push" ]] || [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0{40}$ ]]; then
+            echo "run_suite=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git rev-parse --verify "${BASE_SHA}^{commit}" >/dev/null
+          relevant=false
+          while IFS= read -r file; do
+            case "$file" in
+              .github/actions/go-cache/**|scripts/ci-go-cache.py)
+                relevant=true
+                break
+                ;;
+              tools/taskrunner/**|tools/devcheck/**|tools/internal/scopeplan/**|tools/localscope/**|tools/worktreeclean/**|scripts/worktree-create.sh|.github/workflows/taskrunner-process-tree.yml)
+                relevant=true
+                break
+                ;;
+              go.mod|go.sum)
+                # Bypass checksum-only removals, never resolution changes.
+                # Fail open: only an explicit exit 1 (removal-only or
+                # untouched) may skip.
+                probe_rc=0
+                bash scripts/gomod-scope.sh --relevant "$BASE_SHA" HEAD || probe_rc=$?
+                if [[ "$probe_rc" != "1" ]]; then
+                  relevant=true
+                  break
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" HEAD)
+          echo "run_suite=$relevant" >> "$GITHUB_OUTPUT"
+          echo "taskrunner process-tree suite required: $relevant"
+
+  process-tree:
+    name: Process-tree (${{ matrix.os }})
+    needs: scope
+    if: always() && !cancelled()
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ needs.scope.outputs.run_suite == 'true' && matrix.os || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.scope.result != 'success'
+        shell: bash
+        run: |
+          echo "process-tree scope detection failed; refusing to bypass native coverage" >&2
+          exit 1
+
+      - name: Checkout
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded taskrunner Go cache
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: taskrunner
+
+      - name: Process-tree tests (Unix)
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true' && runner.os != 'Windows'
+        shell: bash
+        run: go test -count=1 -timeout=10m -run 'TestProcessTree_' ./tools/taskrunner
+
+      - name: Process-tree tests (Windows)
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true' && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          # Enabled only by this remote native-runner job.
+          AIP_RUN_WINDOWS_PROCESS_TREE_TESTS: "1"
+        run: go test -count=1 -timeout=10m -run 'TestProcessTree_' ./tools/taskrunner
+
+      - name: Devcheck cancellation and evidence (Unix)
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true' && runner.os != 'Windows'
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          race=()
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then race=(-race); fi
+          go test "${race[@]}" -count=1 -timeout=10m ./tools/devcheck/... ./tools/lintscope ./tools/internal/scopeplan ./tools/localscope
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            # A separate UID has no unrelated, non-dumpable user services. Keep
+            # the real ownership guard enabled rather than skipping integration.
+            user="aipclean${GITHUB_RUN_ID}"
+            fixture=$(mktemp -d /var/tmp/aip-cleanup.XXXXXX)
+            trap 'sudo userdel "$user"; sudo rm -rf -- "$fixture"' EXIT
+            go test "${race[@]}" -c -o "$fixture/cleanup.test" ./tools/worktreeclean
+            sudo useradd --no-create-home --shell /bin/bash "$user"
+            sudo chown -R "$user" "$fixture"
+            sudo -u "$user" env -i PATH=/usr/bin:/bin HOME="$fixture" TMPDIR="$fixture" AIP_REQUIRE_CLEANUP_INTEGRATION=1 \
+              "$fixture/cleanup.test" -test.v -test.timeout=10m
+          else
+            AIP_REQUIRE_CLEANUP_INTEGRATION=1 go test "${race[@]}" -v -count=1 -timeout=10m ./tools/worktreeclean
+          fi
+
+      - name: Devcheck compatibility (Windows)
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: go test -count=1 -timeout=10m ./tools/devcheck/... ./tools/lintscope ./tools/internal/scopeplan ./tools/localscope ./tools/worktreeclean
+
+      - name: Report unrelated PR bypass
+        if: needs.scope.result == 'success' && needs.scope.outputs.run_suite != 'true'
+        shell: bash
+        run: |
+          echo "Taskrunner process-tree suite bypassed: no relevant files changed."
+
+      - name: Save bounded taskrunner Go cache
+        if: success() && (needs.scope.result == 'success' && needs.scope.outputs.run_suite == 'true')
+        uses: ./.github/actions/go-cache
+        with:
+          lane: taskrunner
+          phase: save

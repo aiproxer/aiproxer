@@ -1,0 +1,25 @@
+{
+  "feature_name": "downstream-cache-affinity-hinting",
+  "created_at": "2026-09-01T16:45:00+02:00",
+  "updated_at": "2026-10-11T03:29:06+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "execution_gate": "Single V1 slice within delivery.md budgets. Implement only on the scheduled post-split milestone. No changes to core, pkg/lipsdk, execbackend.Backend, AttemptMeta, runtimebundle, featurehost or the backend-plugin protocol; Deferred items need their own issues.",
+  "project_description": "Opt-in standard feature (downstream-cache-affinity) that fills an empty canonical PromptCacheKey with aipca1_ + base64url(SHA-256(domain || BackendID || 0 || AuthoritativeSessionID)) via the existing PlaneAttemptTransforms; explicit client PCK always wins; absent/disabled feature leaves the plane empty and wire fast path unchanged. Direct OpenAI Responses/Chat serializers forward PCK; the OpenAI-compatible family forwards it only for provider profiles declaring the openai.prompt_cache_key quirk, verified per vendor documentation as mistral and deepinfra. Other compatible rows stay off unless the actual request-field surface and session-scoped fit are verified; undocumented providers may reject the field. Any actual pre-output rejection follows normal error classification, with retry/failover controlled by policy. Existing OpenResponses forwarding is unchanged. xAI, RunInfra, OpenRouter, capability metadata, keyed derivation, metrics and wire-path synthesis are deferred."
+}

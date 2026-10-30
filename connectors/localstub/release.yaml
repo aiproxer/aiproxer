@@ -1,0 +1,17 @@
+# Connector release metadata — packaging indexes are generated from this file,
+# never from Go registration tables in the root module.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.localstub
+factory_kind: local-stub
+module: github.com/aiproxer/aiproxer/connectors/localstub
+command: ./cmd/aip-backend-localstub
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: localstub-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+# When publishing, drop the go.mod replace and pin published_root_module to a tag.
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

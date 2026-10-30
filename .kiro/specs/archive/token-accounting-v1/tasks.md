@@ -1,0 +1,117 @@
+# Implementation Plan
+
+- [x] 1. Lock the specification bundle and baseline fixtures
+- [x] 1.1 Add inactive Kiro spec metadata and approval gating
+  - Create `spec.json` with requirements, design, and tasks generated but not approved.
+  - Record approval state under Kiro workflow.
+  - Done when the spec directory exists with explicit approval metadata.
+  - _Boundary: Spec Metadata_
+  - _Acceptance:_ `spec.json` exists, marks all approvals false, and `ready_for_implementation` is false.
+- [x] 1.2 Add requirements and design artifacts for token accounting
+  - Write EARS-style requirements covering planes, provenance, authority, provider-first counting, tokenizer fallback, custom metadata, transformed responses, preflight checks, ledgering, admin endpoint, tokenizer scope, security, observability, performance, and backward compatibility.
+  - Write a hexagonal design describing domain/application/adapters/composition, package boundaries, ports, contracts, and security constraints.
+  - Done when both docs are concise, testable, and align with AGENTS.md guardrails.
+  - _Boundary: Spec Docs_
+  - _Acceptance:_ reviewers can trace future work without discovering missing core concepts.
+- [x] 1.3 Add tokenizer parity fixtures
+  - Create `testdata/tokenaccounting/README.md` explaining fixture provenance and validation policy.
+  - Add a small JSON fixture set with representative cases and only externally justified exact counts; mark unknown counts as pending.
+  - Done when tests can load representative cases without leaking tokenizer libraries into core packages.
+  - _Boundary: Test Fixtures_
+  - _Acceptance:_ fixture file parses as JSON and contains no fabricated exact counts.
+
+- [x] 2. Add architecture and contract guards before implementation
+- [x] 2.1 Add tokenizer dependency boundary tests
+  - Add low-risk `internal/archtest` coverage that forbids `tiktoken`, Hugging Face tokenizers, and Rust `tokenizers` packages from entering `pkg/lipapi`, `pkg/lipsdk`, and selected `internal/core` package closures.
+  - Keep the allowlist explicit so drift fails fast when runtime work changes boundaries.
+  - Done when the new architecture tests pass in the current tree.
+  - _Boundary: Architecture Tests_
+  - _Acceptance:_ test fails if forbidden tokenizer imports appear in guarded package closures.
+
+- [x] 3. Define core contracts and configuration through TDD
+- [x] 3.1 Add domain/application tests for usage planes, provenance, and authority merge rules
+  - Write failing tests for plane separation, authority precedence, unavailable propagation, and no-silent-overwrite behavior.
+  - Done when tests describe provider-authoritative versus estimated coexistence clearly.
+  - _Boundary: Core Contracts_
+  - _Depends: 1.2, 2.1_
+  - _Acceptance:_ tests would fail against a naive single-usage overwrite model.
+- [x] 3.2 Add config validation tests for tokenizer metadata and policy flags
+  - Write failing tests for malformed tokenizer family names, ambiguous metadata, insecure admin exposure, and invalid fallback combinations.
+  - Done when config validation behavior is fully specified before implementation.
+  - _Boundary: Config_
+  - _Depends: 3.1_
+  - _Acceptance:_ invalid examples fail with field-specific errors.
+
+- [x] 4. Implement provider-facing counting seams first
+- [x] 4.1 Add provider count port contracts and stub-backed tests
+  - Define application ports and fake adapters for provider count requests and authoritative usage extraction.
+  - Write tests proving provider-authoritative values populate `provider_billable` without overwriting other planes.
+  - Done when contract tests pass without tokenizer dependencies.
+  - _Boundary: Provider Count Port_
+  - _Depends: 3.1, 3.2_
+  - _Acceptance:_ provider-count path works with fakes only.
+- [x] 4.2 Integrate preflight count service into policy tests
+  - Write failing runtime or application tests showing required-count rejection, advisory fallback, and explicit unavailable reasons.
+  - Done when preflight policy contracts exist before implementation plumbing.
+  - _Boundary: Preflight Policy_
+  - _Depends: 4.1_
+  - _Acceptance:_ tests lock explicit failure semantics before backend output.
+
+- [x] 5. Add local tokenizer fallback adapters and parity tests
+- [x] 5.1 Add tokenizer metadata resolution tests and implementation
+  - Start with failing tests for default mappings, custom overrides, precedence, and unsupported family errors.
+  - Implement the minimal metadata resolver behind a core-owned port.
+  - Done when mappings remain adapter-backed and provider/tokenizer-neutral in core.
+  - _Boundary: Tokenizer Metadata_
+  - _Depends: 3.2_
+  - _Acceptance:_ metadata source and precedence are observable in tests.
+- [x] 5.2 Add tokenizer adapter parity tests from fixtures
+  - Use `testdata/tokenaccounting/` to drive parity tests for supported tokenizer families.
+  - Keep pending cases skipped or asserted as pending until verified against external reference tooling.
+  - Done when exact-count tests only use justified fixtures.
+  - _Boundary: Tokenizer Adapters_
+  - _Depends: 1.3, 5.1_
+  - _Acceptance:_ unsupported or pending cases do not pretend to validate exact counts.
+
+- [x] 6. Add transformed-response and ledger behavior
+- [x] 6.1 Add tests for transformed response accounting
+  - Write failing tests for injected or redacted content producing distinct `client_visible` outcomes from `provider_billable` outcomes.
+  - Done when no-silent-overwrite rules are enforced in the presence of transforms.
+  - _Boundary: Usage Resolver_
+  - _Depends: 4.1, 5.2_
+  - _Acceptance:_ tests prove transformed client-visible counts cannot silently reuse provider counts.
+- [x] 6.2 Add ledger contract tests and minimal recorder implementation
+  - Write contract tests for request ID, attempt ID, plane, authority, provenance, and failure classification.
+  - Implement an in-memory or test adapter first.
+  - Done when attempt lineage survives multi-attempt scenarios.
+  - _Boundary: Ledger_
+  - _Depends: 6.1_
+  - _Acceptance:_ tests prove attempt lineage and plane separation persist in recorded entries.
+
+- [x] 7. Add admin and observability surfaces
+- [x] 7.1 Add protected admin count endpoint tests
+  - Write failing tests for disabled endpoint behavior, protected access, safe error payloads, and count result shape.
+  - Implement only after tests lock protection and response semantics.
+  - _Boundary: Admin HTTP_
+  - _Depends: 4.2, 6.2_
+  - _Acceptance:_ endpoint is absent when disabled and safe when enabled.
+- [x] 7.2 Add observability tests and metrics/tracing integration
+  - Write tests for source-selection stats, latency recording, fallback counters, and secret-free diagnostics.
+  - Done when observability adds no payload leakage.
+  - _Boundary: Observability_
+  - _Depends: 6.2_
+  - _Acceptance:_ metrics and logs carry reasons and timing, not raw content.
+
+- [x] 8. Revalidate boundaries and rollout safety
+- [x] 8.1 Expand architecture guards for implementation packages
+  - After implementation packages exist, extend tests so only approved adapter zones may import tokenizer libraries.
+  - Done when core/public package closures remain dependency-clean.
+  - _Boundary: Architecture Tests_
+  - _Depends: 5.2, 7.2_
+  - _Acceptance:_ tokenizer libraries are contained to adapter packages.
+- [x] 8.2 Run focused parity and runtime regression suites
+  - Run package-local tests, runtime integration tests, and parity checks impacted by accounting changes.
+  - Done when evidence shows disabled behavior remains backward compatible and enabled behavior follows the approved spec.
+  - _Boundary: Verification_
+  - _Depends: 8.1_
+  - _Acceptance:_ test evidence covers preflight, provider counts, fallback, transforms, ledgering, and protected admin surfaces.

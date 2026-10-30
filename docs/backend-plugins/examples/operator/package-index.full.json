@@ -1,0 +1,12 @@
+{
+  "schema": "aip.plugin.package.index/v1",
+  "profile": "full",
+  "platform": "linux/amd64",
+  "plugins": [
+    {
+      "plugin_id": "com.aiproxer.backend.localstub",
+      "dir": "localstub",
+      "manifest": "localstub/plugin.backendplugin.json"
+    }
+  ]
+}

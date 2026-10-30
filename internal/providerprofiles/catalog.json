@@ -1,0 +1,3920 @@
+[
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "typesafe",
+    "family": "systemone-compatible",
+    "endpoint": { "base_url": "https://api.typesafe.ai/v1", "path_policy": "family_default" },
+    "auth": { "mode": "bearer_env", "env_var": "TYPESAFE_API_KEY" },
+    "models": {
+      "discovery": "static",
+      "namespace": { "mode": "preserve" },
+      "static": [
+        { "canonical_id": "jev-latest", "native_id": "jev-latest", "display_name": "jev-latest" },
+        { "canonical_id": "jev-preview", "native_id": "jev-preview", "display_name": "jev-preview" },
+        { "canonical_id": "jev-1.13.0", "native_id": "jev-1.13.0", "display_name": "jev-1.13.0" }
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "openrouter-systemone",
+    "family": "systemone-compatible",
+    "endpoint": { "base_url": "https://openrouter.ai/api/v1", "path_policy": "family_default" },
+    "auth": { "mode": "bearer_env", "env_var": "OPENROUTER_API_KEY" },
+    "models": {
+      "discovery": "static",
+      "namespace": { "mode": "preserve" },
+      "static": [
+        { "canonical_id": "typesafe/jev-1.13", "native_id": "typesafe/jev-1.13", "display_name": "typesafe/jev-1.13" },
+        { "canonical_id": "~typesafe/jev-latest", "native_id": "~typesafe/jev-latest", "display_name": "~typesafe/jev-latest" }
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "commandcode-systemone",
+    "family": "systemone-compatible",
+    "endpoint": { "base_url": "https://api.commandcode.ai/provider/v1", "path_policy": "family_default" },
+    "auth": { "mode": "bearer_env", "env_var": "CMD_API_KEY" },
+    "models": {
+      "discovery": "static",
+      "namespace": { "mode": "preserve" },
+      "static": [ { "canonical_id": "typesafe/jev", "native_id": "typesafe/jev", "display_name": "typesafe/jev" } ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "subquadratic-systemone",
+    "family": "systemone-compatible",
+    "endpoint": { "base_url": "https://api.subq.ai/v1", "path_policy": "family_default" },
+    "auth": { "mode": "bearer_env", "env_var": "SUBQ_API_KEY" },
+    "models": {
+      "discovery": "static",
+      "namespace": { "mode": "preserve" },
+      "static": [ { "canonical_id": "subq-snap-preview", "native_id": "subq-snap-preview", "display_name": "SubQ Snap Preview" } ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "groq",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://api.groq.com/openai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "GROQ_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "fireworks",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://api.fireworks.ai/inference/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "FIREWORKS_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "digitalocean",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://inference.do-ai.run/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DIGITALOCEAN_ACCESS_TOKEN"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "vercel-ai-gateway",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://ai-gateway.vercel.sh/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AI_GATEWAY_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "requesty",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://router.requesty.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "REQUESTY_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "meta",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://api.meta.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "META_MODEL_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "deepseek-responses",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://api.deepseek.com",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DEEPSEEK_API_KEY"
+    },
+    "models": {
+      "discovery": "static",
+      "namespace": {
+        "mode": "preserve"
+      },
+      "static": [
+        {
+          "canonical_id": "deepseek-v4-flash",
+          "native_id": "deepseek-v4-flash",
+          "display_name": "DeepSeek V4 Flash"
+        }
+      ]
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "parallel_tool_calls"
+      ]
+    },
+    "quirks": [
+      "openai.responses.tool_output_adjacency"
+    ]
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "deepseek-openai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.deepseek.com",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DEEPSEEK_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "parallel_tool_calls"
+      ]
+    },
+    "quirks": [
+      "openai.chat.reasoning_content_on_tool_calls"
+    ]
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "scaleway-responses",
+    "family": "openai-responses-compatible",
+    "endpoint": {
+      "base_url": "https://api.scaleway.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SCW_SECRET_KEY"
+    },
+    "models": {
+      "discovery": "static",
+      "namespace": {
+        "mode": "preserve"
+      },
+      "static": [
+        {
+          "canonical_id": "openai/gpt-oss-120b:fp4",
+          "native_id": "openai/gpt-oss-120b:fp4",
+          "display_name": "GPT-OSS 120B FP4"
+        },
+        {
+          "canonical_id": "openai/gpt-oss-20b:fp4",
+          "native_id": "openai/gpt-oss-20b:fp4",
+          "display_name": "GPT-OSS 20B FP4"
+        }
+      ]
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "scaleway-openai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.scaleway.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SCW_SECRET_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "302ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.302.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "302AI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "abacus",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://routellm.abacus.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ABACUS_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "abliteration-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.abliteration.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ABLIT_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "ai-router",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.ai-router.dev/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AI_ROUTER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "aiand",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.aiand.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AIAND_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "aihubmix",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.aihubmix.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AIHUBMIX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "aki-io",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://aki.io/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AKI_IO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "alibaba",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DASHSCOPE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "alibaba-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DASHSCOPE_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "alibaba-coding-plan",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://coding-intl.dashscope.aliyuncs.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ALIBABA_CODING_PLAN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "alibaba-coding-plan-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://coding.dashscope.aliyuncs.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ALIBABA_CODING_PLAN_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "alibaba-token-plan-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ALIBABA_TOKEN_PLAN_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "ambient",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.ambient.xyz/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AMBIENT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "amd",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://developer.amd.com.cn/radeon/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AMD_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "anyapi",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.anyapi.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ANYAPI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "arcee",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.arcee.ai/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ARCEE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "auriko",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.auriko.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "AURIKO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "baseten",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.baseten.co/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "BASETEN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "berget",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.berget.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "BERGET_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "blueclaw",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://openai.blueclaw.network/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "BLUECLAW_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "cerebras",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.cerebras.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CEREBRAS_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "chutes",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://llm.chutes.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CHUTES_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "clarifai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.clarifai.com/v2/ext/openai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CLARIFAI_PAT"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "claudinio",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.claudin.io/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CLAUDINIO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "cline-pass",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.cline.bot/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CLINE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "cloudferro-sherlock",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api-sherlock.cloudferro.com/openai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CLOUDFERRO_SHERLOCK_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "coralbricks",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.coralbricks.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CORAL_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "cortecs",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.cortecs.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CORTECS_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "crof",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://crof.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CROF_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "crossmodel",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.crossmodel.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CROSSMODEL_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "crusoe",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.inference.crusoecloud.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "CRUSOE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "daoxe",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://daoxe.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DAOXE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "deepinfra",
+    "family": "openai-chat-compatible",
+    "quirks": ["openai.prompt_cache_key"],
+    "endpoint": {
+      "base_url": "https://api.deepinfra.com/v1/openai",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DEEPINFRA_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "dinference",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.dinference.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DINFERENCE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "drun",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://chat.d.run/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "DRUN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "ebcloud",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://maas-api.ebcloud.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "EBCLOUD_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "echo",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://echo.tracerml.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ECHO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "edenai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.edenai.run/v3",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "EDENAI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "empiriolabs",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.empiriolabs.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "EMPIRIOLABS_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "evroc",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://models.think.evroc.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "EVROC_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "fastrouter",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://go.fastrouter.ai/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "FASTROUTER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "friendli",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.friendli.ai/serverless/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "FRIENDLI_TOKEN"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "frogbot",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://app.frogbot.ai/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "FROGBOT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "gmicloud",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.gmi-serving.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "GMICLOUD_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "greenpt",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.greenpt.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "GREENPT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "helicone",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://ai-gateway.helicone.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "HELICONE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "hetzner",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.hetzner.com/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "HETZNER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "hpc-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.hpc-ai.com/inference/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "HPC_AI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "hyper",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://hyper.charm.land/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "HYPER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "iflowcn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://apis.iflow.cn/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "IFLOW_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "impossibl",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.impossibl.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "IMPOSSIBL_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "inception",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.inceptionlabs.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "INCEPTION_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "inceptron",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.inceptron.io/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "INCEPTRON_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "inference-net",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.net/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "INFERENCE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "inferx",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://model.inferx.net/endpoints/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "INFERX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "io-net",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.intelligence.io.solutions/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "IOINTELLIGENCE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "jalapeno",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.jalapeno-cloud.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "JALAPENO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "jiekou",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.jiekou.ai/openai",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "JIEKOU_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "kenari",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://kenari.id/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "KENARI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "kilo",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.kilo.ai/api/gateway",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "KILO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "llmgateway",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.llmgateway.io/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "LLMGATEWAY_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "llmtech",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.llmtech.eu/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "LLMTECH_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "llmtr",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://llmtr.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "LLMTR_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "longcat",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.longcat.chat/openai",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "LONGCAT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "lucidquery",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.lucidquery.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "LUCIDQUERY_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "meganova",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.meganova.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MEGANOVA_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "mistral",
+    "family": "openai-chat-compatible",
+    "quirks": ["openai.prompt_cache_key"],
+    "endpoint": {
+      "base_url": "https://api.mistral.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MISTRAL_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "mixlayer",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://models.mixlayer.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MIXLAYER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "moark",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://moark.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MOARK_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "modal",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.us-west.modal.direct/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MODAL_PROXY_TOKEN"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "model-oracle-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.modeloracle.com/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MODEL_ORACLE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "modelis",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://modelishub.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MODELIS_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "modelscope",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api-inference.modelscope.cn/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MODELSCOPE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "moonshot",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.moonshot.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MOONSHOT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "moonshot-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.moonshot.cn/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MOONSHOT_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "morph",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.morphllm.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "MORPH_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "tools",
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "neuralwatt",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.neuralwatt.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "NEURALWATT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "nova",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.nova.amazon.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "NOVA_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "novita-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.novita.ai/openai",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "NOVITA_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "ofox",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.ofox.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "OFOX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "opper",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.opper.ai/v3/compat",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "OPPER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "orcarouter",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.orcarouter.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ORCAROUTER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "ovhcloud",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "OVHCLOUD_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "pendra",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.pendra.ai/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "PENDRA_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "pioneer",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.pioneer.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "PIONEER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "poe",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.poe.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "POE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "poolside",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.poolside.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "POOLSIDE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "qihang-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.qhaigc.net/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "QIHANG_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "qiniu-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.qnaigc.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "QINIU_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "regolo-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.regolo.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "REGOLO_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "routing-run",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.routing.run/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ROUTING_RUN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "scnet-token-plan",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.scnet.cn/api/llm/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SCNET_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "scx-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.scx.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SCX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "siliconflow",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.siliconflow.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SILICONFLOW_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "siliconflow-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.siliconflow.cn/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SILICONFLOW_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "stackit",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.openai-compat.model-serving.eu01.onstackit.cloud/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "STACKIT_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "standardcompute",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.stdcmpt.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "STANDARDCOMPUTE_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "stepfun",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.stepfun.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "STEPFUN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "stepfun-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.stepfun.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "STEPFUN_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "stepfun-step-plan",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.stepfun.ai/step_plan/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "STEPFUN_STEP_PLAN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "stepfun-step-plan-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.stepfun.com/step_plan/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "STEPFUN_STEP_PLAN_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "submodel",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://llm.submodel.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SUBMODEL_INSTAGEN_ACCESS_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "synthetic",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.synthetic.new/openai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "SYNTHETIC_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "tencent-coding-plan",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.lkeap.cloud.tencent.com/coding/v3",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TENCENT_CODING_PLAN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "tencent-token-plan",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.lkeap.cloud.tencent.com/plan/v3",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TENCENT_TOKEN_PLAN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "tencent-tokenhub",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://tokenhub.tencentmaas.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TENCENT_TOKENHUB_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "tensorx",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.tensorx.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TENSORX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "the-grid-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.thegrid.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "THEGRID_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "tinfoil",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://inference.tinfoil.sh/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TINFOIL_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "together",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.together.xyz/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TOGETHER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "trustedrouter",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.trustedrouter.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "TRUSTEDROUTER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "vultr",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.vultrinference.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "VULTR_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "wafer-ai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://pass.wafer.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "WAFER_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "wandb",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.inference.wandb.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "WANDB_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "xai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.x.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "XAI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "xiaomi",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.xiaomimimo.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "XIAOMI_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "xiaomi-token-plan-eu",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://token-plan-ams.xiaomimimo.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "XIAOMI_TOKEN_PLAN_EU_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "xiaomi-token-plan-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "XIAOMI_TOKEN_PLAN_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "xiaomi-token-plan-sg",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "XIAOMI_TOKEN_PLAN_SG_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "xpersona",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://www.xpersona.co/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "XPERSONA_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zai",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.z.ai/api/paas/v4",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZHIPU_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zai-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZHIPU_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zai-coding-plan",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.z.ai/api/coding/paas/v4",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZHIPU_CODING_PLAN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zai-coding-plan-cn",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZHIPU_CODING_PLAN_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zeldoc",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://api.zeldoc.ai/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZELDOC_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zenifra",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://ai.zenifra.com/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZENIFRA_AI_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "zenmux",
+    "family": "openai-chat-compatible",
+    "endpoint": {
+      "base_url": "https://zenmux.ai/api/v1",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "bearer_env",
+      "env_var": "ZENMUX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "reasoning",
+        "parallel_tool_calls"
+      ]
+    }
+  }  ,
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "kimi-coding",
+    "family": "anthropic-compatible",
+    "endpoint": {
+      "base_url": "https://api.kimi.com/coding/",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "api_key_env",
+      "env_var": "KIMI_API_KEY"
+    },
+    "models": {
+      "discovery": "static",
+      "namespace": {
+        "mode": "preserve"
+      },
+      "static": [
+        {
+          "canonical_id": "k3",
+          "native_id": "k3",
+          "display_name": "Kimi K3"
+        },
+        {
+          "canonical_id": "k3-256k",
+          "native_id": "k3-256k",
+          "display_name": "Kimi K3 256K"
+        },
+        {
+          "canonical_id": "kimi-for-coding",
+          "native_id": "kimi-for-coding",
+          "display_name": "Kimi for Coding"
+        },
+        {
+          "canonical_id": "kimi-for-coding-highspeed",
+          "native_id": "kimi-for-coding-highspeed",
+          "display_name": "Kimi for Coding High-Speed"
+        }
+      ]
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "parallel_tool_calls",
+        "reasoning_replay"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "minimax",
+    "family": "anthropic-compatible",
+    "endpoint": {
+      "base_url": "https://api.minimax.io/anthropic",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "api_key_env",
+      "env_var": "MINIMAX_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "parallel_tool_calls",
+        "reasoning_replay"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "minimax-cn",
+    "family": "anthropic-compatible",
+    "endpoint": {
+      "base_url": "https://api.minimaxi.com/anthropic",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "api_key_env",
+      "env_var": "MINIMAX_CN_API_KEY"
+    },
+    "models": {
+      "discovery": "family_default",
+      "namespace": {
+        "mode": "preserve"
+      }
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "parallel_tool_calls",
+        "reasoning_replay"
+      ]
+    }
+  },
+  {
+    "api_version": "aip.provider-profile/v1",
+    "id": "thinking-machines",
+    "family": "anthropic-compatible",
+    "endpoint": {
+      "base_url": "https://tinker.thinkingmachines.dev/services/tinker-prod/anthropic/api",
+      "path_policy": "family_default"
+    },
+    "auth": {
+      "mode": "api_key_env",
+      "env_var": "TINKER_API_KEY"
+    },
+    "models": {
+      "discovery": "static",
+      "namespace": {
+        "mode": "preserve"
+      },
+      "static": [
+        {
+          "canonical_id": "thinkingmachines/Inkling",
+          "native_id": "thinkingmachines/Inkling",
+          "display_name": "Thinking Machines Inkling"
+        }
+      ]
+    },
+    "capabilities": {
+      "disable": [
+        "vision",
+        "documents",
+        "parallel_tool_calls",
+        "reasoning_replay"
+      ]
+    }
+  }
+]

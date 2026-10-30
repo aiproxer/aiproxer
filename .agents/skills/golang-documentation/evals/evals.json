@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "name": "exported-api-docs",
+    "description": "Checks concise, accurate Go API documentation",
+    "prompt": "Document an exported Go function that accepts a context, returns a value and an error, and has several edge cases.",
+    "trap": "A doc comment should explain contract and failure behavior without inventing mandatory sections or duplicating the implementation.",
+    "assertions": [
+      {"id": "1.1", "text": "Starts the comment with the exported identifier"},
+      {"id": "1.2", "text": "States purpose, important inputs, outputs, errors, cancellation, and side effects"},
+      {"id": "1.3", "text": "Avoids promising behavior not established by code or tests"},
+      {"id": "1.4", "text": "Uses an executable Example test when a runnable usage path adds value"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "readme-from-real-commands",
+    "description": "Checks task-oriented README content and command verification",
+    "prompt": "Write a README for a Go CLI with installation, configuration, a minimal example, testing, and troubleshooting guidance.",
+    "trap": "A README is not useful if it copies a generic template or contains commands that do not work from a clean checkout.",
+    "assertions": [
+      {"id": "2.1", "text": "Identifies audience, supported Go/platform versions, and the actual command or import path"},
+      {"id": "2.2", "text": "Includes a copyable minimal path with defaults, errors, and configuration precedence"},
+      {"id": "2.3", "text": "Documents operational concerns appropriate to the application without inventing unsupported features"},
+      {"id": "2.4", "text": "Verifies commands and avoids real credentials or private endpoints in snippets"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "private-disclosure-boundary",
+    "description": "Checks privacy and authorization before external documentation publication",
+    "prompt": "Can I publish an internal package's source and Playground example to make its documentation easier to find?",
+    "trap": "Public registries and Playground links disclose source and dependencies; tested examples are useful without automatically publishing private code.",
+    "assertions": [
+      {"id": "3.1", "text": "Requires explicit authorization and a license/privacy/disclosure review before publication"},
+      {"id": "3.2", "text": "Explains that internal packages and customer/private data should remain in approved documentation channels"},
+      {"id": "3.3", "text": "Offers local executable Example tests as the portable default"},
+      {"id": "3.4", "text": "Treats Playground or public documentation registration as optional and review-gated"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "release-artifact-links",
+    "description": "Checks release documentation against generated artifacts",
+    "prompt": "Add an installation link for the v1.2.3 CLI release produced by GoReleaser.",
+    "trap": "Archive names and paths come from the actual GoReleaser configuration; a guessed URL can 404 or point to the wrong platform.",
+    "assertions": [
+      {"id": "4.1", "text": "Inspects the release configuration's archive naming, target, and asset location"},
+      {"id": "4.2", "text": "Uses the exact tag/version and generated filename rather than an invented path"},
+      {"id": "4.3", "text": "Documents checksums and platform selection when the release produces them"},
+      {"id": "4.4", "text": "Verifies the link or states what release evidence is still needed"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "changelog-security-category",
+    "description": "Checks useful changelog categorization",
+    "prompt": "A release fixes a null handling bug, a retry bug, and a vulnerability in deserialization. How should the changelog group them?",
+    "trap": "Security fixes deserve clear visibility and should not be buried among ordinary fixes, while the format remains the project's chosen convention.",
+    "assertions": [
+      {"id": "5.1", "text": "Separates the vulnerability under a security heading when the changelog format supports it"},
+      {"id": "5.2", "text": "Keeps ordinary correctness fixes under the normal fixed/changed categories"},
+      {"id": "5.3", "text": "Avoids exposing exploit details or sensitive incident data beyond the disclosure policy"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "examples-as-tests",
+    "description": "Checks deterministic executable examples",
+    "prompt": "Should every exported package include a Playground demo and an Example function?",
+    "trap": "Examples are valuable when they demonstrate a supported contract, but neither a Playground nor an example is mandatory for every package.",
+    "assertions": [
+      {"id": "6.1", "text": "Recommends Example functions for stable, runnable usage where they improve documentation"},
+      {"id": "6.2", "text": "Uses Output comments only for deterministic output"},
+      {"id": "6.3", "text": "Keeps network, credentials, time, and private endpoints out of examples"},
+      {"id": "6.4", "text": "Treats Playground links as optional and disclosure-gated"}
+    ]
+  },
+  {
+    "id": 7,
+    "name": "generated-api-docs",
+    "description": "Checks source-of-truth selection for generated documentation",
+    "prompt": "Our project exposes protobuf and HTTP APIs. Should I hand-write a second API reference and generate OpenAPI from comments?",
+    "trap": "Generated schemas and source comments have different owners; duplicating an authoritative contract creates drift.",
+    "assertions": [
+      {"id": "7.1", "text": "Identifies the repository's source of truth for protobuf, OpenAPI, or generated API contracts"},
+      {"id": "7.2", "text": "Generates derived docs with a pinned, documented tool when appropriate"},
+      {"id": "7.3", "text": "Keeps hand-written guidance focused on concepts, workflows, and failure modes"},
+      {"id": "7.4", "text": "Checks generated output in CI or documents when it is intentionally not tracked"}
+    ]
+  }
+]

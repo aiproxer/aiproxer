@@ -1,0 +1,114 @@
+# Narrow Phase 9.5 gate: strict Linux race lanes run in parallel, then the full
+# installed-plugin release aggregation runs on Ubuntu after all lanes pass.
+# Full Windows runners fail intentional Windows admin-user refusals, CRLF gofmt
+# drift, and Markdown fence parsing; connector manifests do not advertise Darwin.
+# Native Windows/macOS coverage remains in focused cross-platform and process-tree
+# workflows (backend-plugin-cross-platform, ACP process-tree). Complements (does not replace) make qa.
+name: Backend plugin release gates
+
+on:
+  # Weekly and manual only until the gate is green again: it failed 7 of the
+  # last 9 runs, so per-push runs only cost time. release.yml stays the hard gate.
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-plugin-release-gates-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  race:
+    name: Strict Linux race (${{ matrix.lane }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ (matrix.lane == 'billing' || matrix.lane == 'billingstore') && 75 || 40 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [broad, billing, billingstore, support, runtime, architecture]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The architecture lane scans archived contracts and needs their
+          # recorded commits available in the local repository.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: race
+
+      - name: Record tested revision
+        id: revision
+        shell: bash
+        env:
+          RACE_LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          tested_sha="$(git rev-parse HEAD)"
+          mkdir -p .tmp
+          printf 'tested_sha=%s\ncommand=bash scripts/race-check.sh --strict --lane %s\n' "$tested_sha" "$RACE_LANE" | tee .tmp/race-evidence.txt
+          echo "sha=$tested_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Strict Linux race detector
+        env:
+          RACE_LANE: ${{ matrix.lane }}
+        run: bash scripts/race-check.sh --strict --lane "$RACE_LANE"
+
+      - name: Upload strict race evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-plugin-race-${{ matrix.lane }}-${{ steps.revision.outputs.sha || github.run_id }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            .tmp/race-evidence.txt
+            .tmp/race-check.log
+            .tmp/race-precheck.log
+
+  release-gates:
+    # This scheduled/manual aggregate runs only after the strict race matrix
+    # succeeds for the same workflow revision.
+    needs: race
+    name: release-gates (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Full history: the release-gates tool runs the Kiro residual
+          # ownership inventory contract, which validates that the recorded
+          # implementation SHA is an existing commit that is an ancestor of
+          # HEAD. A shallow clone cannot resolve that ancestry and fails with
+          # "is not an existing commit object" even though the spec is valid.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore shared Go cache
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Backend plugin release gates
+        env:
+          FUZZTIME: 2s
+        run: make backend-plugin-release-gates

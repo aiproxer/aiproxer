@@ -1,0 +1,1 @@
+{"model": "invented:model-a", "stream": true, "messages": [{"role": "user", "content": "weather?"}], "tools": [{"type": "function", "function": {"name": "get_weather", "description": "weather lookup", "parameters": {"type": "object", "properties": {"location": {"type": "string"}}}}}]}

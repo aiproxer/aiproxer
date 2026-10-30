@@ -1,0 +1,21 @@
+# Connector release metadata - packaging indexes are generated from this file.
+# Closed artifact exports both openai-codex and openai-codex-app-server (see manifest template).
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.codex
+factory_kind: openai-codex
+module: github.com/aiproxer/aiproxer/connectors/codex
+command: ./cmd/aip-backend-codex
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: codex-v0.1.0
+protocol_major: 1
+protocol_min_minor: 0
+protocol_max_minor: 5
+protocol_features:
+  - accounting_evidence_sideband
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

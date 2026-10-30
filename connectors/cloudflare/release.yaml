@@ -1,0 +1,15 @@
+# Connector release metadata — packaging indexes are generated from this file.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.cloudflare
+factory_kind: cloudflare
+module: github.com/aiproxer/aiproxer/connectors/cloudflare
+command: ./cmd/aip-backend-cloudflare
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: cloudflare-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

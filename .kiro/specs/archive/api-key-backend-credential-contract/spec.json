@@ -1,0 +1,23 @@
+{
+  "feature_name": "api-key-backend-credential-contract",
+  "created_at": "2026-10-14T21:48:27.892Z",
+  "updated_at": "2026-10-15T16:45:04.000Z",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true
+}

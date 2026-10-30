@@ -1,0 +1,17 @@
+# Connector release metadata — packaging indexes are generated from this file.
+# Closed artifact exports both opencode-go and opencode-zen (see manifest template).
+# factory_kind is the primary index key; manifest exports carry both kinds.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.opencode
+factory_kind: opencode-go
+module: github.com/aiproxer/aiproxer/connectors/opencode
+command: ./cmd/aip-backend-opencode
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: opencode-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

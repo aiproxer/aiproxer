@@ -1,0 +1,5 @@
+package escapepos
+
+// UseHostCB references the alias declared in alias_a.go so the package-wide
+// named callback is a live, type-checked definition split across files.
+func UseHostCB(f HostCB) int { return f(nil) }

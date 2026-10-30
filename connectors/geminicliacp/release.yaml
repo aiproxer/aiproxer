@@ -1,0 +1,15 @@
+# Connector release metadata — packaging indexes are generated from this file.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.geminicliacp
+factory_kind: geminicliacp
+module: github.com/aiproxer/aiproxer/connectors/geminicliacp
+command: ./cmd/aip-backend-geminicliacp
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: geminicliacp-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []

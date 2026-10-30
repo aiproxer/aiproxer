@@ -1,0 +1,20 @@
+# Connector release metadata — packaging indexes are generated from this file.
+# Runtime identity is pinned on Linux/amd64; permissions default to bypass.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.claudeagentacp
+factory_kind: claudeagentacp
+module: github.com/aiproxer/aiproxer/connectors/claudeagentacp
+command: ./cmd/aip-backend-claudeagentacp
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: claudeagentacp-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions: []
+executable_companions:
+  adapter-extension/bootstrap.mjs: claudeagentacp-adapter-extension/bootstrap.mjs
+  adapter-extension/identity.mjs: claudeagentacp-adapter-extension/identity.mjs
+  adapter-extension/models.mjs: claudeagentacp-adapter-extension/models.mjs

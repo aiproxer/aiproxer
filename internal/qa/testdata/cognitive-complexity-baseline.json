@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "functions": [
+    {
+      "path": "internal/archtest/closed_plane_ratchet_selector.go",
+      "function": "checkPlaneGeneratedSelectors",
+      "cognitive_complexity": 229
+    },
+    {
+      "path": "internal/core/jsonshape/scanner.go",
+      "function": "(*Scanner).Feed",
+      "cognitive_complexity": 771
+    },
+    {
+      "path": "internal/core/routeoverride/storecontract/contract.go",
+      "function": "RunAll",
+      "cognitive_complexity": 243
+    },
+    {
+      "path": "internal/core/runtime/attempt_session.go",
+      "function": "(*attemptSession).TerminalizeAttempt",
+      "cognitive_complexity": 312
+    },
+    {
+      "path": "internal/core/runtime/executor_recv_loop.go",
+      "function": "(*retryRecvStream).Recv",
+      "cognitive_complexity": 667
+    },
+    {
+      "path": "internal/core/runtime/parallel_race.go",
+      "function": "(*Executor).tryOpenParallelGroup",
+      "cognitive_complexity": 223
+    },
+    {
+      "path": "internal/featureplanegen/plane_extractor.go",
+      "function": "parsePlaneValue",
+      "cognitive_complexity": 211
+    },
+    {
+      "path": "internal/plugins/backends/protocols/anthropicmessages/map_events.go",
+      "function": "(*msgStream).handleEvent",
+      "cognitive_complexity": 202
+    },
+    {
+      "path": "internal/plugins/frontends/openailegacy/profile.go",
+      "function": "(*Profile).CompileProof",
+      "cognitive_complexity": 466
+    },
+    {
+      "path": "internal/plugins/frontends/openairesponses/profile.go",
+      "function": "(*Profile).CompileProof",
+      "cognitive_complexity": 451
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/profile.go",
+      "function": "(*Profile).CompileProof",
+      "cognitive_complexity": 539
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "feature_name": "proxy-memory-runtime-corrections",
+  "created_at": "2026-10-20T20:54:36+02:00",
+  "updated_at": "2026-10-21T00:42:59+02:00",
+  "language": "en",
+  "phase": "completed",
+  "spec_type": "brownfield_refinement",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "approved_scope": {
+    "scope": "The two auxiliary roles (proxy_memory_phase1, proxy_memory_phase2) registered in the closed workload allowlist, the composed real-executor proof that both phases reach Backend.Open with distinct BillingCallIDs and separate terminal call/leg usage records and that unknown roles are rejected, and the bank-claim retry-gate predicate with its deterministic SQLite and PostgreSQL interleaving.",
+    "approver": "owner, via the parent session",
+    "user_context": "Approved",
+    "parent_context": "Awaiting approval implement BOTH aux roles + real executor tests AND bank claim retry SQLite PG interleaving. Broader billing/model contracts unapproved.",
+    "approved_at": "2026-10-20T20:54:36+02:00",
+    "excluded": "The pending first-turn decision closure, the monetary host, sponsorship modes, funding, charging policy and the model-policy contracts remain unapproved in .kiro/specs/proxy-memory-commercial/ and .kiro/specs/proxy-memory-model-policy/.",
+    "notes": "No implementation, test, commit or PR is included in this approval; the scope covers the specification and the two implementation tasks it defines."
+  },
+  "completed": true,
+  "completion": {
+    "scope": "Owner-authorized branch-local implementation archival only",
+    "role_implementation_commit": "4e2d588fec42a80fd711d3620b9d8d41789def6b",
+    "bank_implementation": "Included in the same commit as this archive; reviewed and verified working-tree implementation",
+    "integration_evidence": "validation.md",
+    "merged_main_verified": false,
+    "remote_ci_verified": false,
+    "financial_certification": false,
+    "authorization": "Owner answered yes to archiving only this new narrow spec after integration validation so the bank-fix commit can pass; no merge or PR closure authorized"
+  }
+}

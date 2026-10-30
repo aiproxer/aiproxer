@@ -1,0 +1,24 @@
+{
+  "feature_name": "geoip-ingress-access-control",
+  "created_at": "2026-08-19T13:14:00+02:00",
+  "updated_at": "2026-08-23T22:00:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "project_description": "Add optional GeoIP-based HTTP ingress access control for Go-LIP. Enforce country and IP/CIDR allow/deny policy before general tracing, metrics, access logging, authentication, frontend decoding, routing, database work, or model execution; preserve exact Apache-style deny_allow / allow_deny semantics; support IPv4/IPv6 overrides and explicit trusted reverse-proxy client-IP resolution; use an enforceably immutable generation policy and a local Country MMDB service (DB-IP Lite by default) with bounded parsing/update resources, crash-durable transactional last-known-good publication, deterministic recovery, and updater/shutdown serialization; make pure policy reloadable through immutable request-plane generations while keeping MMDB/updater lifecycle process-owned. Preserve the process-owned management listener, network-free runtimebundle.ValidateStructural check-config path, and existing in-flight generation pinning. Track implementation under GitHub issue #387."
+}

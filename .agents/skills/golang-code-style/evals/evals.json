@@ -1,0 +1,376 @@
+[
+  {
+    "id": 1,
+    "name": "zero-value-implicit",
+    "description": "Zero-value fields not explicitly initialized; non-zero uses :=",
+    "prompt": "Write a Go file `cache.go` in package `cache`. Create a Cache struct with fields for max size, current count, hit count, and miss count (all integers). Add a constructor that takes max size. Add a Get method that increments hit or miss count and a Set method. Initialize a default TTL duration variable and a done channel in the constructor.",
+    "trap": "Model explicitly initializes zero-value fields (currentCount := 0) or uses var for non-zero assignments, obscuring the distinction between intentional zero and meaningful value",
+    "assertions": [
+      {
+        "id": "1.1",
+        "text": "Zero-value integer fields (currentCount, hitCount, missCount) are NOT explicitly initialized in the constructor — Go zero values are relied upon, or if local variables are declared separately, they use var (not :=) to signal zero-value intent"
+      },
+      {
+        "id": "1.2",
+        "text": "Non-zero assignments (like maxSize from parameter, or default TTL = 5*time.Minute) use := short declaration form"
+      },
+      {
+        "id": "1.3",
+        "text": "The done channel is created with make(), not left as nil"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "empty-collection-semantics",
+    "description": "Empty collection initialization follows mutation and wire-format semantics rather than a universal nil rule",
+    "prompt": "Write a Go file `handler.go` in package `api`. Create a Handler struct. Add a method ListUsers that returns a slice of User structs (define User with Name and Email fields). Add a method GetTags that returns a map[string]string. Both methods should return empty collections when there's no data. Add a method BuildResponse that takes a slice of results and a map of metadata and processes them.",
+    "trap": "Model treats nil slices or maps as universally invalid, ignoring that nil slices are append/range safe and nil maps are readable/rangeable but not writable",
+    "assertions": [
+      {
+        "id": "2.1",
+        "text": "Chooses nil versus empty slices from the API absence/wire contract; recognizes append works on nil slices"
+      },
+      {
+        "id": "2.2",
+        "text": "Chooses nil versus empty maps from the API contract and initializes a map before assignment"
+      },
+      {
+        "id": "2.3",
+        "text": "Uses capacity hints when known size or workload justifies them; absence of preallocation alone is not a correctness finding"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "named-struct-fields",
+    "description": "All struct literals use named fields, not positional",
+    "prompt": "Write a Go file `server.go` in package `server`. Create an HTTP server using net/http. Configure it with address ':8080', read timeout 5 seconds, write timeout 10 seconds, idle timeout 120 seconds, and max header bytes 1MB. Also create a tls.Config with min TLS version 1.2 and a list of cipher suites.",
+    "trap": "Model uses positional struct literals like http.Server{\":8080\", 5*time.Second, 10*time.Second, ...}, which silently breaks when struct fields are reordered",
+    "assertions": [
+      {
+        "id": "3.1",
+        "text": "http.Server literal uses named fields (Addr:, ReadTimeout:, WriteTimeout:, IdleTimeout:, MaxHeaderBytes:) — not positional arguments"
+      },
+      {
+        "id": "3.2",
+        "text": "tls.Config literal uses named fields (MinVersion:, CipherSuites:) — not positional arguments"
+      },
+      {
+        "id": "3.3",
+        "text": "Uses keyed fields for standard-library configuration types without treating positional literals for local small value types as universally invalid"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "early-return-not-nested",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function ProcessOrder in package `orders` that takes an order struct (define it with fields: ID string, Items []Item, Status string, CustomerID string). The function should validate that the ID is not empty, that there is at least one item, that the status is 'pending', that the customer exists (simulate with a lookup function), compute the total price, apply a discount if total > 100, and return the final total with an error. Write it with deeply nested if-else blocks.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [
+      {
+        "id": "4.1",
+        "text": "Honors the explicitly requested nested shape and preserves validation behavior"
+      },
+      {
+        "id": "4.2",
+        "text": "May mention early returns as an optional alternative without replacing the requested implementation"
+      },
+      {
+        "id": "4.3",
+        "text": "Computes the correct result for valid input and returns useful validation errors"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "no-else-after-return",
+    "description": "No else after return; default-then-override for simple assignments",
+    "prompt": "Write a Go function GetUserRole in package `auth` that takes a user struct with IsAdmin bool, IsModerator bool, and IsVerified bool fields. Return a role string: if admin return 'admin', else if moderator return 'moderator', else if verified return 'member', else return 'guest'. Also write a function SetLogLevel that takes a verbose bool and a debug bool, and sets the log level appropriately using slog.",
+    "trap": "Model uses else-if chains after return statements, adding unnecessary indentation and cognitive load",
+    "assertions": [
+      {
+        "id": "5.1",
+        "text": "GetUserRole does NOT use else or else-if after a return statement — either uses early returns (if isAdmin { return 'admin' }; if isModerator { return 'moderator' }) or a switch statement"
+      },
+      {
+        "id": "5.2",
+        "text": "Preserves verbose/debug priority using readable conditions; default-then-override is optional"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "name": "switch-over-if-else-chain",
+    "description": "Multi-branch comparisons use switch statements, not if-else chains",
+    "prompt": "Write a Go function HandleEvent in package `events` that takes an event with a Type string field. The type can be 'click', 'scroll', 'keypress', 'hover', 'focus', or 'blur'. Each type should call a different handler function. Also write a function MapStatusCode that takes an int HTTP status code and returns a human-readable string for 200, 201, 204, 400, 401, 403, 404, 500, 502, 503.",
+    "trap": "Model uses if-else chains for multi-branch string/int comparisons instead of switch statements",
+    "assertions": [
+      {
+        "id": "6.1",
+        "text": "HandleEvent uses a switch statement on event.Type, not an if-else chain"
+      },
+      {
+        "id": "6.2",
+        "text": "MapStatusCode uses a switch statement on the status code, not an if-else chain"
+      },
+      {
+        "id": "6.3",
+        "text": "Both switch statements include a default case"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "name": "options-struct-not-many-params",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function SendNotification in package `notify` that sends a notification. It needs these parameters: ctx context.Context, userID string, message string, channel string (email/sms/push), priority int, retryCount int, dryRun bool, templateID string, metadata map[string]string, callback func(error). Put all parameters directly in the function signature.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [
+      {
+        "id": "7.1",
+        "text": "Preserves the requested flat signature, with context first as already specified"
+      },
+      {
+        "id": "7.2",
+        "text": "May discuss cohesive options without replacing the requested API"
+      },
+      {
+        "id": "7.3",
+        "text": "Does not enforce a maximum parameter count"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "name": "value-vs-pointer-params",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write Go functions in package `users`: (1) FormatName that takes a first name string and last name string and returns the formatted full name, (2) UpdateAge that modifies a User struct's age field, (3) FindUser that takes a user ID string and returns a User pointer, (4) CompareUsers that checks if two User structs (each about 32 bytes with Name string and Age int) are equal. Use pointer parameters for all functions.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [
+      {
+        "id": "8.1",
+        "text": "Preserves requested pointer parameters and documents nil-input semantics"
+      },
+      {
+        "id": "8.2",
+        "text": "UpdateAge mutates the pointed-to value; read-only functions leave values unchanged"
+      },
+      {
+        "id": "8.3",
+        "text": "Discusses pointer/value decisions without a byte-size threshold"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "file-declaration-order",
+    "description": "Interface before struct, constructor before methods, helpers after exported methods",
+    "prompt": "Write a Go file `repository.go` in package `repo`. Include: a Repository interface with methods Get, List, Create, Delete; a PostgresRepository struct implementing it; a constructor NewPostgresRepository; all four methods on PostgresRepository; two helper functions (buildQuery and scanRow); constants for default page size and max page size; and the necessary imports. Organize everything in a single file.",
+    "trap": "Model scatters declarations in arbitrary order, mixing helpers between methods and placing structs before interfaces",
+    "assertions": [
+      {
+        "id": "9.1",
+        "text": "Groups related declarations so the type API and dependencies are discoverable"
+      },
+      {
+        "id": "9.2",
+        "text": "Keeps constructors and methods easy to locate without an interface-before-struct requirement"
+      },
+      {
+        "id": "9.3",
+        "text": "Avoids declaration-order churn with no clarity benefit"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "strconv-for-int-conversion",
+    "description": "strconv.Itoa for int-to-string, strings.Builder for loop concatenation, fmt.Sprintf for complex formatting",
+    "prompt": "Write a Go function GenerateReport in package `report` that: (1) converts an integer count to a string for a header, (2) converts a float64 percentage to a string with 2 decimal places, (3) builds a CSV-like output by concatenating 1000 rows in a loop where each row has name, age, and city columns, (4) formats a simple greeting with a name string variable.",
+    "trap": "Model uses fmt.Sprintf(\"%d\") for simple int conversions and += string concatenation in the loop, missing the performance-correct alternatives",
+    "assertions": [
+      {
+        "id": "10.1",
+        "text": "Integer-to-string conversion uses strconv.Itoa() or strconv.FormatInt() — not fmt.Sprintf('%d', n)"
+      },
+      {
+        "id": "10.2",
+        "text": "Loop-based string concatenation uses strings.Builder (or bytes.Buffer) — not repeated string concatenation with +"
+      },
+      {
+        "id": "10.3",
+        "text": "Complex formatting (like the percentage with specific format or the greeting) uses fmt.Sprintf"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "named-boolean-conditions",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function CanAccessResource in package `authz` that checks if a user can access a resource. The conditions are: (1) user.Role == 'admin', OR (2) user.ID == resource.OwnerID, OR (3) resource.IsPublic && user.IsVerified, OR (4) user has a specific permission in their permission set (permissions.Contains('resource.access')). Write it as a single if statement with all conditions inline.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [
+      {
+        "id": "11.1",
+        "text": "Preserves the requested inline condition and short-circuit order"
+      },
+      {
+        "id": "11.2",
+        "text": "Checks every specified access predicate without adding access paths"
+      },
+      {
+        "id": "11.3",
+        "text": "May suggest domain names without replacing the requested expression shape"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "line-breaks-at-semantic-boundaries",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function RegisterRoutes in package `router` that takes an http.ServeMux and registers 6 routes. Each route handler calls a function with these parameters: the response writer, request, a long service name string, a config struct, a logger, and an auth middleware function. Write each handler registration as a single long line.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [
+      {
+        "id": "12.1",
+        "text": "Honors syntactically valid single-line registrations requested by the user"
+      },
+      {
+        "id": "12.2",
+        "text": "Preserves handler arguments and routing behavior"
+      },
+      {
+        "id": "12.3",
+        "text": "May discuss readability without silently replacing the layout"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "name": "honor-explicit-nil-collection-contract",
+    "description": "Preserves an explicit nil-versus-empty collection contract when callers already define the semantics",
+    "prompt": "Write a Go function GetUsers in package `api` that returns all users from a database. When there are no users, return nil. Also write GetMetadata that returns a map[string]string — return nil when empty. The caller will check for nil before using the result, so returning nil is safe and avoids an unnecessary allocation.",
+    "trap": "Model overrides the explicit nil contract with a universal non-nil rule, or writes to a nil map without initializing it",
+    "assertions": [
+      {
+        "id": "13.1",
+        "text": "GetUsers may return nil for the explicitly requested absence semantics, while noting that JSON consumers may distinguish nil from empty"
+      },
+      {
+        "id": "13.2",
+        "text": "GetMetadata may return nil when empty under the stated contract, but initializes a map before any writes"
+      },
+      {
+        "id": "13.3",
+        "text": "Explains that nil can be a successful collection result when the contract assigns it meaning, while nil maps cannot be assigned to"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "name": "strconv-builder-override-prompt",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function BuildReport in package `report` that takes a count int, a list of names []string, and a separator string. Use fmt.Sprintf(\"%d\", count) to convert the count to a string. Use result += name + separator inside a for loop to build the final string. This is simple and readable — don't over-engineer it.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "14.1", "text": "Uses the explicitly requested fmt.Sprintf and loop concatenation"}, {"id": "14.2", "text": "Preserves separator and empty-input behavior"}, {"id": "14.3", "text": "May suggest measuring a builder alternative without replacing the requested code"}]
+  },
+  {
+    "id": 15,
+    "name": "named-fields-override-positional-prompt",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write Go structs in package `config` using positional field syntax for brevity. Create: Point{float64, float64}, Color{uint8, uint8, uint8, uint8}, and ServerConfig{string, int, bool, time.Duration, time.Duration, *tls.Config}. Positional syntax is shorter and the field order is obvious from the type definition.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "15.1", "text": "Uses requested positional literals for the locally defined types"}, {"id": "15.2", "text": "Keeps values in actual field declaration order"}, {"id": "15.3", "text": "Explains maintenance tradeoffs without treating short local positional literals as invalid"}]
+  },
+  {
+    "id": 16,
+    "name": "early-return-override-nested-prompt",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function ValidateAndProcess in package `pipeline` that validates an input struct (check: non-empty Name, Age > 0, valid Email containing '@', Status is 'active' or 'pending', non-nil Permissions slice, at least one Permission). If all validations pass, compute a score, apply modifiers, and return the result. Use the traditional if-else pattern: if valid { if next_valid { if next { ... } else { error } } else { error } } else { error }. This makes the success path clear by keeping it inside the innermost block.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "16.1", "text": "Uses requested nested flow"}, {"id": "16.2", "text": "Preserves validation order, errors, and success behavior"}, {"id": "16.3", "text": "May offer early returns as an optional alternative"}]
+  },
+  {
+    "id": 17,
+    "name": "context-first-options-struct",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function CreateUser in package `service` with these parameters in this exact order: db *sql.DB, name string, email string, age int, role string, isActive bool, permissions []string, metadata map[string]string, avatar []byte, notifyOnCreate bool, ctx context.Context, logger *slog.Logger. Keep all parameters in the function signature exactly as listed — do not change the order or group them.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "17.1", "text": "Preserves all parameters in the exact requested order"}, {"id": "17.2", "text": "Explains context-first/options conventions without breaking the explicit API"}, {"id": "17.3", "text": "Does not change exported signatures for style thresholds"}]
+  },
+  {
+    "id": 18,
+    "name": "value-types-not-pointer-params",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write Go functions in package `math` that all use pointer parameters for maximum performance and zero-copy semantics: (1) Add(a *int, b *int) *int, (2) IsEven(n *int) *bool, (3) FormatDuration(d *time.Duration) *string, (4) Max(a *float64, b *float64) *float64, (5) Concat(a *string, b *string) *string. Pointers avoid copying values onto the stack.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "18.1", "text": "Preserves explicitly requested pointer signatures"}, {"id": "18.2", "text": "Explains pointers do not universally avoid allocation or improve performance"}, {"id": "18.3", "text": "Defines nil handling and returns correct values"}]
+  },
+  {
+    "id": 19,
+    "name": "named-conditions-override-inline-prompt",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function AssignPermission in package `rbac` that determines a user's effective permission level. Check these conditions with a traditional if-else chain — do NOT use variables to store intermediate results: if user.Role == 'superadmin' && !user.IsSuspended, or if user.Role == 'admin' && user.Department == resource.Department && user.TenantID == resource.TenantID, or if resource.IsPublic && user.IsVerified && !user.IsRestricted, or if user.Groups.Contains(resource.RequiredGroup) && user.MFA.IsEnabled() && time.Since(user.MFA.LastVerified) < 24*time.Hour, or if resource.ACL.HasEntry(user.ID) && resource.ACL.GetPermission(user.ID).Level >= MinReadLevel. Return the matching permission level or ErrAccessDenied.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "19.1", "text": "Preserves the requested inline if/else chain"}, {"id": "19.2", "text": "Preserves MFA and ACL short-circuit order"}, {"id": "19.3", "text": "Checks all specified cases and returns ErrAccessDenied when none matches"}]
+  },
+  {
+    "id": 20,
+    "name": "line-breaks-override-compact-prompt",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function SetupHandlers in package `api` that registers 8 REST endpoint handlers on an http.ServeMux. Each handler closure calls processRequest with: the http.ResponseWriter, *http.Request, the service name \"com.example.platform.microservices.user-management.api.v2\", a config struct, a logger, a metrics collector, a rate limiter, and a tracer. Write compact code — each mux.HandleFunc call should be on a single line for easy scanning.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "20.1", "text": "Honors requested single-line registrations"}, {"id": "20.2", "text": "Preserves routes and handler arguments"}, {"id": "20.3", "text": "May explain readability tradeoffs without ignoring the format preference"}]
+  },
+  {
+    "id": 21,
+    "name": "switch-override-else-prompt",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function GetPricingTier in package `billing` that takes a customer struct with fields: plan string, monthlySpend float64, isEnterprise bool, hasCustomContract bool, employeeCount int, region string. Return the pricing tier string. Use a traditional if/else if/else chain: if enterprise with custom contract return 'enterprise-custom', else if enterprise return 'enterprise', else if monthly spend > 10000 return 'premium', else if monthly spend > 1000 return 'professional', else if monthly spend > 100 return 'starter', else return 'free'. Make sure to use else after every if.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "21.1", "text": "Uses the requested if/else if/else chain"}, {"id": "21.2", "text": "Preserves pricing priority and boundaries"}, {"id": "21.3", "text": "Does not force switch or remove else clauses solely for style"}]
+  },
+  {
+    "id": 22,
+    "name": "minimal-exports",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go file `helpers.go` in package `httputil`. Export everything for maximum reusability across packages. Create: BuildURL (joins base URL and path), ParseQueryParams (extracts query params into map), SanitizeHeader (removes dangerous headers), FormatResponse (builds JSON response), LogRequest (logs request details), ExtractBearerToken (gets token from Authorization header), SetCORSHeaders (adds CORS headers), ValidateContentType (checks Content-Type header). Make all functions exported and all helper types exported too.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "22.1", "text": "Exports explicitly requested functions and helper types"}, {"id": "22.2", "text": "Keeps exported names and doc comments clear"}, {"id": "22.3", "text": "May explain compatibility costs without silently reducing the public surface"}]
+  },
+  {
+    "id": 23,
+    "name": "explicit-capacity-hint-tradeoff",
+    "description": "Honors requested capacities while explaining measured memory tradeoffs",
+    "prompt": "Write a Go function AllocateBuffers in package `pool` that processes a list of job IDs. For each job, allocate a result slice and a metadata map. Pre-allocate generously for performance: use make([]Result, 0, 100000) for the results since some jobs might return many results, and make(map[string]string, 10000) for metadata since we want to avoid rehashing. The input typically has 5-20 job IDs, and each job usually produces 3-10 results with 2-5 metadata entries.",
+    "trap": "Overriding literal user capacity requirements or inventing an unsupported memory size or capacity cutoff",
+    "assertions": [
+      {
+        "id": "23.1",
+        "text": "Uses the explicitly requested capacities unless the user agrees to an alternative"
+      },
+      {
+        "id": "23.2",
+        "text": "Explains the substantial gap from typical sizes and suggests measuring memory and growth behavior"
+      },
+      {
+        "id": "23.3",
+        "text": "Does not invent a universal maximum capacity or a gigabyte claim without the Result layout and allocation evidence"
+      },
+      {
+        "id": "23.4",
+        "text": "May offer proportional hints as an alternative without silently changing the requested implementation"
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "name": "early-continue-not-nesting",
+    "description": "Preserves explicit user implementation choices while explaining style tradeoffs",
+    "prompt": "Write a Go function TransformData in package `etl` that takes a slice of RawRecord structs (each ~200 bytes with many string fields). For each record: (1) validate it (check 4 fields are non-empty), (2) normalize it (trim and lowercase strings), (3) check for duplicates against a seen map, (4) apply business rules (3 conditions), (5) convert to OutputRecord. Write the main loop body as one deeply nested block: for each record, if valid { if normalized ok { if not duplicate { if rules pass { append to output } else { log skip } } else { log duplicate } } else { log invalid } }.",
+    "trap": "Treating a style default as permission to override the explicit user request",
+    "assertions": [{"id": "24.1", "text": "Uses the requested nested main loop"}, {"id": "24.2", "text": "Preserves validation, normalization, duplicate handling, rules, and log/append behavior"}, {"id": "24.3", "text": "May discuss early continue without replacing the requested shape"}]
+  }
+]

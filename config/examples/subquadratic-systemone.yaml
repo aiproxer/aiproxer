@@ -1,0 +1,51 @@
+# POST /v1/systemone through the SubQ Subquadratic System One profile.
+# Set SUBQ_API_KEY for the profile backend.
+# Text-only Phase 1: AIProxer never sends images upstream. A client `images` field is
+# rejected by the frontend before any upstream traffic; multimodal parity is not implemented.
+# subq-snap-preview is a public-preview model with a static inventory.
+# Stock aipstd applies no customer billing unless its host injects billing ports.
+server:
+  address: "127.0.0.1:18096"
+
+access:
+  mode: single_user
+
+routing:
+  max_attempts: 2
+  default_route: "subq-snap:subq-snap-preview"
+
+continuity:
+  in_memory: true
+  store: memory
+
+logging:
+  level: info
+  format: text
+
+diagnostics:
+  enabled: false
+
+# Enables stock payload-size estimates if a host supplies billing admission.
+# No external catalog fetch is required for static decision inventories.
+model_catalog:
+  enabled: true
+  external_updates_enabled: false
+  cache_path: data/systemone_model_catalog.json
+
+plugins:
+  frontends:
+    - id: systemone
+      enabled: true
+      config:
+        # SubQ's documented Decisions limit is 16 questions. max_questions is a
+        # frontend-wide bound, not a per-model bound: do not lower a shared
+        # TypeSafe+SubQ frontend to 16 globally. This example serves SubQ only,
+        # so the frontend-wide setting is safe here.
+        max_questions: 16
+  backends:
+    - id: subq-snap
+      kind: provider-profile
+      enabled: true
+      config:
+        profile: subquadratic-systemone
+  features: []

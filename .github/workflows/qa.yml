@@ -1,0 +1,205 @@
+name: QA
+
+on:
+  push:
+    branches: [main]
+    # Documentation-only pushes must not displace a queued code push (its run
+    # publishes the QA Go cache); see the same filter in ci.yml.
+    paths-ignore:
+      - "*.md"
+      - "docs/**/*.md"
+      - "docs/**/*.txt"
+      - "docs/**/*.png"
+      - "docs/**/*.svg"
+      - ".kiro/specs/**/*.md"
+      - ".kiro/specs/**/*.json"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+env:
+  AIP_ALLOW_LARGE_CHANGE: ${{ contains(github.event.pull_request.labels.*.name, 'allow-large-change') && '1' || '' }}
+
+concurrency:
+  # Share the branch/PR group with equivalent runs so a new push cancels
+  # the superseded QA run instead of consuming another hosted runner.
+  group: qa-${{ github.head_ref || github.ref_name }}
+  # Runs on main publish the QA Go cache; only cancel superseded PR / queue runs.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+
+jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      test: ${{ steps.filter.outputs.test }}
+      kiro: ${{ steps.filter.outputs.kiro }}
+      profile: ${{ steps.surface.outputs.profile }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate CI scope matcher
+        shell: bash
+        run: bash scripts/ci-scope.sh --self-test
+
+      - name: Classify changed files
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          bash scripts/ci-scope.sh --outputs "${BASE_SHA:-}" HEAD >> "$GITHUB_OUTPUT"
+
+      # The architecture change-surface reporter is Go-based. Do not provision
+      # Go merely to classify Markdown/spec-only pull requests.
+      - name: Setup Go for architecture change-surface classification
+        if: github.event_name == 'pull_request' && steps.filter.outputs.code == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          # The heavy QA job owns the dedicated complete cache below. Avoid
+          # creating another shared setup-go snapshot in the classifier job.
+          cache: false
+          cache-dependency-path: |
+            go.sum
+            connectors/**/go.sum
+            connector-support/**/go.sum
+            testdata/enterprise_module/go.sum
+            testdata/external_connector/go.sum
+            testdata/external_feature_sdk/go.sum
+            tools/**/go.sum
+
+      - name: Classify architecture change surface
+        id: surface
+        if: github.event_name == 'pull_request' && steps.filter.outputs.code == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          go run ./internal/archtest/tools/changesurface/cmd \
+            -base "$BASE_SHA" \
+            -github-output "$GITHUB_OUTPUT" \
+            -json
+
+  qa:
+    name: qa
+    needs: changes
+    if: always() && !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.test == 'true' || needs.changes.outputs.kiro == 'true' || needs.changes.outputs.profile == 'true')
+    # QA is not currently a required check. Do not allocate a second runner for
+    # unrelated Markdown-only PRs; Kiro spec-only PRs retain their targeted
+    # lifecycle policy check without running runtime/build/database QA.
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        shell: bash
+        run: |
+          echo "QA scope detection failed; refusing to bypass architecture evidence." >&2
+          exit 1
+
+      - name: Checkout
+        if: needs.changes.result == 'success' && (needs.changes.outputs.test == 'true' || needs.changes.outputs.kiro == 'true' || needs.changes.outputs.profile == 'true')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        if: needs.changes.result == 'success' && (needs.changes.outputs.test == 'true' || needs.changes.outputs.kiro == 'true' || needs.changes.outputs.profile == 'true')
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          # The shared composite owns the advancing main QA baseline.
+          cache: false
+
+      # Kiro specification changes still need the repository's lifecycle policy,
+      # but spec-only PRs must not pay for formatting, fixture tidies, vet,
+      # architecture package loading, runtime tests, or database parity.
+      - name: Kiro spec policy
+        if: needs.changes.result == 'success' && needs.changes.outputs.kiro == 'true' && needs.changes.outputs.test != 'true'
+        shell: bash
+        run: go run ./tools/kiro/kirocheck
+
+      # Main publishes complete QA baselines; all PRs can restore them.
+      - name: Restore bounded qa Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+
+      - name: Formatting and module integrity
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          test -z "$(gofmt -l cmd internal pkg)"
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
+
+      # Repository-policy failures should surface before the full archtest
+      # package loads its broad production/test dependency graph. Keep this
+      # package intentionally lightweight: filesystem policy, Kiro lifecycle,
+      # and architecture budget ratchets only.
+      - name: Fast policy preflight
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/qa-fast-preflight.log"
+          go test -count=1 -v -tags=precommit ./internal/qa \
+            -run '^(TestRootHygiene_|TestQAFastPreflight_|TestOpenResponsesOfficialVendoredManifest$)' | tee "$log"
+          grep -qE '^=== RUN[[:space:]]+TestRootHygiene_' "$log"
+          grep -qE '^=== RUN[[:space:]]+TestQAFastPreflight_' "$log"
+
+      # These are the only independent modules executed by archtest itself.
+      # Dependency-only PRs have historically reached the expensive package
+      # load before discovering that one of these fixtures needs go mod tidy.
+      - name: Fixture module tidy preflight
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module in testdata/enterprise_module testdata/external_connector testdata/external_feature_sdk; do
+            echo "== $module =="
+            (cd "$module" && GOWORK=off go mod tidy -diff)
+          done
+
+      - name: Provider-profile change-surface ratchet
+        if: needs.changes.outputs.profile == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: go run ./internal/archtest/tools/changesurface/cmd -base "$BASE_SHA" -profile-only -json
+
+      - name: Vet release command
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        run: go vet ./cmd/aipstd
+
+      - name: Architecture guardrails
+        id: archtest
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        run: go test -timeout=8m ./internal/archtest
+
+      # CI owns the portable cmd/aipstd test/build matrix. QA retains the
+      # distinct architecture and vet evidence instead of recompiling this
+      # package a second time on Ubuntu.
+
+      # Only successful main QA publishes a bounded complete baseline.
+      - name: Save bounded qa Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: qa
+          phase: save
+
+      - name: Report full QA bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.test != 'true'
+        shell: bash
+        run: |
+          echo "QA bypassed: no test-relevant changes detected."

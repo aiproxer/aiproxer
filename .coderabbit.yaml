@@ -1,0 +1,208 @@
+# .coderabbit.yaml
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: "en-US"
+early_access: false
+focus: "balanced"
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: true
+  commit_status: true
+  fail_commit_status: false
+
+  poem: false
+  in_progress_fortune: false
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  changed_files_summary: true
+
+  path_filters:
+    # Ignore generated / vendored / build output.
+    - "!vendor/**"
+    - "!bin/**"
+    - "!dist/**"
+    - "!build/**"
+    - "!coverage/**"
+    - "!tmp/**"
+
+    # Ignore common generated Go files unless you want generated code reviewed.
+    - "!**/*.pb.go"
+    - "!**/*_generated.go"
+    - "!**/mock_*.go"
+    - "!**/*_mock.go"
+
+    # Ignore lock / noise files if present.
+    - "!package-lock.json"
+    - "!pnpm-lock.yaml"
+    - "!yarn.lock"
+  path_instructions:
+    - path: "**/*.go"
+      instructions: >
+        Review as production Go code. Prioritize correctness, race conditions,
+        goroutine leaks, context cancellation, timeout handling, error wrapping,
+        nil-pointer risks, resource cleanup, defer placement, API compatibility,
+        interface design, dependency boundaries, and testability. Avoid generic
+        style comments when gofmt/golangci-lint already covers the issue.
+
+    - path: "cmd/**"
+      instructions: >
+        Focus on CLI/service entrypoint behavior: signal handling, graceful
+        shutdown, context propagation, configuration parsing, environment
+        variables, logging setup, exit codes, and backwards compatibility of
+        flags or command output.
+
+    - path: "internal/**"
+      instructions: >
+        Focus on package boundaries, hidden coupling, unexported API design,
+        concurrency safety, deterministic behavior, and whether logic belongs
+        in this internal package.
+
+    - path: "pkg/**"
+      instructions: >
+        Treat exported identifiers as public API. Flag breaking changes,
+        ambiguous contracts, missing error semantics, poor interface boundaries,
+        and changes that make downstream usage harder.
+
+    - path: "**/*_test.go"
+      instructions: >
+        Review tests for meaningful assertions, table-driven coverage, race-prone
+        tests, t.Parallel misuse, nondeterminism, leaked goroutines, real network
+        or filesystem dependencies, fragile sleeps, and missing edge cases.
+        Prefer testing observable behavior over implementation details.
+
+    - path: "**/go.mod"
+      instructions: >
+        Review dependency changes for unnecessary additions, major-version
+        upgrades, replace directives, indirect dependency churn, and module path
+        correctness.
+
+    - path: "**/go.sum"
+      instructions: >
+        Flag suspicious dependency churn, unexpected transitive dependency
+        explosions, or changes inconsistent with go.mod.
+
+    - path: ".github/workflows/**"
+      instructions: >
+        Review CI changes for Go version consistency, caching correctness,
+        reproducibility, permissions minimization, SHA-pinned actions,
+        persist-credentials: false on checkout, race detector usage where
+        appropriate, and whether tests/linting actually run on pull requests.
+
+    - path: ".goreleaser.yaml"
+      instructions: >
+        Review release configuration for least-privilege artifact contents,
+        correct binary targets, ldflags/version injection, and exclusion of
+        dev-only commands.
+
+    - path: ".release-files"
+      instructions: >
+        Treat as a security boundary: every new tracked path must be explicitly
+        listed; flag unexpected additions or removals.
+
+    - path: "connectors/**"
+      instructions: >
+        Review connector process execution, IPC boundaries, manifest validation,
+        and credential handling. Flag unsafe command invocation or trust bypasses.
+
+    - path: "connector-support/**"
+      instructions: >
+        Review shared connector support for secure defaults in process management,
+        TLS, and credential propagation.
+
+    - path: "internal/stdhttp/auth/**"
+      instructions: >
+        Review authentication middleware, credential matching, and error rendering
+        for bypass risks and information leakage.
+
+    - path: "Dockerfile"
+      instructions: >
+        Review for small/reproducible Go builds, multi-stage build correctness,
+        non-root runtime users, static binary assumptions, CA certificates,
+        exposed ports, and unnecessary build secrets in image layers.
+
+  slop_detection:
+    enabled: true
+    label: "slop"
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT REVIEW"
+      - "NO REVIEW"
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+
+  pre_merge_checks:
+    title:
+      mode: "warning"
+      requirements: >
+        PR title should be concise and describe the user-visible or technical
+        change. Prefer conventional prefixes such as fix:, feat:, refactor:,
+        test:, docs:, chore:, or ci:.
+    description:
+      mode: "warning"
+    custom_checks:
+      - name: "No secrets"
+        mode: "warning"
+        instructions: >
+          Fail only if the PR appears to introduce hardcoded credentials,
+          API keys, tokens, private keys, passwords, production secrets,
+          or sensitive internal URLs.
+
+      - name: "Context propagation"
+        mode: "warning"
+        instructions: >
+          For server, CLI, worker, or network code, check that context.Context
+          is propagated correctly, cancellation is respected, and new goroutines
+          cannot leak indefinitely.
+
+      - name: "No accidental public API break"
+        mode: "warning"
+        instructions: >
+          For changes under pkg/** or exported Go identifiers, warn if the PR
+          changes exported types, function signatures, error behavior, JSON
+          fields, CLI flags, config keys, or documented behavior without clearly
+          explaining the compatibility impact.
+
+  tools:
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
+
+    golangci-lint:
+      enabled: true
+      config_file: ".golangci.yml"
+
+    gitleaks:
+      enabled: true
+
+    actionlint:
+      enabled: true
+
+    shellcheck:
+      enabled: true
+
+    hadolint:
+      enabled: true
+
+    markdownlint:
+      enabled: true
+
+chat:
+  auto_reply: true

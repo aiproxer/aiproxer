@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\x00{\"model\":\"claude-3-5-haiku-20241022\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"x\"}]}")

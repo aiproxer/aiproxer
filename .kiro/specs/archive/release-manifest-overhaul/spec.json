@@ -1,0 +1,16 @@
+{
+  "spec_version": "1.0",
+  "feature_name": "release-manifest-overhaul",
+  "title": "Overhaul Release Manifest Enforcement and Pattern Support",
+  "language": "en",
+  "phase": "completed",
+  "status": "completed",
+  "completed": true,
+  "ready_for_implementation": false,
+  "project_description": "Overhaul .release-files manifest enforcement and scripts/check-release-clean.sh to support pattern wildcards, directory recursion rules, and namespace globs. This eliminates the requirement for Kiro SDD spec authors, agent skill creators, and documentation writers to manually append individual file paths into a 5,000+ line flat file manifest, while preserving strict repository hygiene against unapproved top-level files.",
+  "approvals": {
+    "requirements_approved": true,
+    "design_approved": true,
+    "tasks_approved": true
+  }
+}

@@ -1,0 +1,162 @@
+[
+  {
+    "id": 1,
+    "name": "test-workflow-flags",
+    "description": "Tests whether CI test workflows choose test flags based on the repository contract and runner support",
+    "prompt": "Create a GitHub Actions workflow file for running Go tests on a library that supports Go 1.25+. Just give me the YAML.",
+    "trap": "A generic workflow should not claim that race, shuffle, coverage, or fail-fast settings are mandatory for every project.",
+    "assertions": [
+      {"id": "1.1", "text": "Runs the repository's normal go test and vet gates"},
+      {"id": "1.2", "text": "Adds -race only on a supported runner when concurrency coverage is in scope"},
+      {"id": "1.3", "text": "Uses -shuffle, -count=1, or coverage only when their test semantics require them"},
+      {"id": "1.4", "text": "Selects a Go-version matrix from the project's supported versions"},
+      {"id": "1.5", "text": "Keeps failures visible and does not hide a failed command behind later success"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "go-mod-tidy-check",
+    "description": "Tests whether the workflow enforces go mod tidy consistency via git diff --exit-code",
+    "prompt": "I want to make sure our Go CI catches cases where someone forgot to run go mod tidy before pushing. How should I add this check to our GitHub Actions workflow?",
+    "trap": "Model may suggest running go mod tidy without the git diff --exit-code step to actually fail the build on changes",
+    "assertions": [
+      {"id": "2.1", "text": "Suggests running 'go mod tidy' as a CI step"},
+      {"id": "2.2", "text": "Includes 'git diff --exit-code' after go mod tidy to detect uncommitted changes"},
+      {"id": "2.3", "text": "The git diff checks go.mod and/or go.sum specifically, or uses a general git diff --exit-code"},
+      {"id": "2.4", "text": "Also includes 'go mod verify' or 'go mod download' step"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "integration-test-caching",
+    "description": "Tests explicit handling of integration-test caching and service readiness",
+    "prompt": "I have integration tests that interact with PostgreSQL and Redis via GitHub Actions service containers. Sometimes tests pass even when the services are broken because Go seems to cache test results. How do I set up the workflow?",
+    "trap": "External-service and time-dependent tests need explicit cache, readiness, timeout, and cleanup decisions; no one flag solves every suite.",
+    "assertions": [
+      {"id": "3.1", "text": "Uses -count=1 when the test depends on external state or time, and explains why"},
+      {"id": "3.2", "text": "Treats -race as a supported-platform/resource-dependent gate rather than a universal integration-test requirement"},
+      {"id": "3.3", "text": "Uses build tags (e.g., -tags=integration) to separate integration tests"},
+      {"id": "3.4", "text": "Uses GitHub Actions 'services' block for PostgreSQL and/or Redis"},
+      {"id": "3.5", "text": "Includes health check options for service containers"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "security-scanning-pipeline",
+    "description": "Tests risk-based selection of complementary security checks",
+    "prompt": "I want to add security scanning to my Go project's CI pipeline. What tools should I use and how do I set them up in GitHub Actions?",
+    "trap": "Adding every scanner by default creates noise; choose checks that cover the build and trust boundaries under review.",
+    "assertions": [
+      {"id": "4.1", "text": "Recommends govulncheck and explains that reachability and package/build context affect its findings"},
+      {"id": "4.2", "text": "Selects gosec or another source scanner when it adds relevant coverage"},
+      {"id": "4.3", "text": "Explains when CodeQL adds useful analysis and checks supported query suites against current docs"},
+      {"id": "4.4", "text": "Does not require Bearer or a fixed full scanner stack without a project-specific reason"},
+      {"id": "4.5", "text": "Scopes security-events: write only to jobs that upload SARIF"},
+      {"id": "4.6", "text": "Keeps scanner/build coverage and failure behavior explicit"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "dependabot-grouping-strategy",
+    "description": "Tests whether Dependabot config groups minor/patch updates but keeps major updates separate",
+    "prompt": "Set up Dependabot for my Go project on GitHub. I want automated dependency update PRs for Go modules, GitHub Actions, and Docker base images.",
+    "trap": "Model may not group minor/patch into a single PR, or may group all updates including majors which could have breaking changes",
+    "assertions": [
+      {"id": "5.1", "text": "Configures Dependabot for gomod package ecosystem"},
+      {"id": "5.2", "text": "Configures Dependabot for github-actions package ecosystem"},
+      {"id": "5.3", "text": "Configures Dependabot for docker package ecosystem"},
+      {"id": "5.4", "text": "Groups minor and patch Go module updates into a single PR"},
+      {"id": "5.5", "text": "Major updates are NOT grouped (individual PRs for breaking changes)"},
+      {"id": "5.6", "text": "Sets a weekly schedule"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "dependabot-auto-merge-security",
+    "description": "Tests awareness of security implications in auto-merge workflow (elevated permissions, actor guard, branch protection as safety net)",
+    "prompt": "I want Dependabot PRs to auto-merge when CI passes, but only for minor and patch updates. Create the workflow. What security concerns should I be aware of?",
+    "trap": "Model may create the workflow without the github.actor guard, without mentioning elevated permissions risk, or without recommending branch protection as the real safety net",
+    "assertions": [
+      {"id": "6.1", "text": "Validates Dependabot PR authorship, repository provenance and trigger permissions; does not rely on github.actor alone"},
+      {"id": "6.2", "text": "Uses a positive minor/patch allowlist, rejecting missing or unknown metadata"},
+      {"id": "6.3", "text": "Warns about contents: write and pull-requests: write being elevated/high-risk permissions"},
+      {"id": "6.4", "text": "Mentions branch protection rules as the real safety net (not just the actor guard)"},
+      {"id": "6.5", "text": "Keeps privileged metadata automation separate from untrusted PR code and follows the documented event/token policy"}
+    ]
+  },
+  {
+    "id": 9,
+    "name": "docker-workflow-security",
+    "description": "Tests awareness of Docker workflow security: push: false on PRs, per-job permissions, dual registry, provenance/SBOM",
+    "prompt": "Create a GitHub Actions workflow that builds a multi-platform Docker image and pushes it to GHCR. Include security best practices.",
+    "trap": "Model may push images on PRs (allowing untrusted code to publish), use overly broad permissions, or skip provenance/SBOM attestations",
+    "assertions": [
+      {"id": "9.1", "text": "Sets push to false on pull requests to prevent untrusted code from publishing images"},
+      {"id": "9.2", "text": "Uses per-job permissions scoping (not just top-level)"},
+      {"id": "9.3", "text": "Chooses native builders, cross-compilation, or QEMU according to the target image and runner"},
+      {"id": "9.4", "text": "Includes provenance and/or SBOM attestation configuration"},
+      {"id": "9.5", "text": "Includes packages: write permission for GHCR push"},
+      {"id": "9.6", "text": "Login step is conditional on non-PR events"}
+    ]
+  },
+  {
+    "id": 10,
+    "name": "permissions-least-privilege",
+    "description": "Tests whether the model follows least-privilege permissions principle and sets GITHUB_TOKEN to read-only by default",
+    "prompt": "I'm setting up CI for a new open-source Go project. What GitHub repository settings should I configure for security? I already have the workflow files.",
+    "trap": "Model may focus only on branch protection and miss workflow permissions, fork PR restrictions, and environment-based approval gates",
+    "assertions": [
+      {"id": "10.1", "text": "Recommends setting default GITHUB_TOKEN to read-only at the repository level"},
+      {"id": "10.2", "text": "Recommends branch protection with required status checks"},
+      {"id": "10.3", "text": "Recommends requiring PR approvals (at least 1)"},
+      {"id": "10.4", "text": "Recommends dismissing stale approvals when new commits are pushed"},
+      {"id": "10.5", "text": "Recommends restricting fork PR workflows for outside collaborators"},
+      {"id": "10.6", "text": "Warns against pull_request_target with untrusted code"},
+      {"id": "10.7", "text": "Recommends creating a release environment with required reviewers"}
+    ]
+  },
+  {
+    "id": 11,
+    "name": "release-workflow-fetch-depth",
+    "description": "Tests whether the release workflow uses fetch-depth: 0 for changelog generation",
+    "prompt": "Create a GitHub Actions release workflow that triggers on version tags and runs GoReleaser to produce binaries and a changelog.",
+    "trap": "Model may use default checkout which does a shallow clone, causing GoReleaser to generate an incomplete or empty changelog",
+    "assertions": [
+      {"id": "11.1", "text": "Checkout step uses fetch-depth: 0 for full git history"},
+      {"id": "11.2", "text": "Workflow triggers on tag push with a v* pattern"},
+      {"id": "11.3", "text": "Uses contents: write permission for creating releases"},
+      {"id": "11.4", "text": "Passes GITHUB_TOKEN to GoReleaser"}
+    ]
+  },
+  {
+    "id": 12,
+    "name": "action-version-pinning",
+    "description": "Tests whether third-party actions are pinned to immutable revisions",
+    "prompt": "Review this GitHub Actions step and tell me if there are any issues:\n\n```yaml\nsteps:\n  - uses: actions/checkout@master\n  - uses: actions/setup-go@main\n    with:\n      go-version: stable\n```",
+    "trap": "Major tags are more readable than branches but remain mutable; a supply-chain-sensitive workflow should record a full commit SHA.",
+    "assertions": [
+      {"id": "12.1", "text": "Identifies that using @master and @main is wrong and insecure"},
+      {"id": "12.2", "text": "Recommends pinning each action to a reviewed full commit SHA with a release comment"},
+      {"id": "12.3", "text": "Explains that branches and tags can move unexpectedly and updates need review"}
+    ]
+  },
+  {
+    "id": 14,
+    "name": "automerge-missing-metadata-review",
+    "prompt": "Review only the merge gate: a bot metadata job has required branch checks and uses `if: update_type != \"version-update:semver-major\"`. The metadata action can produce an empty update_type. Compare with an otherwise identical explicit minor-or-patch allowlist.",
+    "assertions": [
+      {
+        "id": "14.1",
+        "text": "Identifies empty/unrecognized metadata passing the negative check"
+      },
+      {
+        "id": "14.2",
+        "text": "explains that the positive allowlist rejects it"
+      },
+      {
+        "id": "14.3",
+        "text": "retains required checks and does not claim the valid allowlist is defective"
+      }
+    ]
+  }
+]

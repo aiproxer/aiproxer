@@ -1,0 +1,89 @@
+{
+  "effective_default_route": "dogfood-local:stub-default",
+  "effective_default_route_model": "stub-default",
+  "effective_default_route_source": "configured",
+  "backends": [
+    {
+      "id": "openai-responses",
+      "kind": "openai-responses",
+      "enabled": false
+    },
+    {
+      "id": "openai-legacy",
+      "kind": "openai-legacy",
+      "enabled": false
+    },
+    {
+      "id": "anthropic",
+      "kind": "anthropic",
+      "enabled": false
+    },
+    {
+      "id": "gemini",
+      "kind": "gemini",
+      "enabled": false
+    },
+    {
+      "id": "bedrock",
+      "kind": "bedrock",
+      "enabled": false
+    },
+    {
+      "id": "acp",
+      "kind": "acp",
+      "enabled": false
+    },
+    {
+      "id": "openrouter",
+      "kind": "openrouter",
+      "enabled": false
+    },
+    {
+      "id": "nvidia",
+      "kind": "nvidia",
+      "enabled": false
+    },
+    {
+      "id": "opencode-go",
+      "kind": "opencode-go",
+      "enabled": false
+    },
+    {
+      "id": "opencode-zen",
+      "kind": "opencode-zen",
+      "enabled": false
+    },
+    {
+      "id": "ollama",
+      "kind": "ollama",
+      "enabled": false
+    },
+    {
+      "id": "ollama-cloud",
+      "kind": "ollama-cloud",
+      "enabled": false
+    },
+    {
+      "id": "llamacpp",
+      "kind": "llamacpp",
+      "enabled": false
+    },
+    {
+      "id": "lmstudio",
+      "kind": "lmstudio",
+      "enabled": false
+    },
+    {
+      "id": "vllm",
+      "kind": "vllm",
+      "enabled": false
+    },
+    {
+      "id": "dogfood-local",
+      "kind": "local-stub",
+      "enabled": true
+    }
+  ],
+  "model_aliases": [],
+  "credential_posture": "all_local_stub"
+}

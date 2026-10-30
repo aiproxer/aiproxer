@@ -1,0 +1,29 @@
+{
+  "feature_name": "prompt-cache-residency-contract",
+  "created_at": "2026-08-16T19:55:00+02:00",
+  "updated_at": "2026-08-18T00:00:00+02:00",
+  "language": "en",
+  "phase": "completed",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": false,
+  "completed": true,
+  "implementation_complete": true,
+  "completion_evidence": {
+    "verdict": "PASS - residency SDK, host sideband, connector ABI, controller seam, TCK, and architecture gates are implemented",
+    "validation": "focused residency contract, backend-plugin, adapter, and prompt-cache package tests passed"
+  },
+  "project_description": "Define the cross-backend prompt-cache residency contract required by issue #342: provider-owned effective cache identity and lifecycle observations, bounded opaque renewal handles, model-aware backend capability discovery, explicit maintenance-control seams, host-only observation/provider-billable accounting boundaries, additive executable-connector ABI negotiation, and reusable conformance rules. Core remains provider-neutral and this foundation intentionally contains no scheduler or autonomous provider refresh."
+}

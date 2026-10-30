@@ -1,0 +1,6 @@
+{
+  "source": "minimal_replay_contract_fixture",
+  "description": "Minimal request shape for replay parity smoke tests; not a full conversation capture.",
+  "route_selector": "stub:gpt-4o-mini",
+  "user_message": "parity smoke"
+}
