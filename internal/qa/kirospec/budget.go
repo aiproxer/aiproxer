@@ -43,16 +43,26 @@ var (
 // ValidateBudgets checks every active spec against SliceBudget (or its
 // grandfathered ceiling) and requires a Deferred section in requirements.md.
 func ValidateBudgets(specsRoot string) []string {
+	errs, _ := ValidateBudgetsWithOmissions(specsRoot)
+	return errs
+}
+
+// ValidateBudgetsWithOmissions measures surviving files and reports export omissions separately.
+func ValidateBudgetsWithOmissions(specsRoot string) ([]string, []string) {
 	entries, err := os.ReadDir(specsRoot)
 	if err != nil {
-		return []string{fmt.Sprintf("read active specs: %v", err)}
+		return []string{fmt.Sprintf("read active specs: %v", err)}, nil
 	}
 	var errs []string
+	var omissions []string
 	for _, entry := range entries {
 		if !entry.IsDir() || entry.Name() == "archive" {
 			continue
 		}
 		name := entry.Name()
+		omitted, missing := specOmissions(specsRoot, filepath.Join(specsRoot, name))
+		omissions = append(omissions, omitted...)
+		errs = append(errs, missing...)
 		got, hasDeferred, err := Measure(filepath.Join(specsRoot, name))
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("active/%s: %v", name, err))
@@ -61,7 +71,7 @@ func ValidateBudgets(specsRoot string) []string {
 		limit, old := grandfathered[name]
 		if !old {
 			limit = SliceBudget
-			if !hasDeferred {
+			if !hasDeferred && !omittedFile(omitted, "requirements.md") {
 				errs = append(errs, fmt.Sprintf("active/%s: requirements.md needs a Deferred section (%s)", name, budgetPointer))
 			}
 		}
@@ -75,11 +85,17 @@ func ValidateBudgets(specsRoot string) []string {
 	}
 	for name := range grandfathered {
 		if _, err := os.Stat(filepath.Join(specsRoot, name)); err != nil {
-			errs = append(errs, fmt.Sprintf("kirospec: grandfathered spec %s is no longer active; delete its entry", name))
+			omitted, missing := specOmissions(specsRoot, filepath.Join(specsRoot, name))
+			if os.IsNotExist(err) && len(missing) == 0 {
+				omissions = append(omissions, omitted...)
+			} else {
+				errs = append(errs, fmt.Sprintf("kirospec: grandfathered spec %s is no longer active; delete its entry", name))
+			}
 		}
 	}
 	sort.Strings(errs)
-	return errs
+	sort.Strings(omissions)
+	return errs, omissions
 }
 
 // Measure counts one spec directory. Missing optional files count as zero.

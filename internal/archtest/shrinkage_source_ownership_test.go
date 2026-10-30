@@ -30,10 +30,6 @@ func TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint(t *testing.T) {
 		t.Fatal("source ownership allowlist exceeds recorded ceiling")
 	}
 	root := repoRoot(t)
-	baseline, err := loadGitCommitFSContext(context.Background(), root, SourceOwnershipGrowthBaselineSHA)
-	if err != nil {
-		t.Fatal(err)
-	}
 	m, err := MeasureRuntimeConvergenceShrinkage(root)
 	if err != nil {
 		t.Fatal(err)
@@ -68,22 +64,31 @@ func TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint(t *testing.T) {
 		if !inSurface || !strings.HasSuffix(f.path, ".go") || strings.HasSuffix(f.path, "_test.go") {
 			t.Fatalf("allowlist outside production scanned surfaces: %s", f.path)
 		}
-		src, err := baseline.ReadFile(f.path)
+	}
+	t.Run("pinned-baseline", func(t *testing.T) {
+		skipMissingPublicBaseline(t, root, SourceOwnershipGrowthBaselineSHA)
+		baseline, err := loadGitCommitFSContext(context.Background(), root, SourceOwnershipGrowthBaselineSHA)
 		if err != nil {
 			t.Fatal(err)
 		}
-		scanner := bufio.NewScanner(bytes.NewReader(src))
-		lines := 0
-		for scanner.Scan() {
-			lines++
+		for _, f := range sourceOwnershipGrowthFiles {
+			src, err := baseline.ReadFile(f.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scanner := bufio.NewScanner(bytes.NewReader(src))
+			lines := 0
+			for scanner.Scan() {
+				lines++
+			}
+			if err := scanner.Err(); err != nil {
+				t.Fatal(err)
+			}
+			if lines < f.baseline {
+				t.Fatalf("%s baseline=%d exceeds immutable-tree lines %d", f.path, f.baseline, lines)
+			}
 		}
-		if err := scanner.Err(); err != nil {
-			t.Fatal(err)
-		}
-		if lines < f.baseline {
-			t.Fatalf("%s baseline=%d exceeds immutable-tree lines %d", f.path, f.baseline, lines)
-		}
-	}
+	})
 	t.Logf("source ownership actual=%d cap=%d; raw=%+d convergence=%+d required=%+d", m.SourceOwnership.Lines, m.SourceOwnership.Max, m.Delta, m.ConvergenceDelta, m.RequiredMax)
 }
 

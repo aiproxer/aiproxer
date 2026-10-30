@@ -11,9 +11,9 @@
 
 ## Tasks
 
-- [ ] 1. Freeze and baseline
+- [x] 1. Freeze and baseline
 
-- [ ] 1.1 Freeze `main` and record a green baseline
+- [x] 1.1 Freeze `main` and record a green baseline
   - Land or close every open PR, and announce the merge freeze to all running agents.
   - Record the baseline SHA, then run the verification gate from `design.md` on it.
   - Record known `main` flakes (#1544) separately from new failures.
@@ -23,9 +23,9 @@
   - _Depends: none_
   - _Validation: verification gate from `design.md`_
 
-- [ ] 2. Build the rewrite tool
+- [x] 2. Build the rewrite tool
 
-- [ ] 2.1 Write the rule table and the inventory report
+- [x] 2.1 Write the rule table and the inventory report
   - Implement the path, content and regeneration phases from `design.md`, with the Target Matrix as the rule table and a reviewed false-positive list.
   - Run `-report` against the baseline. Add rules or false-positive entries until `UNCOVERED` is empty.
   - Observable completion: the report has no `UNCOVERED` entry, and each false-positive entry has a one-line reason.
@@ -34,7 +34,7 @@
   - _Depends: 1.1_
   - _Validation: `-report` output against the baseline_
 
-- [ ] 2.2 Prove determinism and idempotence
+- [x] 2.2 Prove determinism and idempotence
   - Run the tool twice on two clean checkouts of the baseline, and compare the resulting trees.
   - Run the tool again on its own output.
   - Observable completion: the two trees are identical, and the second run changes nothing.
@@ -43,9 +43,9 @@
   - _Depends: 2.1_
   - _Validation: `git diff --stat` between the two runs; second-run change count is zero_
 
-- [ ] 3. Rename the maintained tree
+- [x] 3. Rename the maintained tree
 
-- [ ] 3.1 Apply the tool and land the rename PR
+- [x] 3.1 Apply the tool and land the rename PR
   - In a worktree at the baseline:
     - commit the tool output as one mechanical commit;
     - then commit the hand edits from `design.md`, which include removing the `AGENTS.md` Transition section;
@@ -66,7 +66,7 @@
   - _Depends: 2.2_
   - _Validation: verification gate; `go test ./internal/qa -run LegacyNames`; `git diff --stat <baseline> -- .kiro/specs/archive` is empty_
 
-- [ ] 3.2 Reword Predecessor References
+- [x] 3.2 Reword Predecessor References
   - Find mentions of the earlier implementation in the maintained tree: comments, docs, fixture names and test descriptions.
   - Reword each to describe the behaviour on its own terms, keeping the technical substance. Rename fixture files whose names carry that provenance.
   - Observable completion: a search for Predecessor References in the maintained tree finds none, and the affected tests pass.
@@ -77,7 +77,7 @@
 
 - [ ] 4. Cut over the repositories
 
-- [ ] 4.1 Transfer the private repository
+- [x] 4.1 Transfer the private repository
   - Re-run the preflight from the Cutover Runbook.
   - Delete the empty `aiproxer/aiproxer-enterprise` placeholder, then transfer the current repository to `aiproxer/aiproxer-enterprise`.
   - Verify it is private, and check issues, PRs, rulesets and secrets.
@@ -88,7 +88,7 @@
   - _Depends: 3.2_
   - _Validation: `gh repo view aiproxer/aiproxer-enterprise`; `git fetch origin` in `branches/main`_
 
-- [ ] 4.2 Publish the export to the public repository
+- [x] 4.2 Publish the export to the public repository
   - Export the merge commit of task 3.2 with `tools/ossexport`, and create one parentless commit from it.
   - Disable `main-protector`, push the commit as `main`, make `main` the default branch, then re-enable the ruleset.
   - Leave both legacy branches untouched.
@@ -107,6 +107,7 @@
   - Check that open-source docs reference only `github.com/aiproxer/aiproxer`.
   - Record which public workflows fail for lack of secrets or Enterprise paths, and open one follow-up issue for them.
   - Observable completion: both clean clones are green, and the evidence is posted on #641.
+  - Status: the private clean clone passes the full gate and the export. The public repository's own CI fails on tests that assume private history, export-ignored specs or one platform; tracked in #1681, which this task waits for.
   - _Requirements: 5.5_
   - _Boundary: verification_
   - _Depends: 4.2_

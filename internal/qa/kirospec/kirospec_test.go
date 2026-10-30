@@ -111,11 +111,20 @@ func TestGrandfatheredCeilingsMatchRepository(t *testing.T) {
 	t.Parallel()
 	specsRoot := filepath.Join("..", "..", "..", ".kiro", "specs")
 	for name, ceiling := range grandfathered {
+		omitted, missing := specOmissions(specsRoot, filepath.Join(specsRoot, name))
+		for _, path := range omitted {
+			t.Logf("export-ignored omission: %s", path)
+		}
+		if len(missing) != 0 {
+			t.Fatalf("%s: %v", name, missing)
+		}
 		got, _, err := Measure(filepath.Join(specsRoot, name))
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if got.Areas < ceiling.Areas || got.Criteria < ceiling.Criteria || got.Design < ceiling.Design || got.Tasks < ceiling.Tasks {
+		if (!omittedFile(omitted, "requirements.md") && (got.Areas < ceiling.Areas || got.Criteria < ceiling.Criteria)) ||
+			(!omittedFile(omitted, "design.md") && got.Design < ceiling.Design) ||
+			(!omittedFile(omitted, "tasks.md") && got.Tasks < ceiling.Tasks) {
 			t.Errorf("%s shrank to %+v; lower its grandfathered ceiling %+v so it cannot grow back", name, got, ceiling)
 		}
 	}
@@ -129,6 +138,13 @@ func writeSpec(t *testing.T, root, name, metadata string, files map[string]strin
 	}
 	if err := os.WriteFile(filepath.Join(dir, "spec.json"), []byte(metadata), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	for _, core := range []string{"tasks.md", "requirements.md"} {
+		if _, supplied := files[core]; !supplied {
+			if err := os.WriteFile(filepath.Join(dir, core), nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	for file, content := range files {
 		if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o600); err != nil {

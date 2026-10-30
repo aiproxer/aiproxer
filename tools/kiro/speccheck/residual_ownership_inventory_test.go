@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/aiproxer/aiproxer/internal/testkit/gitscope"
+	"github.com/aiproxer/aiproxer/internal/testkit/opensource"
 )
 
 var requiredVocabulary = []string{
@@ -47,9 +48,22 @@ func checkResidualOwnershipInventory(t *testing.T, root string) {
 	}
 	t.Logf("validating residual ownership inventory at: %s", path)
 
-	if err := validateResidualOwnershipInventoryContent(content, root); err != nil {
+	if err := validateResidualOwnershipInventoryContent(content); err != nil {
 		t.Fatalf("residual ownership inventory contract violation in %s: %v", path, err)
 	}
+	checkInventoryProvenance(t, root, content)
+}
+
+func checkInventoryProvenance(t *testing.T, root, content string) {
+	t.Helper()
+	t.Run("provenance", func(t *testing.T) {
+		if opensource.IsOpenSourceTree(root) {
+			t.Skip("public export has fresh history: private commit objects and ancestry are unavailable")
+		}
+		if err := validateSHAIdentity(root, content); err != nil {
+			t.Fatalf("residual ownership inventory provenance: %v", err)
+		}
+	})
 }
 
 // The git helpers below accept either the real repository root or a throwaway
@@ -615,7 +629,7 @@ func parseSummaryCounts(content string) (map[string]int, int, []string) {
 	return summaryCounts, totalFindings, errs
 }
 
-func validateResidualOwnershipInventoryContent(content string, repoRoot ...string) error {
+func validateResidualOwnershipInventoryContent(content string) error {
 	var errs []string
 
 	requiredHeadings := []string{
@@ -758,13 +772,6 @@ func validateResidualOwnershipInventoryContent(content string, repoRoot ...strin
 	lowerContent := strings.ToLower(content)
 	if !strings.Contains(lowerContent, "no deferred finding") || !strings.Contains(lowerContent, "transient history") {
 		errs = append(errs, "missing statement affirming that no deferred finding exists only in transient history")
-	}
-
-	// 8. Validate SHA identity against git repository if repoRoot is provided
-	if len(repoRoot) > 0 && repoRoot[0] != "" {
-		if err := validateSHAIdentity(repoRoot[0], content); err != nil {
-			errs = append(errs, err.Error())
-		}
 	}
 
 	if len(errs) > 0 {
@@ -1265,12 +1272,44 @@ func TestResidualOwnershipInventoryContract_RejectsSummaryViolations(t *testing.
 
 func TestResidualOwnershipInventoryContract_ValidatesSHAIdentity(t *testing.T) {
 	t.Parallel()
-	root := repoRoot(t)
-	_, validContent, err := loadResidualOwnershipInventory(root)
+	_, validContent, err := loadResidualOwnershipInventory(repoRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
 	implSHA, baseSHA := mustLiveInventorySHAs(t, validContent)
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "enterprise"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"init", "-q"},
+		{"-c", "user.name=speccheck-test", "-c", "user.email=speccheck@example.invalid", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-qm", "fixture"},
+		{"-c", "user.name=speccheck-test", "-c", "user.email=speccheck@example.invalid", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-qm", "fixture head"},
+	} {
+		if out, err := gitOutputAt(root, args...); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	fixtureSHA, err := resolveGitSHA(root, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	validContent = strings.Replace(validContent, metadataFieldLine("Implementation SHA", implSHA), metadataFieldLine("Implementation SHA", fixtureSHA), 1)
+	validContent = strings.Replace(validContent, metadataFieldLine("Merged-Main Baseline SHA", baseSHA), metadataFieldLine("Merged-Main Baseline SHA", fixtureSHA), 1)
+	implSHA, baseSHA = fixtureSHA, fixtureSHA
+
+	t.Run("PublicExportKeepsFormatChecksWithoutPrivateHistory", func(t *testing.T) {
+		t.Parallel()
+		publicRoot := t.TempDir()
+		if err := validateResidualOwnershipInventoryContent(validContent); err != nil {
+			t.Fatalf("public export should not require private commit objects: %v", err)
+		}
+		checkInventoryProvenance(t, publicRoot, validContent)
+		tampered := strings.Replace(validContent, metadataFieldLine("Implementation SHA", implSHA), metadataFieldLine("Implementation SHA", "not-a-sha"), 1)
+		if err := validateResidualOwnershipInventoryContent(tampered); err == nil || !strings.Contains(err.Error(), "40-char hex") {
+			t.Fatalf("public export must retain SHA format validation: %v", err)
+		}
+	})
 
 	t.Run("ValidIdentity", func(t *testing.T) {
 		t.Parallel()
@@ -1418,6 +1457,9 @@ func TestResidualOwnershipInventoryContract_RejectsMetadataOutsideSection(t *tes
 func TestResidualOwnershipInventoryContract_RejectsDivergedBaseline(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, "enterprise"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	runGit := func(args ...string) string {
 		t.Helper()
 		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
@@ -1516,6 +1558,9 @@ func TestResidualOwnershipInventoryContract_ShallowCheckoutDiagnosis(t *testing.
 	}
 	liveImplSHA, liveBaseSHA := mustLiveInventorySHAs(t, validContent)
 	src := t.TempDir()
+	if err := os.Mkdir(filepath.Join(src, "enterprise"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	mk := func(args ...string) string {
 		t.Helper()
 		base := []string{"-C", src, "-c", "user.email=speccheck@example.invalid", "-c", "user.name=speccheck test", "-c", "commit.gpgsign=false"}
@@ -1534,6 +1579,9 @@ func TestResidualOwnershipInventoryContract_ShallowCheckoutDiagnosis(t *testing.
 	commitB := mk("rev-parse", "HEAD")
 	shallow := filepath.Join(t.TempDir(), "shallow")
 	mk("clone", "-q", "--depth", "1", "file://"+src, shallow)
+	if err := os.Mkdir(filepath.Join(shallow, "enterprise"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	content := strings.Replace(validContent, metadataFieldLine("Implementation SHA", liveImplSHA), metadataFieldLine("Implementation SHA", commitA), 1)
 	content = strings.Replace(content, metadataFieldLine("Merged-Main Baseline SHA", liveBaseSHA), metadataFieldLine("Merged-Main Baseline SHA", commitB), 1)
 	if err := validateSHAIdentity(src, content); err != nil {

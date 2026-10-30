@@ -27,10 +27,6 @@ func TestShrinkage_APIKeyCredentialBaselinesArePinnedAndDisjoint(t *testing.T) {
 		t.Fatal("api-key credential composition allowlist exceeds recorded ceiling")
 	}
 	root := repoRoot(t)
-	baseline, err := loadGitCommitFSContext(context.Background(), root, CredentialCompositionGrowthBaselineSHA)
-	if err != nil {
-		t.Fatal(err)
-	}
 	m, err := MeasureRuntimeConvergenceShrinkage(root)
 	if err != nil {
 		t.Fatal(err)
@@ -65,22 +61,31 @@ func TestShrinkage_APIKeyCredentialBaselinesArePinnedAndDisjoint(t *testing.T) {
 		if !inSurface || !strings.HasSuffix(f.path, ".go") || strings.HasSuffix(f.path, "_test.go") {
 			t.Fatalf("allowlist outside production scanned surfaces: %s", f.path)
 		}
-		src, err := baseline.ReadFile(f.path)
+	}
+	t.Run("pinned-baseline", func(t *testing.T) {
+		skipMissingPublicBaseline(t, root, CredentialCompositionGrowthBaselineSHA)
+		baseline, err := loadGitCommitFSContext(context.Background(), root, CredentialCompositionGrowthBaselineSHA)
 		if err != nil {
 			t.Fatal(err)
 		}
-		scanner := bufio.NewScanner(bytes.NewReader(src))
-		lines := 0
-		for scanner.Scan() {
-			lines++
+		for _, f := range apiKeyCredentialGrowthFiles {
+			src, err := baseline.ReadFile(f.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scanner := bufio.NewScanner(bytes.NewReader(src))
+			lines := 0
+			for scanner.Scan() {
+				lines++
+			}
+			if err := scanner.Err(); err != nil {
+				t.Fatal(err)
+			}
+			if lines < f.baseline {
+				t.Fatalf("%s baseline=%d exceeds immutable-tree lines %d", f.path, f.baseline, lines)
+			}
 		}
-		if err := scanner.Err(); err != nil {
-			t.Fatal(err)
-		}
-		if lines < f.baseline {
-			t.Fatalf("%s baseline=%d exceeds immutable-tree lines %d", f.path, f.baseline, lines)
-		}
-	}
+	})
 	if m.APIKeyCredential.Name != "API-key credential composition" || m.APIKeyCredential.Max != 75 {
 		t.Fatalf("credential overlay identity drift: %+v", m.APIKeyCredential)
 	}

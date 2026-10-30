@@ -17,7 +17,7 @@ require (
 	github.com/betterleaks/betterleaks/v2 v2.0.0-rc.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/jellydator/ttlcache/v3 v3.4.1
-	github.com/openai/openai-go/v3 v3.86.0
+	github.com/openai/openai-go/v3 v3.89.0
 	github.com/oschwald/maxminddb-golang/v2 v2.8.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3

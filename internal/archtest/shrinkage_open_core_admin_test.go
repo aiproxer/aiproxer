@@ -34,23 +34,6 @@ func TestShrinkage_OpenCoreAdminBaselinesArePinnedAndDisjoint(t *testing.T) {
 		t.Fatal("open-core admin seam growth allowlist drift")
 	}
 	root := repoRoot(t)
-	// The peeled expression must resolve to the literal frozen commit: the same
-	// tree, with a distinct loadGitCommitFSContext cache key.
-	peeled, err := runCmd(root, "git", "rev-parse", OpenCoreAdminGrowthBaselineSHA+"^0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.TrimSpace(string(peeled)); got != OpenCoreAdminGrowthBaselineSHA {
-		t.Fatalf("peeled baseline expression resolved to %s, want %s", got, OpenCoreAdminGrowthBaselineSHA)
-	}
-	// Load the pinned commit through its peeled expression: the commit tree is
-	// identical, but the cache key stays distinct from the raw full-SHA load the
-	// cancellation fixture performs for HEAD, and the policy tree's HEAD equals
-	// this frozen tree, so neither test can serve the other a context outcome.
-	baseline, err := loadGitCommitFSContext(context.Background(), root, OpenCoreAdminGrowthBaselineSHA+"^0")
-	if err != nil {
-		t.Fatal(err)
-	}
 	m, err := MeasureRuntimeConvergenceShrinkage(root)
 	if err != nil {
 		t.Fatal(err)
@@ -91,28 +74,45 @@ func TestShrinkage_OpenCoreAdminBaselinesArePinnedAndDisjoint(t *testing.T) {
 		if !inSurface || !strings.HasSuffix(f.path, ".go") || strings.HasSuffix(f.path, "_test.go") {
 			t.Fatalf("allowlist outside production scanned surfaces: %s", f.path)
 		}
-		src, err := baseline.ReadFile(f.path)
-		if f.baseline == 0 {
-			if err == nil {
-				t.Fatalf("%s baseline=0, but the frozen tree contains it", f.path)
-			}
-			continue
-		}
+	}
+	t.Run("pinned-baseline", func(t *testing.T) {
+		skipMissingPublicBaseline(t, root, OpenCoreAdminGrowthBaselineSHA)
+		// Peeling preserves the frozen commit and uses a distinct cache key.
+		peeled, err := runCmd(root, "git", "rev-parse", OpenCoreAdminGrowthBaselineSHA+"^0")
 		if err != nil {
 			t.Fatal(err)
 		}
-		scanner := bufio.NewScanner(bytes.NewReader(src))
-		lines := 0
-		for scanner.Scan() {
-			lines++
+		if got := strings.TrimSpace(string(peeled)); got != OpenCoreAdminGrowthBaselineSHA {
+			t.Fatalf("peeled baseline expression resolved to %s, want %s", got, OpenCoreAdminGrowthBaselineSHA)
 		}
-		if err := scanner.Err(); err != nil {
+		baseline, err := loadGitCommitFSContext(context.Background(), root, OpenCoreAdminGrowthBaselineSHA+"^0")
+		if err != nil {
 			t.Fatal(err)
 		}
-		if lines != f.baseline {
-			t.Fatalf("%s baseline=%d, immutable tree has %d", f.path, f.baseline, lines)
+		for _, f := range openCoreAdminGrowthFiles {
+			src, err := baseline.ReadFile(f.path)
+			if f.baseline == 0 {
+				if err == nil {
+					t.Fatalf("%s baseline=0, but the frozen tree contains it", f.path)
+				}
+				continue
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			scanner := bufio.NewScanner(bytes.NewReader(src))
+			lines := 0
+			for scanner.Scan() {
+				lines++
+			}
+			if err := scanner.Err(); err != nil {
+				t.Fatal(err)
+			}
+			if lines != f.baseline {
+				t.Fatalf("%s baseline=%d, immutable tree has %d", f.path, f.baseline, lines)
+			}
 		}
-	}
+	})
 	// The aggregate measurement must embed exactly the overlay it measures;
 	// an unwired or exclusion-skipped file would break this identity. The
 	// comparison reuses the task-4.1 seam pin's overlay-measurement equality.

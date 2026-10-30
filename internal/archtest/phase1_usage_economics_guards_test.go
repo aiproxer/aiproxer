@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aiproxer/aiproxer/internal/testkit/opensource"
 	"github.com/aiproxer/aiproxer/pkg/aipruntime"
 )
 
@@ -327,6 +328,9 @@ func TestPhase1ProducerConsumerCensusIsExactAndDispositioned(t *testing.T) {
 	path := filepath.Join(root, filepath.FromSlash(".kiro/specs/archive/usage-economics-b-leg-multimodal-refinement/evidence/phase1-producer-consumer-census.tsv"))
 	file, err := os.Open(path)
 	if err != nil {
+		if os.IsNotExist(err) && opensource.IsOpenSourceTree(root) {
+			t.Skip("phase1 census evidence is excluded from the public export")
+		}
 		t.Fatal(err)
 	}
 	defer func() { _ = file.Close() }()

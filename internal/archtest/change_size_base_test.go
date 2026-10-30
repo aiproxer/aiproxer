@@ -12,6 +12,7 @@ import (
 // invalid comparison must fail rather than turn into a successful test skip.
 func TestChangedGoFileGate_LocalStackedBase(t *testing.T) {
 	f := newGitFixture(t)
+	f.write(t, "enterprise/marker", "private fixture\n")
 	f.write(t, "go.mod", "module fixture\n")
 	f.git(t, "add", ".")
 	f.git(t, "commit", "-qm", "root")
@@ -71,6 +72,7 @@ func TestChangedGoFileGate_LocalStackedBase(t *testing.T) {
 	f.git(t, "update-ref", "-d", "refs/remotes/origin/main")
 	assertChangedGoFileGate(t, f, nil, "git diff count unavailable")
 	f.root = t.TempDir()
+	f.write(t, "enterprise/marker", "private fixture\n")
 	f.write(t, "go.mod", "module fixture\n")
 	assertChangedGoFileGate(t, f, nil, "git diff count unavailable")
 }

@@ -29,19 +29,6 @@ func TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint(t *testing.T) {
 		t.Fatal("open-core serve growth allowlist drift")
 	}
 	root := repoRoot(t)
-	// The peeled expression must resolve to the literal frozen commit: the same
-	// tree, with a distinct loadGitCommitFSContext cache key.
-	peeled, err := runCmd(root, "git", "rev-parse", OpenCoreServeGrowthBaselineSHA+"^0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.TrimSpace(string(peeled)); got != OpenCoreServeGrowthBaselineSHA {
-		t.Fatalf("peeled baseline expression resolved to %s, want %s", got, OpenCoreServeGrowthBaselineSHA)
-	}
-	baseline, err := loadGitCommitFSContext(context.Background(), root, OpenCoreServeGrowthBaselineSHA+"^0")
-	if err != nil {
-		t.Fatal(err)
-	}
 	m, err := MeasureRuntimeConvergenceShrinkage(root)
 	if err != nil {
 		t.Fatal(err)
@@ -85,28 +72,45 @@ func TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint(t *testing.T) {
 		if !inSurface || !strings.HasSuffix(f.path, ".go") || strings.HasSuffix(f.path, "_test.go") {
 			t.Fatalf("allowlist outside production scanned surfaces: %s", f.path)
 		}
-		src, err := baseline.ReadFile(f.path)
-		if f.baseline == 0 {
-			if err == nil {
-				t.Fatalf("%s baseline=0, but the frozen tree contains it", f.path)
-			}
-			continue
-		}
+	}
+	t.Run("pinned-baseline", func(t *testing.T) {
+		skipMissingPublicBaseline(t, root, OpenCoreServeGrowthBaselineSHA)
+		// Peeling preserves the frozen commit and uses a distinct cache key.
+		peeled, err := runCmd(root, "git", "rev-parse", OpenCoreServeGrowthBaselineSHA+"^0")
 		if err != nil {
 			t.Fatal(err)
 		}
-		scanner := bufio.NewScanner(bytes.NewReader(src))
-		lines := 0
-		for scanner.Scan() {
-			lines++
+		if got := strings.TrimSpace(string(peeled)); got != OpenCoreServeGrowthBaselineSHA {
+			t.Fatalf("peeled baseline expression resolved to %s, want %s", got, OpenCoreServeGrowthBaselineSHA)
 		}
-		if err := scanner.Err(); err != nil {
+		baseline, err := loadGitCommitFSContext(context.Background(), root, OpenCoreServeGrowthBaselineSHA+"^0")
+		if err != nil {
 			t.Fatal(err)
 		}
-		if lines != f.baseline {
-			t.Fatalf("%s baseline=%d, immutable tree has %d", f.path, f.baseline, lines)
+		for _, f := range openCoreServeGrowthFiles {
+			src, err := baseline.ReadFile(f.path)
+			if f.baseline == 0 {
+				if err == nil {
+					t.Fatalf("%s baseline=0, but the frozen tree contains it", f.path)
+				}
+				continue
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			scanner := bufio.NewScanner(bytes.NewReader(src))
+			lines := 0
+			for scanner.Scan() {
+				lines++
+			}
+			if err := scanner.Err(); err != nil {
+				t.Fatal(err)
+			}
+			if lines != f.baseline {
+				t.Fatalf("%s baseline=%d, immutable tree has %d", f.path, f.baseline, lines)
+			}
 		}
-	}
+	})
 	// The aggregate measurement must embed exactly the overlay it measures;
 	// an unwired or exclusion-skipped file would break this identity. It must
 	// also measure exactly the pinned cap: the allowance is the measured C4

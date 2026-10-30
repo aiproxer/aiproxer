@@ -119,7 +119,20 @@ jobs:
           SUITE_RESULT: ${{ needs.suite.result }}
           OWNER_GATE_RESULT: ${{ needs.owner-gate.result }}
           LINT_RESULT: ${{ needs.lint.result }}
-        run: test "$SCOPE_RESULT" = success && test "$PREFLIGHT_RESULT" = success && test "$PARITY_RESULT" = success && test "$BILLING_RESULT" = success && test "$SUITE_RESULT" = success && test "$OWNER_GATE_RESULT" = success && test "$LINT_RESULT" = success
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          test "$SCOPE_RESULT" = success
+          test "$PREFLIGHT_RESULT" = success
+          test "$PARITY_RESULT" = success
+          if [ "$REPOSITORY" = aiproxer/aiproxer-enterprise ]; then
+            test "$BILLING_RESULT" = success
+          else
+            test "$BILLING_RESULT" = skipped
+          fi
+          test "$SUITE_RESULT" = success
+          test "$OWNER_GATE_RESULT" = success
+          test "$LINT_RESULT" = success
 
   preflight:
     name: Repository preflight
@@ -896,7 +909,7 @@ jobs:
   billing-schema:
     name: Billing schema certification
     needs: changes
-    if: always() && !cancelled()
+    if: always() && !cancelled() && github.repository == 'aiproxer/aiproxer-enterprise'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

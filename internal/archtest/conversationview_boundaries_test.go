@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aiproxer/aiproxer/internal/testkit/gitscope"
+	"github.com/aiproxer/aiproxer/internal/testkit/opensource"
 )
 
 // TestConversationViewCoreImportsExcludeProvidersAndFrontends enforces that internal/core/conversationprojection
@@ -328,6 +329,13 @@ func TestConversationViewChangedGoFileCountUnderGate(t *testing.T) {
 	root := repoRoot(t)
 	changed, err := countChangedGoFiles(root)
 	if err != nil {
+		// Keep explicit local-base policy errors and broken Git repositories
+		// fail closed. A fresh public export may lack the default remote base.
+		if _, explicit := os.LookupEnv("DEV_BASE"); !explicit && opensource.IsOpenSourceTree(root) {
+			if _, headErr := runCmd(root, "git", "rev-parse", "--verify", "HEAD^{commit}"); headErr == nil {
+				skipMissingPublicBaseline(t, root, "origin/main")
+			}
+		}
 		t.Fatalf("git diff count unavailable: %v", err)
 	}
 	if changed > 100 && !largeChangeOverrideEnabled(root) {

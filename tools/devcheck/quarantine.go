@@ -20,7 +20,7 @@ const quarantineFile = ".github/test-quarantine.txt"
 
 var (
 	quarantineName  = regexp.MustCompile(`^(Test|Fuzz|Benchmark|Example)[A-Za-z0-9_]*$`)
-	quarantineIssue = regexp.MustCompile(`^https://github\.com/aiproxer/aiproxer-enterprise/issues/[0-9]+$`)
+	quarantineIssue = regexp.MustCompile(`^https://github\.com/aiproxer/aiproxer(-enterprise)?/issues/[0-9]+$`)
 )
 
 type quarantineEntry struct {

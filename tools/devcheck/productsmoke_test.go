@@ -607,7 +607,15 @@ func TestProductSmokeRejectsEvidenceInsideSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("outside evidence was rejected: %v", err)
 	}
-	if dir != outside {
+	canonicalDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalOutside, err := filepath.EvalSymlinks(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if canonicalDir != canonicalOutside {
 		t.Fatalf("outside evidence dir = %q, want %q", dir, outside)
 	}
 

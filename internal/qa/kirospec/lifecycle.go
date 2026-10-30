@@ -9,10 +9,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/aiproxer/aiproxer/internal/testkit/gitscope"
+	"github.com/aiproxer/aiproxer/internal/testkit/opensource"
 )
 
 const maxStaleReferenceLineBytes = 4 * 1024 * 1024
@@ -35,28 +39,38 @@ type lifecycleMetadata struct {
 
 // ValidateLifecycle checks that finished specs are archived and archived specs are finished.
 func ValidateLifecycle(specsRoot string) []string {
+	errs, _ := ValidateLifecycleWithOmissions(specsRoot)
+	return errs
+}
+
+// ValidateLifecycleWithOmissions also reports exact files omitted by export policy.
+func ValidateLifecycleWithOmissions(specsRoot string) ([]string, []string) {
 	var errs []string
+	var omissions []string
 	active := make(map[string]struct{})
 
 	entries, err := os.ReadDir(specsRoot)
 	if err != nil {
-		return []string{fmt.Sprintf("read active specs: %v", err)}
+		return []string{fmt.Sprintf("read active specs: %v", err)}, omissions
 	}
 	for _, entry := range entries {
 		if !entry.IsDir() || entry.Name() == "archive" {
 			continue
 		}
+		dir := filepath.Join(specsRoot, entry.Name())
+		omitted, missing := specOmissions(specsRoot, dir)
+		omissions = append(omissions, omitted...)
+		errs = append(errs, missing...)
 		active[entry.Name()] = struct{}{}
 		metadata, loadErr := loadLifecycle(filepath.Join(specsRoot, entry.Name(), "spec.json"))
-		if loadErr != nil {
+		if loadErr != nil && !omittedFile(omitted, "spec.json") {
 			errs = append(errs, fmt.Sprintf("active/%s: %v", entry.Name(), loadErr))
-			continue
 		}
-		if metadata.Completed || metadata.Phase == "completed" || metadata.Phase == "superseded" {
+		if loadErr == nil && (metadata.Completed || metadata.Phase == "completed" || metadata.Phase == "superseded") {
 			errs = append(errs, fmt.Sprintf("active/%s: completed or superseded specs must be archived", entry.Name()))
 		}
 		checked, unchecked, countErr := countTaskBoxes(filepath.Join(specsRoot, entry.Name(), "tasks.md"))
-		if countErr != nil {
+		if countErr != nil && !omittedFile(omitted, "tasks.md") {
 			errs = append(errs, fmt.Sprintf("active/%s: %v", entry.Name(), countErr))
 		} else if checked > 0 && unchecked == 0 {
 			errs = append(errs, fmt.Sprintf("active/%s: all %d tasks are checked; completed specs must be archived", entry.Name(), checked))
@@ -68,20 +82,25 @@ func ValidateLifecycle(specsRoot string) []string {
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("read archived specs: %v", err))
 		sort.Strings(errs)
-		return errs
+		return errs, omissions
 	}
 	for _, entry := range archived {
 		if !entry.IsDir() {
 			continue
 		}
 		name := entry.Name()
+		dir := filepath.Join(archiveRoot, name)
+		omitted, missing := specOmissions(specsRoot, dir)
+		omissions = append(omissions, omitted...)
+		errs = append(errs, missing...)
 		if _, duplicated := active[name]; duplicated {
 			errs = append(errs, fmt.Sprintf("archive/%s: duplicate active spec exists", name))
 		}
-		dir := filepath.Join(archiveRoot, name)
 		metadata, loadErr := loadLifecycle(filepath.Join(dir, "spec.json"))
 		if loadErr != nil {
-			errs = append(errs, fmt.Sprintf("archive/%s: %v", name, loadErr))
+			if !omittedFile(omitted, "spec.json") {
+				errs = append(errs, fmt.Sprintf("archive/%s: %v", name, loadErr))
+			}
 			continue
 		}
 		if metadata.Phase != "completed" && metadata.Phase != "superseded" {
@@ -93,13 +112,66 @@ func ValidateLifecycle(specsRoot string) []string {
 		if metadata.ReadyForImplementation {
 			errs = append(errs, fmt.Sprintf("archive/%s: ready_for_implementation must be false", name))
 		}
-		if metadata.Phase == "completed" {
+		if metadata.Phase == "completed" && !omittedFile(omitted, "tasks.md") {
 			errs = append(errs, uncheckedTasks(dir, name)...)
 		}
 	}
 
 	sort.Strings(errs)
-	return errs
+	sort.Strings(omissions)
+	return errs, omissions
+}
+
+// Only an absent file explicitly excluded by export policy may be tolerated.
+func exportOmitted(specsRoot, path string) bool {
+	root, err := filepath.Abs(filepath.Dir(filepath.Dir(specsRoot)))
+	if err != nil || !opensource.IsOpenSourceTree(root) {
+		return false
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		return false
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(root, abs)
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command("git", "-C", root, "check-attr", "-z", "export-ignore", "--", filepath.ToSlash(rel))
+	cmd.Env = gitscope.Environ()
+	out, err := cmd.Output()
+	fields := strings.Split(string(out), "\x00")
+	return err == nil && len(fields) == 4 && fields[2] == "set"
+}
+
+func specOmissions(specsRoot, dir string) (omissions, errs []string) {
+	for _, name := range []string{"spec.json", "tasks.md", "requirements.md"} {
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); err != nil {
+			if exportOmitted(specsRoot, path) {
+				omissions = append(omissions, path)
+			} else {
+				errs = append(errs, fmt.Sprintf("%s: %v", path, err))
+			}
+		}
+	}
+	// Design is optional for early-phase specs, but an exported-out design must
+	// still be reported and excluded from grandfathered shrinkage comparisons.
+	if path := filepath.Join(dir, "design.md"); exportOmitted(specsRoot, path) {
+		omissions = append(omissions, path)
+	}
+	return omissions, errs
+}
+
+func omittedFile(omissions []string, name string) bool {
+	for _, path := range omissions {
+		if filepath.Base(path) == name {
+			return true
+		}
+	}
+	return false
 }
 
 func loadLifecycle(path string) (lifecycleMetadata, error) {

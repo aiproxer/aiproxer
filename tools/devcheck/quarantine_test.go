@@ -11,7 +11,7 @@ func TestQuarantineSkipsListedTests(t *testing.T) {
 	entries, err := parseQuarantine(strings.NewReader(`# Format: <name> <issue-url>
 
 TestAlpha https://github.com/aiproxer/aiproxer-enterprise/issues/1
-  TestBeta   https://github.com/aiproxer/aiproxer-enterprise/issues/22
+  TestBeta   https://github.com/aiproxer/aiproxer/issues/22
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -35,6 +35,9 @@ func TestQuarantineRejectsMalformedEntries(t *testing.T) {
 	for _, line := range []string{
 		"TestAlpha",
 		"TestAlpha https://example.com/issues/1",
+		"TestAlpha https://github.com/aiproxer/aiproxer-other/issues/1",
+		"TestAlpha https://github.com/other/aiproxer/issues/1",
+		"TestAlpha https://github.com/aiproxer/aiproxer/issues/not-a-number",
 		"helperFunc https://github.com/aiproxer/aiproxer-enterprise/issues/1",
 		"TestAlpha https://github.com/aiproxer/aiproxer-enterprise/issues/1 extra",
 		"TestAlpha https://github.com/aiproxer/aiproxer-enterprise/issues/1\nTestAlpha https://github.com/aiproxer/aiproxer-enterprise/issues/2",
