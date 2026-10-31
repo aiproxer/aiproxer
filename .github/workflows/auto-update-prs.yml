@@ -28,7 +28,7 @@ on:
   # Fallback when an event is missed. GitHub drops scheduled runs under load,
   # so nothing may depend on it for latency.
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -40,6 +40,7 @@ concurrency:
 
 jobs:
   update:
+    if: github.repository == 'aiproxer/aiproxer-enterprise'
     name: Update next auto-merge PR
     runs-on: ubuntu-latest
     timeout-minutes: 10

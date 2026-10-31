@@ -25,6 +25,7 @@ permissions:
 
 jobs:
   reasoning-e2e-soak:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:

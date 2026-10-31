@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   prune:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

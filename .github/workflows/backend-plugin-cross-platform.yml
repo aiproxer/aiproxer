@@ -56,6 +56,7 @@ concurrency:
 
 jobs:
   changes:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     name: Detect connector scope
     runs-on: ubuntu-latest
     outputs:
@@ -149,7 +150,7 @@ jobs:
   claimed-compilation:
     name: Compile every claimed platform once
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -193,7 +194,7 @@ jobs:
 
   native-evidence:
     needs: changes
-    if: always() && !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true')
+    if: (always() && !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.relevant == 'true')) && (github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer')
     # Expensive native runners are allocated only for relevant changes.
     # The original required check names are emitted by the join below.
     strategy:
@@ -260,7 +261,7 @@ jobs:
   # evidence run concurrently; these cheap Linux statuses join both owners.
   cross-platform-qa:
     needs: [changes, claimed-compilation, native-evidence]
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer')
     strategy:
       fail-fast: false
       matrix:

@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   changes:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     name: Detect code changes
     runs-on: ubuntu-latest
     outputs:
@@ -50,7 +51,7 @@ jobs:
   govulncheck:
     name: Go vulnerability check
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer')
     # Required status check: keep the job present on non-Go PRs, but only run
     # vulnerability tooling when the canonical scope classifier finds Go-relevant
     # inputs. This avoids spec metadata (for example .kiro/specs/**/spec.json)

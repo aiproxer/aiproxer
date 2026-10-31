@@ -582,8 +582,7 @@ make dev-test-changed DEV_PLAN=1
 #### When remote CI cannot run
 
 Race checks never run locally, even while the GitHub Actions account is
-billing-blocked (expected to be resolved after 31 October 2026). Local race
-runs take too long and stall development. Scheduled remote scans own race
+billing-blocked. Local race runs take too long and stall development. Scheduled remote scans own race
 coverage, and a dedicated monitoring agent triages their findings outside
 coding and delivery workflows. Missing race evidence never blocks a PR merge or
 work acceptance.

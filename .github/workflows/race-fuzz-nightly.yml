@@ -11,8 +11,8 @@ on:
         default: ""
         type: string
   schedule:
-    - cron: "17 4 * * *" # 04:17 UTC daily: every lane except billing
-    - cron: "47 5 * * 1" # 05:47 UTC Mondays: the billing lane only
+    - cron: "17 4 * * *" # 04:17 UTC daily, public repository: the open-source lanes
+    - cron: "47 5 * * 1" # 05:47 UTC Mondays, private repository: broad plus the Enterprise lanes
 
 permissions:
   contents: read
@@ -23,6 +23,10 @@ concurrency:
 
 jobs:
   race-fuzz:
+    # Scheduled runs are split: the public repository runs the open-source lanes
+    # daily on free minutes; the private repository runs only the lanes that
+    # scan enterprise/ packages (absent from the export), weekly.
+    if: github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 4 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '47 5 * * 1')
     name: race-fuzz (${{ matrix.lane }})
     runs-on: ubuntu-latest
     # The complete generated billing sweeps exceeded 25m under race instrumentation.
@@ -30,13 +34,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The billing sweeps take 35-58 minutes under the race detector, about
-        # half of the whole nightly, so they run weekly. Billing paths also get
-        # the non-race exhaustive schema certification in ci.yml on every PR that
-        # touches them. Manual dispatch runs every lane.
-        # Billing-store coverage remains daily, just as it was in broad; only
-        # scheduling and its measured package budget change, not test coverage.
-        lane: ${{ fromJSON(github.event.schedule == '47 5 * * 1' && '["billing"]' || github.event.schedule == '17 4 * * *' && '["broad","billingstore","support","runtime","architecture"]' || '["broad","billing","billingstore","support","runtime","architecture"]') }}
+        # The private repository runs weekly the lanes that scan enterprise/
+        # packages: billing, billingstore and support, plus broad for the rest
+        # of enterprise/ (the billing sweeps take 35-58 minutes under race). Billing paths also get the non-race
+        # exhaustive schema certification in ci.yml on every PR that touches
+        # them. Manual dispatch runs every lane the repository contains.
+        lane: ${{ fromJSON(github.event.schedule == '47 5 * * 1' && '["broad","billing","billingstore","support"]' || (github.event.schedule == '17 4 * * *' || github.repository == 'aiproxer/aiproxer') && '["broad","runtime","architecture"]' || '["broad","billing","billingstore","support","runtime","architecture"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

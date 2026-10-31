@@ -15,7 +15,7 @@ concurrency:
 jobs:
   windows-cost:
     # Temporarily paused: historical comparisons bottleneck development.
-    if: ${{ false }}
+    if: ${{ (false) && (github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer') }}
     runs-on: windows-latest
     timeout-minutes: 90
     steps:

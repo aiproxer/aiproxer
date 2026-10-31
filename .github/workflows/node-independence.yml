@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   changes:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     name: Detect host build-surface changes
     runs-on: ubuntu-latest
     outputs:
@@ -126,7 +127,7 @@ jobs:
   no-node:
     name: no-node
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

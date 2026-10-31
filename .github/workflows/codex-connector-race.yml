@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   codex-race:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

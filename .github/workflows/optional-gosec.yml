@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   gosec:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -37,6 +38,7 @@ jobs:
 
   # Integer overflow / unsafe conversions (G115); optional until noise is triaged.
   gosec-g115:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

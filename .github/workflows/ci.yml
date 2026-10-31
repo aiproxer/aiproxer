@@ -22,9 +22,11 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
   # The merge queue re-runs the required checks on the queued merge commit.
   merge_group:
-  # Windows and macOS legs run here, not on every PR. Linux is the PR gate.
+  # Windows and macOS legs run daily in PUBLIC and weekly in PRIVATE, not on
+  # every PR. Linux is the PR gate.
   schedule:
     - cron: "17 3 * * *"
+    - cron: "19 3 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,7 @@ concurrency:
 
 jobs:
   changes:
+    if: github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1')
     name: Detect code changes
     runs-on: ubuntu-latest
     outputs:
@@ -89,7 +92,7 @@ jobs:
   repo-hygiene:
     name: Repo hygiene
     needs: [changes, preflight, db-parity, billing-schema, suite, owner-gate, lint]
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -137,7 +140,7 @@ jobs:
   preflight:
     name: Repository preflight
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     # This is a required status check. A job-level `if` would skip the whole
     # job on docs-only PRs, and GitHub does not count a skipped required
     # check as satisfied, permanently blocking the merge. Always run the job
@@ -330,7 +333,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     # Required status check: see repo-hygiene above. Always run the job so the
     # matrix variants report success (not skip) on docs-only PRs; guard steps.
     strategy:
@@ -492,7 +495,7 @@ jobs:
   suite:
     name: Go suite (Linux, ${{ matrix.shard }})
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -610,7 +613,7 @@ jobs:
   owner-gate:
     name: Owner callback gate (Linux)
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -665,7 +668,7 @@ jobs:
   lint:
     name: Lint (Linux)
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -788,7 +791,7 @@ jobs:
   db-parity:
     name: Database parity
     needs: changes
-    if: always() && !cancelled()
+    if: (always() && !cancelled()) && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     # Required status check: see repo-hygiene above. Always run the job so it
     # reports success (not skip) on docs-only PRs; guard steps.
     runs-on: ubuntu-24.04
@@ -909,7 +912,7 @@ jobs:
   billing-schema:
     name: Billing schema certification
     needs: changes
-    if: always() && !cancelled() && github.repository == 'aiproxer/aiproxer-enterprise'
+    if: (always() && !cancelled() && github.repository == 'aiproxer/aiproxer-enterprise') && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

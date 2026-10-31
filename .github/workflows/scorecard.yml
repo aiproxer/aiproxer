@@ -9,6 +9,7 @@ permissions: read-all
 
 jobs:
   analysis:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     name: Scorecard analysis
     runs-on: ubuntu-latest
     timeout-minutes: 10

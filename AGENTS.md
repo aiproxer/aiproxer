@@ -35,9 +35,9 @@
 - The open-source tree never imports `enterprise/`.
 - `billing-financial-safety-contracts` (Enterprise code under `enterprise/`) stays parked until the owner resumes it.
 
-## Temporary: remote CI unavailable (until 31 October 2026)
+## Temporary: remote CI unavailable in the private repository
 
-GitHub Actions is billing-blocked: every remote job fails before it starts, so those red checks carry no signal. The block is expected to lift after 31 October 2026; delete this section when remote CI runs again.
+GitHub Actions is disabled in `aiproxer/aiproxer-enterprise` because the organization's Actions billing is blocked: remote checks there never run and carry no signal. The public `aiproxer/aiproxer` repository's CI is unaffected. Delete this section when private remote CI runs again.
 
 Until then, local evidence stands in for remote CI:
 - **Run the local CI equivalents** on the PR head: the checks of every workflow that covers the changed paths (`.github/workflows/`, `scripts/ci-scope.sh`), starting with `make dev-test-changed` ([development iteration](docs/development-iteration.md#when-remote-ci-cannot-run)). Race lanes are excluded: never run them locally.

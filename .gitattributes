@@ -15,6 +15,7 @@ docs/dogfood-local.md whitespace=cr-at-eol
 # AIProxer Enterprise tree: closed source, never part of the open-source export.
 /enterprise export-ignore
 /enterprise/** export-ignore
+.github/dependabot.yml export-ignore
 
 # AIProxer Enterprise billing prose: excluded from the open-source export.
 # Whole spec directories whose every tracked file is classified Enterprise in

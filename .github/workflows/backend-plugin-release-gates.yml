@@ -22,6 +22,9 @@ concurrency:
 
 jobs:
   race:
+    # The exhaustive lane partition includes enterprise/ packages, which the
+    # public export omits, so the weekly schedule runs in the private repository.
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer-enterprise'
     name: Strict Linux race (${{ matrix.lane }})
     runs-on: ubuntu-latest
     timeout-minutes: ${{ (matrix.lane == 'billing' || matrix.lane == 'billingstore') && 75 || 40 }}

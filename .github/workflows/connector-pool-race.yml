@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   connector-pool-race:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     name: Linux race detector
     runs-on: ubuntu-latest
     timeout-minutes: 30

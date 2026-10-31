@@ -67,6 +67,7 @@ concurrency:
 
 jobs:
   modules:
+    if: github.event_name != 'schedule' || github.repository == 'aiproxer/aiproxer'
     name: All Go modules tidy and test
     runs-on: ubuntu-latest
     timeout-minutes: 30
