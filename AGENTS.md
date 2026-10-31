@@ -33,7 +33,7 @@
 - One private repository holds both trees. Enterprise code lives under `enterprise/`, and a deterministic export (`tools/ossexport`) publishes everything else.
 - Billing and money logic (pricing, rating, settlement, exposure/credit admission, usage-limit rules) is Enterprise code under `enterprise/`. The open-source tree keeps only call sites, ports, and no-op defaults.
 - The open-source tree never imports `enterprise/`.
-- `billing-financial-safety-contracts` is parked until `aiproxer-complete-rebranding` completes; it covers Enterprise code under `enterprise/`.
+- `billing-financial-safety-contracts` (Enterprise code under `enterprise/`) stays parked until the owner resumes it.
 
 ## Temporary: remote CI unavailable (until 31 October 2026)
 

@@ -75,7 +75,7 @@
   - _Depends: 3.1_
   - _Validation: `make dev-test-changed`; guard test; the Predecessor Reference search over `git ls-files` minus the archive_
 
-- [ ] 4. Cut over the repositories
+- [x] 4. Cut over the repositories
 
 - [x] 4.1 Transfer the private repository
   - Re-run the preflight from the Cutover Runbook.
@@ -101,21 +101,21 @@
   - _Depends: 4.1_
   - _Validation: `gh api repos/aiproxer/aiproxer/branches`; `git rev-list --count main` is 1; private SHA lookup returns 404_
 
-- [ ] 4.3 Verify clean clones
+- [x] 4.3 Verify clean clones
   - Clone `aiproxer/aiproxer-enterprise` fresh and run the full gate.
   - Clone `aiproxer/aiproxer` fresh and run the export tree tests.
   - Check that open-source docs reference only `github.com/aiproxer/aiproxer`.
   - Record which public workflows fail for lack of secrets or Enterprise paths, and open one follow-up issue for them.
   - Observable completion: both clean clones are green, and the evidence is posted on #641.
-  - Status: the private clean clone passes the full gate and the export. The public repository's own CI fails on tests that assume private history, export-ignored specs or one platform; tracked in #1681, which this task waits for.
+  - Status: private clean clone: full gate + export OK; public CI fully green on 096233fd after #1685 (fixes #1681, closed) and #1686.
   - _Requirements: 5.5_
   - _Boundary: verification_
   - _Depends: 4.2_
   - _Validation: verification gate (private clone); export tree tests (public clone)_
 
-- [ ] 5. Close out
+- [x] 5. Close out
 
-- [ ] 5.1 Lift the freeze and archive the spec
+- [x] 5.1 Lift the freeze and archive the spec
   - Announce the end of the freeze and the tool location to owners of kept branches.
   - Archive this spec, and remove its entry from `internal/qa/kirospec/budget.go` if one is present.
   - Close #641.
@@ -124,3 +124,11 @@
   - _Boundary: Kiro / repository_
   - _Depends: 4.3_
   - _Validation: `go run ./tools/kiro/kirocheck`_
+
+## Completion Status
+
+- [x] 3.1 #1669 merged 0ec20041; 3.2 #1670 merged d1351b43; progress #1682.
+- [x] 4.1 repository transferred to private aiproxer/aiproxer-enterprise (full history, 145 open issues/PRs).
+- [x] 4.2 public aiproxer/aiproxer main = orphan export (initial e0146d3e, LICENSE fix 8124dc0); legacy-python-* branches untouched; no private SHA present.
+- [x] 4.3 private clean clone: full gate + export OK; public CI fully green on 096233fd after #1685 (fixes #1681, closed) and #1686.
+- [x] Freeze: lifted by the owner separately (kept branches migrate with the rewrite tool; owner informed).
