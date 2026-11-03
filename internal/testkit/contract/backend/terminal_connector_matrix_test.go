@@ -1349,7 +1349,8 @@ var connectorTerminalMatrix = map[string]map[backendTerminalConcern]connectorTer
 		backendConcernUpstreamError: {run: stagedAzureOpenAIUpstreamError},
 		backendConcernUsageReported: {run: stagedAzureOpenAIUsageReported},
 	},
-	"claudeagentacp": connectorDeferredRow(),
+	"claudeagentacp":   connectorDeferredRow(),
+	"claudeagentmodel": connectorDeferredRow(),
 	"cloudflare": {
 		// Staged dual-flavor proof (issue #1155 remnant sweep).
 		backendConcernCleanText:     {run: stagedCloudflareCleanText},

@@ -155,6 +155,48 @@ func TestCheckConfig_acceptsContinuityInMemoryOnly(t *testing.T) {
 	}
 }
 
+// TestCheckConfig_refusesContinuitySQLitePathWithMemoryStore proves check-config
+// refuses a sqlite_path that the effective memory store would ignore. The same
+// block used to be reported as valid and then serve without persistence.
+func TestCheckConfig_refusesContinuitySQLitePathWithMemoryStore(t *testing.T) {
+	t.Parallel()
+	srcPath := bpkit.MaterializeExampleConfig(t, filepath.Join("..", "..", "config", "examples", "dogfood-local-stub.yaml"))
+	raw, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := strings.Replace(
+		string(raw),
+		"  in_memory: true\n  store: memory\n",
+		"  in_memory: true\n  store: memory\n  sqlite_path: ./data/ignored-continuity.db\n",
+		1,
+	)
+	if body == string(raw) {
+		t.Fatal("dogfood fixture missing the continuity block")
+	}
+	path := filepath.Join(t.TempDir(), "check-config-memory-with-sqlite-path.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errb bytes.Buffer
+	code := RunCommand(context.Background(), CommandOptions{
+		Name:       CommandCheckConfig,
+		ConfigPath: path,
+		Output:     &out,
+		ErrorOut:   &errb,
+	})
+	if code == 0 {
+		t.Fatalf("check-config accepted a sqlite_path the memory store ignores: stdout=%q", out.String())
+	}
+	if !strings.Contains(errb.String(), "continuity.sqlite_path") {
+		t.Fatalf("stderr does not name the offending field: %q", errb.String())
+	}
+	if !strings.Contains(errb.String(), "remove sqlite_path or set store: sqlite") {
+		t.Fatalf("stderr does not name the remedy: %q", errb.String())
+	}
+}
+
 // TestCheckConfig_refusesUnknownContinuityStoreBeforeLegacyConflict proves the
 // operator-facing diagnostic names the unknown backing, not the legacy switch.
 // A validator-level test cannot prove this: the loader could mask the

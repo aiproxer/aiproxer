@@ -196,6 +196,52 @@ func TestProjectLegacyToOrderedItems_preservesToolFlow(t *testing.T) {
 	}
 }
 
+func TestProjectLegacyToOrderedItems_preservesStructuredToolResultContent(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		content json.RawMessage
+		want    string
+	}{
+		{name: "object", content: json.RawMessage(`{"ok":true,"error":null}`), want: `{"ok":true,"error":null}`},
+		{name: "json string", content: json.RawMessage(`"contents"`), want: `contents`},
+		{name: "json number string", content: json.RawMessage(`"42"`), want: `42`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			call := aipapi.Call{
+				Messages: []aipapi.Message{
+					{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("hi")}},
+					{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{{
+						Kind:       aipapi.PartJSON,
+						ToolCallID: "call_1",
+						ToolName:   "weather",
+						Content:    json.RawMessage(`{"city":"SF"}`),
+					}}},
+					{Role: aipapi.RoleTool, Parts: []aipapi.Part{{
+						Kind:       aipapi.PartToolResult,
+						ToolCallID: "call_1",
+						ToolName:   "weather",
+						Content:    tc.content,
+					}}},
+				},
+			}
+			items, _, err := aipapi.ProjectLegacyToOrderedItems(call, aipapi.DefaultOrderedItemProjectionTarget())
+			if err != nil {
+				t.Fatalf("ProjectLegacyToOrderedItems: %v", err)
+			}
+			if len(items) != 3 || items[2].Kind != aipapi.ItemKindToolResult || items[2].ToolResult == nil {
+				t.Fatalf("items=%#v", items)
+			}
+			if got := items[2].ToolResult.Output; got != tc.want {
+				t.Fatalf("tool result output=%q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestProjectLegacyToOrderedItems_rejectsConflictingAuthority(t *testing.T) {
 	t.Parallel()
 

@@ -89,13 +89,11 @@ func AdmitCandidate(in CandidateAdmissionInput) CandidateAdmissionResult {
 		return maybeDowngradeUnrepresentableReasoning(in, out)
 	}
 
-	if RequiresProjectionAdaptation(in.Call, in.BackendCaps) {
-		if err := CheckProjectionFeasibility(in.Call, target); err != nil {
-			out.ProjectionError = err
-			out.Kind = NegotiationReject
-			return out
-		}
-	}
+	// Projection feasibility is already established by DeriveCandidateRequirements
+	// above, which projects the call into the candidate view and returns the
+	// projection error on failure. Re-running CheckProjectionFeasibility here
+	// would repeat the full projection (per-item field formatting, content
+	// conversion, and clones) once per candidate with a discarded result.
 
 	if out.Capability.Kind == NegotiationDowngrade {
 		out.Kind = NegotiationDowngrade

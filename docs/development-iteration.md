@@ -74,8 +74,12 @@ Optional tooling is scope-specific: PowerShell for the skill-catalog check, Node
 >=20 plus `npm ci --prefix tools/openresponses-compliance` for official JS
 compliance, gremlins for mutation tests and GoReleaser for release packaging.
 Provider CLIs/SDKs and credentials are needed only for explicitly selected live
-connectors, not deterministic Go tests. User-owned systemd databases that must
-start before login and survive logout also need user lingering enabled.
+connectors, not deterministic Go tests. Before an expensive or retrying live run,
+check available read-only prerequisites in the same effective environment as the
+provider process; report only sanitized status and stop if a required prerequisite
+is missing. A readiness check is not proof of inference entitlement or quota.
+User-owned systemd databases that must start before login and survive logout also
+need user lingering enabled.
 
 Run `make dev-setup-check` and `bash scripts/test-go-dev-guard.sh` after changing
 setup/policy; fake tools isolate the checks from databases and the race detector.
@@ -105,6 +109,12 @@ coherent change. Include affected consumers when contracts change. A fresh final
 regression invocation may use `-count=1`; ordinary iterations preserve native
 caches and avoid forced rebuilds. Race execution remains remote-only under root
 `AGENTS.md`; this table grants no alternate local race path.
+
+When release evidence covers an exact artifact, record its hashes, build inputs
+and relevant embedded metadata, and compare the installed artifact to the
+approved identity. Identical source trees do not prove identical binaries. A
+match to a newly recorded candidate proves identity consistency, not approval;
+follow the artifact's existing record/verify runbook.
 
 ### Contract feedback and delivery slicing
 

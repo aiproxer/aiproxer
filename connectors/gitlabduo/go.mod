@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/gitlabduo
 
 go 1.26.6
 
+toolchain go1.26.10
+
 replace (
 	github.com/aiproxer/aiproxer => ../..
 	github.com/aiproxer/aiproxer/connector-support/oauthcred => ../../connector-support/oauthcred

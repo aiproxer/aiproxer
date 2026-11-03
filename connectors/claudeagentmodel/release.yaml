@@ -1,0 +1,22 @@
+# Connector release metadata — packaging indexes are generated from this file.
+# Local-only Claude Agent SDK model connector; experimental, Linux/amd64 first.
+schema: aip.connector.release/v1
+plugin_id: com.aiproxer.backend.claudeagentmodel
+factory_kind: claudeagentmodel
+module: github.com/aiproxer/aiproxer/connectors/claudeagentmodel
+command: ./cmd/aip-backend-claudeagentmodel
+manifest_template: manifest/template.backendplugin.json
+version: 0.1.0
+build_id: localdev
+tag: claudeagentmodel-v0.1.0
+profiles:
+  - full
+published_root_module: github.com/aiproxer/aiproxer
+replace_policy: development-replace-to-monorepo-root
+private_companions:
+  - sidecar/package.json
+  - sidecar/package-lock.json
+  - sidecar/bridge.mjs
+  - sidecar/session.mjs
+  - sidecar/tool-server.mjs
+executable_companions: {}

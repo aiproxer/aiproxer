@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/azure
 
 go 1.26.6
 
+toolchain go1.26.10
+
 replace github.com/aiproxer/aiproxer => ../..
 
 replace github.com/aiproxer/aiproxer/connector-support/openaicompat => ../../connector-support/openaicompat
@@ -24,7 +26,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect

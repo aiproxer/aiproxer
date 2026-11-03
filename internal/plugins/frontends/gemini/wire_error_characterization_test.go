@@ -17,6 +17,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/plugins/frontends/frontendpipe"
 	"github.com/aiproxer/aiproxer/internal/plugins/frontends/gemini"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
+	"github.com/aiproxer/aiproxer/pkg/aipsdk/prerequest"
 )
 
 type charErrExecutor struct{ err error }
@@ -64,6 +65,13 @@ func TestWireErrorCharacterization_executeErrors(t *testing.T) {
 			wantStatus:  http.StatusBadRequest,
 			wantGStatus: "INVALID_ARGUMENT",
 			wantMsg:     "missing capability",
+		},
+		{
+			name:        "backend_permission_denied",
+			err:         &prerequest.RejectError{Message: "backend permission denied"},
+			wantStatus:  http.StatusForbidden,
+			wantGStatus: "PERMISSION_DENIED",
+			wantMsg:     "backend permission denied",
 		},
 		{
 			name:        "internal_error",

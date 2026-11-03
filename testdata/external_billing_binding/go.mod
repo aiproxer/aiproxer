@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/testdata/external_billing_binding
 
 go 1.26.6
 
+toolchain go1.26.10
+
 require github.com/aiproxer/aiproxer v0.0.0
 
 require (
@@ -69,7 +71,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/nwaples/rardecode/v2 v2.2.2 // indirect
-	github.com/openai/openai-go/v3 v3.89.0 // indirect
+	github.com/openai/openai-go/v3 v3.90.0 // indirect
 	github.com/oschwald/maxminddb-golang/v2 v2.8.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
@@ -110,13 +112,13 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/api v0.278.0 // indirect
-	google.golang.org/genai v1.76.0 // indirect
+	google.golang.org/genai v1.77.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/grpc v1.85.0 // indirect

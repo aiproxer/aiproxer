@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/localstub
 
 go 1.26.6
 
+toolchain go1.26.10
+
 require (
 	github.com/aiproxer/aiproxer v0.0.0
 	gopkg.in/yaml.v3 v3.0.1

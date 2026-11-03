@@ -21,6 +21,40 @@ var standardItemTypes = map[string]bool{
 	"compaction":           true,
 }
 
+// DecodeReplayItem decodes one item from a client-replayed history and applies
+// the proxy's own output normalization. A tool-only turn can announce an
+// assistant message item before the model emits its tool call, so the proxy's
+// completed output may contain an assistant message whose only content is an
+// empty text part. Replaying that output unchanged must not fail canonical
+// validation: empty text parts are omitted, and an assistant message left with
+// no content is dropped entirely. Nonempty content, every non-text part, and
+// every non-assistant message are preserved in order and stay subject to
+// canonical validation.
+func DecodeReplayItem(w WireItem, limits Limits) (aipapi.Item, bool, error) {
+	item, err := DecodeItem(w, limits)
+	if err != nil {
+		return aipapi.Item{}, false, err
+	}
+	if item.Kind != aipapi.ItemKindMessage || item.Role != aipapi.RoleAssistant || item.Phase != "" {
+		return item, true, nil
+	}
+	if len(item.Content) == 0 {
+		return aipapi.Item{}, false, nil
+	}
+	kept := item.Content[:0]
+	for _, part := range item.Content {
+		if part.Kind == aipapi.ContentPartText && part.Text == "" {
+			continue
+		}
+		kept = append(kept, part)
+	}
+	if len(kept) == 0 {
+		return aipapi.Item{}, false, nil
+	}
+	item.Content = kept
+	return item, true, nil
+}
+
 // DecodeItem converts a WireItem into a canonical aipapi.Item under the
 // caller-provided operational limits.
 func DecodeItem(wire WireItem, limits Limits) (aipapi.Item, error) {

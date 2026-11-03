@@ -1,0 +1,44 @@
+# DISABLED local single-user example for the Claude Agent SDK model connector.
+# Nothing here launches Claude or provisions credentials: the backend is disabled
+# and admin_policy stays refuse. Enable only after reading docs/claude-agent-model.md,
+# confirming your own `claude auth login`, and explicitly accepting local
+# single-user trust with admin_policy: honor. The operator documentation contains
+# a complete enabled single-user snippet; this checked-in file stays disabled.
+#
+# Stage the connector first:
+#   go run ./tools/backendplugin/package_plugins -root . -profile full \
+#     -select claudeagentmodel -dest /absolute/staging
+# The sidecar needs its locked Node dependencies installed in the packaged
+# sidecar directory (`cd <plugin>/sidecar && npm ci`) before certification.
+# AIProxer never launches the connector while this backend is disabled.
+server:
+  address: "127.0.0.1:18082"
+access:
+  mode: single_user
+plugins:
+  backend_discovery:
+    enabled: true
+    paths: [/opt/aip/plugins/claudeagentmodel]
+    instances:
+      claude-model:
+        kind: claudeagentmodel
+        execution_env: [HOME, PATH, TMPDIR]
+  backends:
+    - id: claude-model
+      kind: claudeagentmodel
+      enabled: false
+      config:
+        executable: /absolute/path/to/claude
+        default_workspace: /absolute/path/to/workspace
+        credential_source: host_login # or api_key with the opaque api_key secret
+        admin_policy: refuse # change to honor only with explicit operator consent
+        max_runtimes: 8
+        turn_wait_seconds: 30
+        pending_ttl_seconds: 1800 # parked tool-result wait
+        idle_timeout_seconds: 300 # released-continuation idle retirement
+        strict_semantics: false # true rejects history/instruction degradations
+# Route selection names this instance, never a static model list:
+#   claude-model:anthropic/<runtime-discovered-model>
+# The connector advertises streaming text and the caller's own tool catalogue
+# through a transient per-step MCP server; it never executes a caller tool. No
+# credential value, sidecar script, Node flag or SDK option belongs in this file.

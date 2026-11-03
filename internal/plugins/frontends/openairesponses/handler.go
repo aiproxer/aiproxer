@@ -119,14 +119,29 @@ func (h *Handler) buildPipe() {
 		},
 		BuildEncodeOpts: func(decoded *frontendpipe.Decoded) EncodeOptions {
 			call := decoded.Call
+			// One canonical sum feeds both wire IDs: StableCallToken and
+			// StableUnix each re-marshal the whole call, the A-leg carrier
+			// path needs no hash at all, and the executor clock (when
+			// present) discards the deterministic timestamp, so the sum is
+			// computed lazily and at most once.
+			var sum [32]byte
+			summed := false
+			getSum := func() [32]byte {
+				if !summed {
+					sum = diag.StableCallSum(call)
+					summed = true
+				}
+				return sum
+			}
 			opts := EncodeOptions{
-				ResponseID:               responseIDForCall(call),
-				CreatedAt:                diag.StableUnix(call),
+				ResponseID:               responseIDForCallFromSum(call, getSum),
 				ExposeAipUsageExtensions: h.Config.ExposeAipUsageExtensions,
 			}
 			opts.MessageID = "msg_" + opts.ResponseID
 			if clk := h.Exec.WallClock(); clk != nil {
 				opts.CreatedAt = clk().Unix()
+			} else {
+				opts.CreatedAt = diag.StableUnixFromSum(getSum())
 			}
 			return opts
 		},
@@ -269,19 +284,38 @@ func (h *Handler) serveCancel(ctx context.Context, w http.ResponseWriter, r *htt
 }
 
 func responseIDForCall(call *aipapi.Call) string {
-	if call != nil {
-		if aLegID := strings.TrimSpace(call.Session.ALegID); aLegID != "" {
-			carrier := responseIDCancelCarrier{
-				ALegID:    aLegID,
-				SessionID: strings.TrimSpace(call.Session.AuthoritativeSessionID),
-			}
-			raw, err := json.Marshal(carrier)
-			if err == nil {
-				return responseIDALegPrefix + base64.RawURLEncoding.EncodeToString(raw)
-			}
-		}
+	if id, ok := responseCarrierID(call); ok {
+		return id
 	}
 	return "resp_" + diag.StableCallToken(call)
+}
+
+// responseCarrierID returns the A-leg cancellation carrier response ID when the
+// call carries session A-leg authority, without hashing the call.
+func responseCarrierID(call *aipapi.Call) (string, bool) {
+	if call == nil {
+		return "", false
+	}
+	if aLegID := strings.TrimSpace(call.Session.ALegID); aLegID != "" {
+		carrier := responseIDCancelCarrier{
+			ALegID:    aLegID,
+			SessionID: strings.TrimSpace(call.Session.AuthoritativeSessionID),
+		}
+		if raw, err := json.Marshal(carrier); err == nil {
+			return responseIDALegPrefix + base64.RawURLEncoding.EncodeToString(raw), true
+		}
+	}
+	return "", false
+}
+
+// responseIDForCallFromSum is responseIDForCall with the canonical sum supplied
+// lazily by the caller, so BuildEncodeOpts hashes the call at most once for
+// all wire IDs. The result is identical to responseIDForCall for the same call.
+func responseIDForCallFromSum(call *aipapi.Call, getSum func() [32]byte) string {
+	if id, ok := responseCarrierID(call); ok {
+		return id
+	}
+	return "resp_" + diag.StableCallTokenFromSum(getSum())
 }
 
 func cancelCarrierFromResponseID(responseID string) (string, string, bool) {

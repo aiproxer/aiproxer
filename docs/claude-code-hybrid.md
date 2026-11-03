@@ -104,11 +104,16 @@ change the main model to the external alias, or globally replace Haiku/Sonnet.
   supplies its credential. External tool results are projected into canonical
   tool-role messages in original order. Inline worker `system` messages retain
   their system role and original history position, without being hoisted into
-  top-level instructions. This decoding is private to the CLI hybrid external
-  handler; ordinary Anthropic decoding is unchanged. The full history is retained;
-  each external request opens a fresh proxy session rather than accepting body or
-  header resume authority, preventing inherited routing overrides. Proxy-side
-  cross-turn continuity is not provided for these workers in V1.
+  top-level instructions. The ordinary Anthropic Messages frontend admits the
+  same shape so stock worker histories keep their positions; downstream backend
+  contracts determine fidelity: Chat and Responses preserve the in-place role,
+  Anthropic Messages and Gemini reject it before upstream I/O, and Bedrock and
+  the commandcode-anthropic connector lift it to the top-level system field,
+  preserving the text but not its mid-history position. The full history is
+  retained; each external request opens a fresh proxy session rather than
+  accepting body or header resume authority, preventing inherited routing
+  overrides. Proxy-side cross-turn continuity is not provided for these workers
+  in V1.
 - Native `claude-*` requests, main or subagent, go only to
   `https://api.anthropic.com/v1/messages`, with original JSON bytes, one original
   first-party credential, explicitly safe protocol headers, and opaque response

@@ -1,0 +1,14 @@
+{
+  "name": "@aiproxer/claudeagentmodel-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private Claude Agent SDK sidecar for the claudeagentmodel backend connector. One process per conversation; never a general command runner.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.14.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.316",
+    "@modelcontextprotocol/sdk": "1.32.2"
+  }
+}

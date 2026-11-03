@@ -14,6 +14,13 @@ import (
 	"github.com/aiproxer/aiproxer/connector-support/acp"
 )
 
+// certifiedSidecarSHA256 binds the shipped three-file identity sidecar to the
+// certified release. It is the only pin the Go side keeps for sidecar source:
+// a deliberate sidecar change re-records it together with the certification
+// evidence (see docs/claude-agent-acp-backend.md and make claude-gateway-certify),
+// and TestShippedSidecarMatchesCertifiedPin fails until both agree.
+const certifiedSidecarSHA256 = "7ed0bff33783ae1f1eccaa624d115a7e0dc9acc50b449ddc2579a33edcf30c3d"
+
 // IdentityExtension is observed deployment identity, not runtime certification.
 // Release task 3.3 installs the project-authored sidecar beside the connector.
 type IdentityExtension struct {
@@ -129,7 +136,7 @@ func (r AdapterResolver) ResolveIdentityExtension(ctx context.Context, runtime R
 	// unchanged; Node is admitted by version and its observed digest is
 	// reported as evidence.
 	if !certifiedBundle(current) || runtime.CLIVersion != "2.1.293" ||
-		extension.ExtensionSHA256 != "45a7abfd3c48095a7c82d5ea4b6dc9f96b8322fe147249dae80526f923ff2093" {
+		extension.ExtensionSHA256 != certifiedSidecarSHA256 {
 		return empty, errors.New("claudeagentacp: exact runtime or identity sidecar is not certified; reinstall the certified deployment")
 	}
 	timeout := r.Timeout

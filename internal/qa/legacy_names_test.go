@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -41,7 +42,7 @@ func TestLegacyNames_MaintainedTreeUsesOnlyAIProxerNames(t *testing.T) {
 		t.Skipf("git ls-files unavailable: %v", err)
 	}
 	var hits []string
-	for _, name := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+	for name := range strings.SplitSeq(strings.TrimRight(string(out), "\x00"), "\x00") {
 		if name == "" || strings.HasPrefix(name, legacyArchivePrefix) || filepath.Base(name) == "go.sum" {
 			continue
 		}
@@ -114,12 +115,7 @@ func legacyNameIn(s string) bool {
 	if !strings.Contains(strings.ToLower(s), formerAbbr) {
 		return false
 	}
-	for _, run := range alnumRun.FindAllString(s, -1) {
-		if legacyRun(run) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(alnumRun.FindAllString(s, -1), legacyRun)
 }
 
 // legacyRun reports whether one alphanumeric run carries the abbreviation as a

@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/cloudflare
 
 go 1.26.6
 
+toolchain go1.26.10
+
 require (
 	github.com/aiproxer/aiproxer v0.0.0
 	github.com/aiproxer/aiproxer/connector-support/openaicompat v0.0.0

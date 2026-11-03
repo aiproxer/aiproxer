@@ -1,0 +1,18 @@
+{
+  "os": "linux",
+  "arch": "amd64",
+  "go_binary_sha256": "be7154cd42d8f6aa6c96b14c5864f252899f4002ae3ee8fa6ea01d5e1d313785",
+  "manifest_sha256": "28cf6fa974776ebe559535f9fca03299d6cef96117a21b8906604ac3ffa2c123",
+  "sidecar_bridge_sha256": "abafc3994a09bc3a0db6fed64db92ac23d8ad5e4869ed261ca2b93c6c8d3b2ae",
+  "sidecar_session_sha256": "54d7309da5fc27d597da6e1f07a7f313b0bc60f9df2080426805c4163191825f",
+  "sidecar_tool_server_sha256": "dd022b32d73c35c50d085b00797f870562c87447e403c74ca3be40dd51f04cbc",
+  "sidecar_package_json_sha256": "d689fb9e65dcea536c17e1f13ddd9d467ede17e0ff496fe525677147e355169f",
+  "sidecar_package_lock_sha256": "6d60981b1833d2061e7e4c4e07938e364105035c3fe18267420cbcd4fb53b899",
+  "dependency_tree_sha256": "6ee9941268434879dc9751c8bc06835271d7a53d113f91d1a9735287170357e5",
+  "dependency_file_count": 7698,
+  "node_version": "22.23.4",
+  "node_sha256": "94efd062ed066c1a0b332e18249859c905e920eeada5df55d24c99b919629a90",
+  "cli_version": "2.1.316",
+  "cli_sha256": "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824",
+  "sdk_version": "0.3.316"
+}

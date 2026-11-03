@@ -291,6 +291,68 @@ func TestDecode_CreateRequest_ReturnsCanonicalRequirements(t *testing.T) {
 	}
 }
 
+func TestDecode_CreateRequest_ReplaysProxyEmptyAssistantMessage(t *testing.T) {
+	t.Parallel()
+
+	// A tool-only native turn can announce an assistant message item before the
+	// model emits its tool call. The proxy's own completed output then carries an
+	// assistant message with an empty output_text part. Replaying that output
+	// unchanged must not fail canonical validation, and nonempty content in the
+	// same message must survive.
+	base := `{
+		"model": "backend:model",
+		"instructions": "be brief",
+		"input": [
+			{"type":"message","role":"assistant","content":[{"type":"output_text","text":""}]},
+			{"type":"function_call","call_id":"call_1","name":"Read","arguments":"{}"},
+			{"type":"function_call_output","call_id":"call_1","output":"ok"}
+		]
+	}`
+	decoded, err := openresponses.AuthenticateAndDecodeCreate(context.Background(), []byte(base), openresponses.DecodeCreateOptions{
+		Auth:          &mockAuthorizer{authenticated: true},
+		RoutePrefixes: []string{"backend"},
+	})
+	if err != nil {
+		t.Fatalf("empty assistant replay was rejected: %v", err)
+	}
+	items := decoded.Call.Items
+	if len(items) != 3 || items[0].Kind != aipapi.ItemKindMessage || items[0].Role != aipapi.RoleSystem ||
+		items[1].Kind != aipapi.ItemKindToolCall || items[1].ToolCall == nil || items[1].ToolCall.CallID != "call_1" ||
+		items[2].Kind != aipapi.ItemKindToolResult {
+		t.Fatalf("empty assistant message was not dropped from the replay: %+v", items)
+	}
+
+	withText := `{
+		"model": "backend:model",
+		"input": [
+			{"type":"message","role":"assistant","content":[{"type":"output_text","text":""},{"type":"output_text","text":"kept"}]},
+			{"type":"function_call","call_id":"call_1","name":"Read","arguments":"{}"},
+			{"type":"function_call_output","call_id":"call_1","output":"ok"}
+		]
+	}`
+	decoded, err = openresponses.AuthenticateAndDecodeCreate(context.Background(), []byte(withText), openresponses.DecodeCreateOptions{
+		Auth:          &mockAuthorizer{authenticated: true},
+		RoutePrefixes: []string{"backend"},
+	})
+	if err != nil {
+		t.Fatalf("assistant replay with nonempty text was rejected: %v", err)
+	}
+	if len(decoded.Call.Items) != 3 || len(decoded.Call.Items[0].Content) != 1 || decoded.Call.Items[0].Content[0].Text != "kept" {
+		t.Fatalf("nonempty assistant content was not preserved: %+v", decoded.Call.Items)
+	}
+
+	userEmpty := `{
+		"model": "backend:model",
+		"input": [{"type":"message","role":"user","content":[{"type":"input_text","text":""}]}]
+	}`
+	if _, err := openresponses.AuthenticateAndDecodeCreate(context.Background(), []byte(userEmpty), openresponses.DecodeCreateOptions{
+		Auth:          &mockAuthorizer{authenticated: true},
+		RoutePrefixes: []string{"backend"},
+	}); err == nil {
+		t.Fatal("empty user message replay was silently accepted")
+	}
+}
+
 func TestDecode_ConditionalModelInput(t *testing.T) {
 	t.Parallel()
 

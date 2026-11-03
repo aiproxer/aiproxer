@@ -964,9 +964,12 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 			})
 		}
 		for i, w := range wireItems {
-			item, err := proto.DecodeItem(w, proto.DefaultLimits())
+			item, keep, err := proto.DecodeReplayItem(w, proto.DefaultLimits())
 			if err != nil {
 				return frontendpipe.ProofOutput{}, fmt.Errorf("openresponses: item[%d]: %w", i, err)
+			}
+			if !keep {
+				continue
 			}
 			canonicalItems = append(canonicalItems, item)
 		}

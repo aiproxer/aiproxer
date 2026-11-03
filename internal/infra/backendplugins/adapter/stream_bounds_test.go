@@ -4,14 +4,18 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/aiproxer/aiproxer/internal/infra/backendplugins/adapter"
+	"github.com/aiproxer/aiproxer/internal/plugins/frontends/execerr"
 	testkit "github.com/aiproxer/aiproxer/internal/testkit/backendplugin"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk/backendplugin"
+	"github.com/aiproxer/aiproxer/pkg/aipsdk/prerequest"
 )
 
 func TestBackpressure_SlowConsumerBoundedPending(t *testing.T) {
@@ -196,6 +200,143 @@ func TestClassifiedError_CapabilityProjection(t *testing.T) {
 			}
 			if !errors.Is(tc.err, aipapi.ErrCapabilityReject) {
 				t.Fatal("must match ErrCapabilityReject")
+			}
+		})
+	}
+}
+
+func TestClassifiedError_PermissionDeniedProjection(t *testing.T) {
+	t.Parallel()
+	const wireReason = "backend permission denied"
+	const canary = "third_party_extra_usage canary-4f8c1d"
+	preOutput := &adapter.ClassifiedError{
+		Code:    string(backendplugin.ErrorCodePermissionDenied),
+		Message: canary,
+	}
+	if aipapi.IsRecoverablePreOutput(preOutput) {
+		t.Fatal("permission_denied must never become retry/failover eligible")
+	}
+	if aipapi.IsReject(preOutput) {
+		t.Fatal("permission_denied must not be mislabeled as a capability reject")
+	}
+	if !prerequest.IsRejected(preOutput) {
+		t.Fatal("permission_denied must expose the existing 403 reject branch")
+	}
+	var rej *prerequest.RejectError
+	if !errors.As(preOutput, &rej) {
+		t.Fatal("must expose *prerequest.RejectError")
+	}
+	if rej.Message != wireReason {
+		t.Fatalf("reject reason=%q want the bounded constant %q", rej.Message, wireReason)
+	}
+	out := execerr.ClassifyExecute(preOutput)
+	if out.Kind != execerr.KindClientReject {
+		t.Fatalf("kind=%v want KindClientReject", out.Kind)
+	}
+	if out.Status != http.StatusForbidden {
+		t.Fatalf("status=%d want %d", out.Status, http.StatusForbidden)
+	}
+	if out.Message != wireReason {
+		t.Fatalf("wire message=%q want %q", out.Message, wireReason)
+	}
+	if strings.Contains(out.Message, "canary-4f8c1d") {
+		t.Fatalf("plugin text reached the wire: %q", out.Message)
+	}
+	// The neighbouring failed_precondition bridge must stay a capability reject.
+	capability := &adapter.ClassifiedError{Code: string(backendplugin.ErrorCodeFailedPrecondition), Message: canary}
+	if !aipapi.IsReject(capability) || prerequest.IsRejected(capability) {
+		t.Fatal("failed_precondition must keep the capability-reject bridge")
+	}
+}
+
+// permissionDeniedTerminal mirrors a connector's typed terminal: ForwardExecute
+// publishes it as a failure terminal and returns the same error from Execute, so
+// the Execute boundary must preserve the connector's class.
+type permissionDeniedTerminal struct {
+	message   string
+	retryable bool
+}
+
+func (e *permissionDeniedTerminal) Error() string { return e.message }
+
+func (e *permissionDeniedTerminal) TerminalPluginError() *backendplugin.PluginError {
+	return &backendplugin.PluginError{
+		Code:      backendplugin.ErrorCodePermissionDenied,
+		Message:   e.message,
+		Retryable: e.retryable,
+	}
+}
+
+// TestClassifyExecuteError_PermissionDeniedTerminalKeepsClass proves the
+// Execute-boundary classification keeps a connector's typed permission denial
+// instead of re-deriving retryable transport death. The same failure reaches
+// Recv through the failure terminal too, so both paths must agree.
+func TestClassifyExecuteError_PermissionDeniedTerminalKeepsClass(t *testing.T) {
+	t.Parallel()
+	const canary = "third_party_extra_usage canary-7b1e"
+	failure := adapter.ClassifyExecuteError(&permissionDeniedTerminal{message: canary}, false)
+	if failure == nil {
+		t.Fatal("expected a classified execute failure")
+	}
+	classified := failure.ToClassifiedError()
+	if classified.Code != string(backendplugin.ErrorCodePermissionDenied) || classified.Retryable || classified.OutputCommitted {
+		t.Fatalf("classification=%+v want non-retryable permission_denied", classified)
+	}
+	if aipapi.IsRecoverablePreOutput(classified) {
+		t.Fatal("Execute-boundary permission_denied must not become retry/failover eligible")
+	}
+	out := execerr.ClassifyExecute(classified)
+	if out.Kind != execerr.KindClientReject || out.Status != http.StatusForbidden || out.Message != "backend permission denied" {
+		t.Fatalf("outcome=%+v want KindClientReject 403 with the bounded message", out)
+	}
+	if strings.Contains(out.Message, "canary-7b1e") {
+		t.Fatalf("plugin text reached the wire: %q", out.Message)
+	}
+	committed := adapter.ClassifyExecuteError(&permissionDeniedTerminal{message: canary}, true).ToClassifiedError()
+	if committed.Retryable || !committed.OutputCommitted || prerequest.IsRejected(committed) {
+		t.Fatalf("committed classification=%+v must stay post-output and unchanged", committed)
+	}
+	// A retryable permission terminal keeps the pre-existing Execute-boundary
+	// classification: it must not be narrowed into the non-retryable 403 path.
+	retryable := adapter.ClassifyExecuteError(&permissionDeniedTerminal{message: canary, retryable: true}, false).ToClassifiedError()
+	if retryable.Code != "transport" || !retryable.Retryable || prerequest.IsRejected(retryable) {
+		t.Fatalf("retryable classification=%+v must keep the current retryable shape", retryable)
+	}
+}
+
+// TestClassifiedError_PermissionDeniedKeepsCurrentWhenRetryableOrCommitted pins
+// the two shapes the 403 bridge must not touch: a retryable pre-output failure
+// keeps its recoverable class, and a post-output failure keeps the internal
+// error shape.
+func TestClassifiedError_PermissionDeniedKeepsCurrentWhenRetryableOrCommitted(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		err       *adapter.ClassifiedError
+		retryable bool
+	}{
+		{
+			name:      "retryable pre-output",
+			err:       &adapter.ClassifiedError{Code: string(backendplugin.ErrorCodePermissionDenied), Message: "lease canary", Retryable: true},
+			retryable: true,
+		},
+		{
+			name: "post-output",
+			err:  &adapter.ClassifiedError{Code: string(backendplugin.ErrorCodePermissionDenied), Message: "lease canary", OutputCommitted: true},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if prerequest.IsRejected(tc.err) {
+				t.Fatal("only the pre-output non-retryable shape may bridge to the 403 reject branch")
+			}
+			if got := aipapi.IsRecoverablePreOutput(tc.err); got != tc.retryable {
+				t.Fatalf("IsRecoverablePreOutput=%v want %v", got, tc.retryable)
+			}
+			out := execerr.ClassifyExecute(tc.err)
+			if out.Kind != execerr.KindInternalError || out.Status != http.StatusInternalServerError || out.Message != execerr.InternalWireMessage {
+				t.Fatalf("outcome=%+v, want the unchanged internal error shape", out)
 			}
 		})
 	}

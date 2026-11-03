@@ -30,6 +30,14 @@ const (
 	// no provider string and no remote peer can select it, and it is only
 	// reachable through the host's own strict evidence policy.
 	executeFailureHostEvidenceRefused
+	// executeFailurePermissionDenied is the connector's typed non-retryable
+	// entitlement refusal observed at the Execute boundary. The kind is
+	// package-private and selected only from a backendplugin.TerminalError whose
+	// mapped code is permission_denied, so it keeps the connector's class
+	// instead of re-deriving retryable transport death. Without it the same
+	// refusal would reach the client as HTTP 500 and stay retry/failover
+	// eligible whenever the Execute return beats the failure terminal.
+	executeFailurePermissionDenied
 )
 
 // ExecuteFailureError is the classified Execute boundary error.
@@ -93,6 +101,12 @@ func (e *ExecuteFailureError) ToClassifiedError() *ClassifiedError {
 		// Unwrap rule bridges the classified error to the frontend reject
 		// branch, so the refusal is never swallowed for another candidate.
 		code = "failed_precondition"
+		retryable = false
+	case executeFailurePermissionDenied:
+		// The connector's typed entitlement refusal keeps its own class so the
+		// existing Unwrap bridge reaches the frontend 403 reject branch. It is
+		// never retryable, and a committed attempt stays committed.
+		code = string(backendplugin.ErrorCodePermissionDenied)
 		retryable = false
 	}
 	msg := ""
@@ -167,6 +181,19 @@ func ClassifyExecuteError(err error, committed bool) *ExecuteFailureError {
 			return &ExecuteFailureError{Kind: ExecuteFailureProvider, Err: err, OutputCommitted: committed}
 		case "canceled":
 			return &ExecuteFailureError{Kind: ExecuteFailureCanceled, Err: err, OutputCommitted: committed}
+		}
+	}
+	// A connector-owned permission denial must keep its class at this boundary:
+	// the failure terminal already published the same decision, but the Execute
+	// return can reach Recv first, and re-deriving it as transport death would
+	// make the refusal retryable and generic. Only the non-retryable,
+	// uncommitted shape is preserved so every other Execute-boundary
+	// classification stays as it is.
+	if terminal, ok := errors.AsType[backendplugin.TerminalError](err); ok {
+		if mapped := terminal.TerminalPluginError(); mapped != nil &&
+			mapped.Code == backendplugin.ErrorCodePermissionDenied &&
+			!mapped.Retryable && !mapped.OutputCommitted {
+			return &ExecuteFailureError{Kind: executeFailurePermissionDenied, Err: err, OutputCommitted: committed}
 		}
 	}
 	if _, ok := errors.AsType[backendplugin.ModeError](err); ok {

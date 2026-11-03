@@ -683,6 +683,9 @@ func validateContinuityStores(cfg *Config) error {
 	}
 	store := EffectiveContinuityStore(cfg.Continuity)
 	if store == ContinuityStoreMemory {
+		if err := validateIgnoredContinuitySQLitePath(cfg.Continuity); err != nil {
+			return err
+		}
 		if cfg.Continuity.MaxLegs < 0 {
 			return fmt.Errorf("continuity: max_legs must be >= 0 for memory store")
 		}
@@ -725,8 +728,8 @@ func validateContinuityStores(cfg *Config) error {
 		return nil
 	}
 	// store == "postgres"
-	if strings.TrimSpace(cfg.Continuity.SQLitePath) != "" {
-		return fmt.Errorf("continuity.sqlite_path: may only be set when store is \"sqlite\"")
+	if err := validateIgnoredContinuitySQLitePath(cfg.Continuity); err != nil {
+		return err
 	}
 	if strings.TrimSpace(cfg.Continuity.TTL) != "" {
 		return fmt.Errorf(
@@ -766,6 +769,19 @@ func validateContinuityStoreSpelling(c ContinuityConfig) error {
 		"continuity.in_memory: true asks for the process-local backing, but continuity.store is %q; "+
 			"remove in_memory or set store: memory",
 		declared,
+	)
+}
+
+// validateIgnoredContinuitySQLitePath refuses a sqlite_path on a backing that
+// never reads it. Only the sqlite store opens the path, so accepting it next to
+// the memory or postgres backing created a false expectation of persistence.
+func validateIgnoredContinuitySQLitePath(c ContinuityConfig) error {
+	if strings.TrimSpace(c.SQLitePath) == "" {
+		return nil
+	}
+	return fmt.Errorf(
+		"continuity.sqlite_path: may only be set when store is \"sqlite\"; " +
+			"remove sqlite_path or set store: sqlite",
 	)
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/plugins/frontends/frontendpipe"
 	"github.com/aiproxer/aiproxer/internal/plugins/frontends/openailegacy"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
+	"github.com/aiproxer/aiproxer/pkg/aipsdk/prerequest"
 )
 
 type charErrExecutor struct{ err error }
@@ -57,6 +58,13 @@ func TestWireErrorCharacterization_executeErrors(t *testing.T) {
 			wantStatus: http.StatusInternalServerError,
 			wantType:   "api_error",
 			wantMsg:    execerr.PolicyMalformedWireMessage,
+		},
+		{
+			name:       "backend_permission_denied",
+			err:        &prerequest.RejectError{Message: "backend permission denied"},
+			wantStatus: http.StatusForbidden,
+			wantType:   "invalid_request_error",
+			wantMsg:    "backend permission denied",
 		},
 		{
 			name:       "internal_error",

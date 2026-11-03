@@ -94,13 +94,27 @@ func (h *Handler) buildPipe() {
 		},
 		BuildEncodeOpts: func(decoded *frontendpipe.Decoded) EncodeOptions {
 			call := decoded.Call
+			// One canonical sum feeds both wire IDs: StableCallToken and
+			// StableUnix each re-marshal the whole call, and the executor
+			// clock (when present) discards the deterministic timestamp, so
+			// the sum is computed lazily and at most once.
+			var sum [32]byte
+			summed := false
+			getSum := func() [32]byte {
+				if !summed {
+					sum = diag.StableCallSum(call)
+					summed = true
+				}
+				return sum
+			}
 			opts := EncodeOptions{
-				CompletionID:             "chatcmpl_" + diag.StableCallToken(call),
-				CreatedAt:                diag.StableUnix(call),
+				CompletionID:             "chatcmpl_" + diag.StableCallTokenFromSum(getSum()),
 				ExposeAipUsageExtensions: h.Config.ExposeAipUsageExtensions,
 			}
 			if clk := h.Exec.WallClock(); clk != nil {
 				opts.CreatedAt = clk().Unix()
+			} else {
+				opts.CreatedAt = diag.StableUnixFromSum(getSum())
 			}
 			return opts
 		},

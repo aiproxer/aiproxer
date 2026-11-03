@@ -121,6 +121,8 @@ Run these checks and use the result as primary signal.
 - Reject if the implementation creates new hidden dependencies, shared ownership, or undeclared coupling across adjacent boundaries.
 - Reject if a task that is not an explicit integration task now behaves like one.
 - When a stage moves across an authority/context/lifecycle seam, compare its old/new inputs: what becomes visible, disappears or changes provenance? Require conflict-seeded behavioral evidence for that changed boundary, not an exhaustive matrix. `internal/testkit/execviewfixture.PoisonedParent` seeds distinguishable request views; existing execctx and detached-runtime tests show how to prove masking while preserving trusted attribution. This is a judgment audit, not a syntactic lint rule.
+- When a shared input boundary admits a new shape, trace it through materially different affected consumer classes. Establish whether each preserves it, applies an explicit degradation, or rejects it; use focused family contracts rather than a Cartesian matrix.
+- When a request reuses retained state, check that explicit current-request controls cannot be overridden by that state. Distinguish omitted from explicit values where meaningful; for a refusal, verify the pending operation remains usable when the contract requires it.
 
 ### 11. Test Quality
 - Confirm tests prove the required behavior rather than only scaffolding.

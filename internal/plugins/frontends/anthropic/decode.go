@@ -30,9 +30,6 @@ type DecodeOptions struct {
 	Headers          http.Header
 	// HTTPHeaders carries configured header aliases; zero value uses defaults.
 	HTTPHeaders aipsdk.HTTPHeaders
-	// hybridExternal permits stock CLI worker system entries in their original
-	// history positions; only the private, recognized-CLI handler enables it.
-	hybridExternal bool
 }
 
 // DecodedMessage is the result of decoding POST /v1/messages JSON.
@@ -85,7 +82,7 @@ func DecodeMessageRequest(body []byte, opts DecodeOptions) (*DecodedMessage, err
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: system: %w", err)
 	}
-	msgs, err := parseAnthropicMessages(w.Messages, opts.hybridExternal)
+	msgs, err := parseAnthropicMessages(w.Messages)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: messages: %w", err)
 	}
@@ -179,10 +176,10 @@ func parseSystem(raw json.RawMessage) ([]aipapi.Message, error) {
 	return []aipapi.Message{{Role: aipapi.RoleSystem, Parts: parts}}, nil
 }
 
-func parseAnthropicMessages(raw []json.RawMessage, hybridExternal bool) ([]aipapi.Message, error) {
+func parseAnthropicMessages(raw []json.RawMessage) ([]aipapi.Message, error) {
 	out := make([]aipapi.Message, 0, len(raw))
 	for i, it := range raw {
-		m, err := parseAnthropicMessage(it, hybridExternal)
+		m, err := parseAnthropicMessage(it)
 		if err != nil {
 			return nil, fmt.Errorf("anthropic: messages[%d]: %w", i, err)
 		}
@@ -191,7 +188,7 @@ func parseAnthropicMessages(raw []json.RawMessage, hybridExternal bool) ([]aipap
 	return out, nil
 }
 
-func parseAnthropicMessage(raw json.RawMessage, hybridExternal bool) (aipapi.Message, error) {
+func parseAnthropicMessage(raw json.RawMessage) (aipapi.Message, error) {
 	var probe struct {
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
@@ -199,7 +196,7 @@ func parseAnthropicMessage(raw json.RawMessage, hybridExternal bool) (aipapi.Mes
 	if err := json.Unmarshal(raw, &probe); err != nil {
 		return aipapi.Message{}, err
 	}
-	role, err := mapAnthropicRole(probe.Role, hybridExternal)
+	role, err := mapAnthropicRole(probe.Role)
 	if err != nil {
 		return aipapi.Message{}, err
 	}
@@ -210,17 +207,16 @@ func parseAnthropicMessage(raw json.RawMessage, hybridExternal bool) (aipapi.Mes
 	return aipapi.Message{Role: role, Parts: parts}, nil
 }
 
-func mapAnthropicRole(r string, hybridExternal bool) (aipapi.Role, error) {
+func mapAnthropicRole(r string) (aipapi.Role, error) {
 	switch strings.TrimSpace(r) {
 	case "user":
 		return aipapi.RoleUser, nil
 	case "assistant":
 		return aipapi.RoleAssistant, nil
 	case "system":
-		if hybridExternal {
-			return aipapi.RoleSystem, nil
-		}
-		fallthrough
+		// Stock worker histories carry inline instructions. Keep their role and
+		// position; hoisting them into top-level instructions would reorder history.
+		return aipapi.RoleSystem, nil
 	default:
 		return "", fmt.Errorf("anthropic: unsupported message role %q", r)
 	}

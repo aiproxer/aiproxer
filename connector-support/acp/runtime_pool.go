@@ -8,8 +8,6 @@ import (
 	"slices"
 	"sync"
 	"time"
-
-	"golang.org/x/sync/singleflight"
 )
 
 // ErrCleanupIncomplete means process-tree extinction was not confirmed. Owners
@@ -161,7 +159,12 @@ type RuntimePool struct {
 	capacityMu      sync.Mutex
 	capacityChanged chan struct{}
 
-	ensureGroup singleflight.Group
+	// ensureMu guards ensureFlights. One flight per serialized RuntimeKey
+	// joins concurrent EnsureProcess callers; the elected leader runs the
+	// construction synchronously, while followers wait on its done channel and
+	// may abandon that wait by cancelling their context.
+	ensureMu      sync.Mutex
+	ensureFlights map[string]*ensureFlight
 }
 
 // NewRuntimePool creates a new subprocess lifecycle pool.
@@ -216,6 +219,7 @@ func NewRuntimePool(cfg RuntimePoolConfig) *RuntimePool {
 		spawnGate:       make(chan struct{}, 1),
 		staleKillTimers: make(map[RuntimeKey]staleKillTimer),
 		capacityChanged: make(chan struct{}),
+		ensureFlights:   make(map[string]*ensureFlight),
 	}
 }
 
@@ -1191,6 +1195,13 @@ func (rt *SubprocessRuntime) cleanupOutcome() error {
 
 // Close kills all runtimes in the pool and clears it. Used during shutdown.
 func (p *RuntimePool) Close() error {
+	// Join admitted constructions before snapshotting lifecycle state. A
+	// construction that finishes during shutdown either publishes to the pool or
+	// hands its refused child to a retirement, and Close must observe both. The
+	// leader stays attached to its own caller, so an abandoned construction
+	// cannot outlive the shutdown that joined it.
+	p.joinEnsureFlights()
+
 	p.mu.Lock()
 	keys := make([]RuntimeKey, 0, len(p.pools))
 	for k := range p.pools {

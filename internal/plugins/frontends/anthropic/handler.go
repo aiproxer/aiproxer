@@ -35,8 +35,8 @@ type Handler struct {
 	Config                  Config
 	HTTPHeaders             aipsdk.HTTPHeaders
 	StreamKeepaliveInterval time.Duration
-	// hybridExternal enables inline system and canonical tool-result roles only for
-	// the private hybrid external handler; the ordinary frontend is unchanged.
+	// hybridExternal enables canonical tool-result roles and isolates session
+	// authority for the private hybrid external handler.
 	hybridExternal bool
 
 	// pipeOnce serializes the first spec() build; handlers serve concurrent requests.
@@ -80,7 +80,6 @@ func (h *Handler) buildPipe() {
 				AnthropicVersion: dctx.AnthropicVersion,
 				Headers:          dctx.Headers,
 				HTTPHeaders:      h.HTTPHeaders,
-				hybridExternal:   h.hybridExternal,
 			})
 			if err != nil {
 				return nil, err

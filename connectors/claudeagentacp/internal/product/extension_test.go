@@ -43,6 +43,49 @@ func TestNodeVersion_MinimumWithoutReleasePin(t *testing.T) {
 	}
 }
 
+// Claim: the shipped three-file identity sidecar hashes to the pin the Go
+// admission gate enforces, so a sidecar edit cannot ship without its
+// re-certification.
+// Source: extension.go certifiedSidecarSHA256 (the ResolveIdentityExtension gate).
+// Mutants: change one shipped sidecar file, or leave the pin at an older
+// certification.
+func TestShippedSidecarMatchesCertifiedPin(t *testing.T) {
+	shipped, err := filepath.Abs(filepath.Join("..", "..", "adapter-extension"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	sidecar := filepath.Join(root, "claudeagentacp-adapter-extension")
+	if err := os.Mkdir(sidecar, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"bootstrap.mjs", "identity.mjs", "models.mjs"} {
+		source, err := os.ReadFile(filepath.Join(shipped, name))
+		if err != nil {
+			t.Fatalf("shipped sidecar %s: %v", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(sidecar, name), source, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	profile := RuntimeProfile{
+		Executable:     filepath.Join(root, "node_modules", "@agentclientprotocol", "claude-agent-acp", "dist", "index.js"),
+		AdapterVersion: "0.89.1",
+		SDKVersion:     "0.3.293",
+		CLIVersion:     "2.1.293",
+		BundleSHA256:   "installation-closure",
+	}
+	extension, err := inspectIdentityExtension(t.Context(), filepath.Join(root, "connector"), profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if extension.ExtensionSHA256 != certifiedSidecarSHA256 {
+		t.Fatalf("shipped sidecar digest = %s, pin = %s: re-record the pin only with fresh certification "+
+			"evidence (make claude-gateway-certify) and update docs/claude-agent-acp-backend.md",
+			extension.ExtensionSHA256, certifiedSidecarSHA256)
+	}
+}
+
 func TestIdentityExtension_DeterministicSidecarAndClosureBinding(t *testing.T) {
 	dir := t.TempDir()
 	executable := filepath.Join(dir, "claudeagentacp")

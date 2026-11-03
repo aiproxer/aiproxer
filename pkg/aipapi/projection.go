@@ -269,7 +269,7 @@ func ProjectLegacyToOrderedItems(call Call, target OrderedItemProjectionTarget) 
 					ToolResult: &ToolResultItem{
 						CallID: p.ToolCallID,
 						Name:   p.ToolName,
-						Output: p.Text,
+						Output: toolResultOutput(p),
 					},
 				})
 			}
@@ -309,6 +309,25 @@ func ProjectLegacyToOrderedItems(call Call, target OrderedItemProjectionTarget) 
 	}
 	req := DeriveProtocolRequirements(call)
 	return items, req, nil
+}
+
+// toolResultOutput returns the caller-visible text of a legacy tool result.
+// Chat decoders carry a JSON result in Content and leave Text empty; the
+// item carrier has one string output, so a JSON string keeps its decoded text
+// and any other JSON document keeps its exact bytes. Dropping Content here
+// would hand the model an empty result.
+func toolResultOutput(p Part) string {
+	if p.Text != "" {
+		return p.Text
+	}
+	if len(p.Content) == 0 {
+		return ""
+	}
+	var text string
+	if err := json.Unmarshal(p.Content, &text); err == nil {
+		return text
+	}
+	return string(p.Content)
 }
 
 func checkItemLegacyRepresentable(item Item, field string, target LegacyProjectionTarget) error {

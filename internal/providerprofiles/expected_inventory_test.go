@@ -49,6 +49,7 @@ var preExistingConnectors = map[string]bool{
 	"acp":                   true,
 	"agycliacp":             true,
 	"claudeagentacp":        true,
+	"claudeagentmodel":      true,
 	"codex":                 true,
 	"commandcode-anthropic": true,
 	"commandcode-openai":    true,

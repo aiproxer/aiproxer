@@ -615,7 +615,7 @@ func planHarnessParseSSE(t *testing.T, raw string) []planHarnessEvent {
 	events := make([]planHarnessEvent, 0, len(blocks))
 	for _, block := range blocks {
 		var event planHarnessEvent
-		for _, line := range strings.Split(block, "\n") {
+		for line := range strings.SplitSeq(block, "\n") {
 			switch {
 			case strings.HasPrefix(line, "event:"):
 				event.Name = strings.TrimSpace(strings.TrimPrefix(line, "event:"))

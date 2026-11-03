@@ -85,7 +85,10 @@ jobs:
           #     TestShrinkage_OpenCoreSeamBaselinesArePinnedAndDisjoint
           #     TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint
           #     TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint
-          #   a Kiro specification, its budget ceilings, or its evidence table
+          #   a Kiro specification, its budget ceilings, its export omissions
+          #   (git check-attr needs the repository worktree), or its evidence
+          #   table
+          #     TestExportOmissions_Repository
           #     TestGrandfatheredCeilingsMatchRepository
           #     TestKiroSpec
           #     TestPhase1ProducerConsumerCensusIsExactAndDispositioned
@@ -93,7 +96,7 @@ jobs:
           # repository-policy checks of the quality package keep running: the
           # export tool covers the Enterprise import boundary, not the other
           # architecture rules.
-          skip='TestConversationViewChangedGoFileCountUnderGate|TestLoadGitCommitFSContext_CancellationAndCacheRecovery|TestLoadGitCommitFSContext_CancelledLoadDoesNotPoisonCache|TestResidualOwnershipInventoryContract_Live|TestResidualOwnershipInventoryContract_ValidatesSHAIdentity|TestRootHygiene_DirtyGoFiles|TestRun_BaseFlagUsesSelectedRevision|TestShrinkage_APIKeyCredentialBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreAdminBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreSeamBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint|TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint|TestGrandfatheredCeilingsMatchRepository|TestKiroSpec|TestPhase1ProducerConsumerCensusIsExactAndDispositioned'
+          skip='TestConversationViewChangedGoFileCountUnderGate|TestLoadGitCommitFSContext_CancellationAndCacheRecovery|TestLoadGitCommitFSContext_CancelledLoadDoesNotPoisonCache|TestResidualOwnershipInventoryContract_Live|TestResidualOwnershipInventoryContract_ValidatesSHAIdentity|TestRootHygiene_DirtyGoFiles|TestRun_BaseFlagUsesSelectedRevision|TestShrinkage_APIKeyCredentialBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreAdminBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreSeamBaselinesArePinnedAndDisjoint|TestShrinkage_OpenCoreServeBaselinesArePinnedAndDisjoint|TestShrinkage_SourceOwnershipBaselinesArePinnedAndDisjoint|TestExportOmissions_Repository|TestGrandfatheredCeilingsMatchRepository|TestKiroSpec|TestPhase1ProducerConsumerCensusIsExactAndDispositioned'
           mapfile -t all < <(go list ./...)
           mapfile -t packages < <(printf '%s\n' "${all[@]}" | bash "$GITHUB_WORKSPACE/scripts/ci-suite-shard.sh" "${{ matrix.shard }}")
           echo "shard ${{ matrix.shard }}: ${#packages[@]} of ${#all[@]} packages"

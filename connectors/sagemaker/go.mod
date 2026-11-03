@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/sagemaker
 
 go 1.26.6
 
+toolchain go1.26.10
+
 replace github.com/aiproxer/aiproxer => ../..
 
 require (

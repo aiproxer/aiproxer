@@ -20,7 +20,9 @@ by default. The run logs where its roster came from.
    panel cannot rediscover, write it to a file in scratch outside the repository:
    exact task text, requirement and design section numbers, `_Boundary:_`,
    validation commands, the implementer artifact path and relevant
-   `## Implementation Notes`.
+   `## Implementation Notes`. Reuse earlier evidence to avoid repeating unrelated
+   checks; a prior approval or deferral does not shield a reachable counterexample
+   from review within the current scope.
 2. **Launch** from the checkout under review, as a background command with no
    tool timeout, then end the turn and wait for its completion notification:
 

@@ -106,11 +106,11 @@ Linux/amd64 runtime and sidecar identities, independent of permission policy:
 | Bundled Linux CLI | 2.1.293 | `8968405e26db478af44eabc4635ab5ca557057b702a54460a59c13e1b253e978` |
 | Node executable | >=22 (tested: 22.23.4) | reported in identity evidence, not pinned |
 | Complete installed node_modules tree | locked closure | `d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f` |
-| Project bootstrap.mjs | shipped source | `5a6c3c5c05d4b634448cbb0cd2e0721a73ff36d7cc3e0e52b00b83bd26ecf702` |
-| Project identity.mjs | shipped source | `06081860ecdb9245632969f78f4b86cb12e767bd09ac672afb7884c01134afc3` |
-| Project models.mjs | shipped source | `b7e0d5d306f862b062e8e7378ae15c0a0a1d383975d5d44d68c072472cd2120d` |
-| Three-file project sidecar | shipped closure | `45a7abfd3c48095a7c82d5ea4b6dc9f96b8322fe147249dae80526f923ff2093` |
-| Tree + sidecar (resolved profile digest) | combined | `2d00c190a6bb603bf985556747570c98b622dc641be60bd93d8d6eaa6d2f1ef1` |
+| Project bootstrap.mjs | shipped source | `3c3ad6569f91d561ca2c933bbc32ad1fb0e861fca83a61b979a24225c5e9f90d` |
+| Project identity.mjs | shipped source | `9d4dc445cb445ab1d3aea5f60ecf7a737ea164727f2413d05f6f3f322116709d` |
+| Project models.mjs | shipped source | `53b9a67fbd5e0222db49a692d8284e2ac19f8de07f79ff609488c67ba377d064` |
+| Three-file project sidecar | shipped closure | `7ed0bff33783ae1f1eccaa624d115a7e0dc9acc50b449ddc2579a33edcf30c3d` |
+| Tree + sidecar (resolved profile digest) | combined | `dde72401ce3b32662a9fe620cc43bb55be06ac10d6a8d9cfe441665712256629` |
 
 The tree uses lexical depth-first traversal, excluding `.bin` links and npm's
 `node_modules/.package-lock.json` install bookkeeping, hashing each

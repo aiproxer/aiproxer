@@ -17,7 +17,7 @@ require (
 	github.com/betterleaks/betterleaks/v2 v2.0.0-rc.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/jellydator/ttlcache/v3 v3.4.1
-	github.com/openai/openai-go/v3 v3.89.0
+	github.com/openai/openai-go/v3 v3.90.0
 	github.com/oschwald/maxminddb-golang/v2 v2.8.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
@@ -29,7 +29,7 @@ require (
 	github.com/uptrace/bun/dialect/sqlitedialect v1.3.0
 	github.com/uptrace/bun/driver/pgdriver v1.3.0
 	github.com/uudashr/gocognit v1.2.2
-	github.com/yuin/goldmark v1.8.6
+	github.com/yuin/goldmark v1.8.7
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
@@ -40,7 +40,7 @@ require (
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/tools v0.52.0
-	google.golang.org/genai v1.76.0
+	google.golang.org/genai v1.77.0
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
@@ -128,7 +128,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/telemetry v0.0.0-20261009151841-97e8ea77aa2a // indirect
 	golang.org/x/text v0.43.0 // indirect

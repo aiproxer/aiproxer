@@ -57,7 +57,7 @@ func seededAtRestJournal(b *testing.B, size int) *MemoryStore {
 		b.Fatalf("new store: %v", err)
 	}
 	b.Cleanup(func() { _ = store.Close() })
-	for i := 0; i < size; i++ {
+	for i := range size {
 		if err := store.SeedSourceKeyForTest(fmt.Sprintf("seed-%d", i), benchAtRestFact(i)); err != nil {
 			b.Fatalf("seed %d: %v", i, err)
 		}

@@ -1,0 +1,22 @@
+{
+  "schema": "aiproxer.backendplugin.manifest/v1",
+  "plugin_id": "com.aiproxer.backend.claudeagentmodel",
+  "version": "0.1.0",
+  "build_id": "REPLACE_BUILD_ID",
+  "executable": "bin/aip-backend-claudeagentmodel",
+  "sha256": "REPLACE_SHA256",
+  "protocol_major": 1,
+  "protocol_min_minor": 0,
+  "protocol_max_minor": 11,
+  "platforms": [{"os": "linux", "arch": "amd64"}],
+  "exports": [
+    {
+      "kind": "claudeagentmodel",
+      "experimental": true,
+      "credential_mode": "oauth_user",
+      "access_scope": "local_only",
+      "process_sharing": "per_instance",
+      "execution_class": "agent_runtime"
+    }
+  ]
+}

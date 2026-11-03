@@ -7,6 +7,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/infra/diagredact"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk/backendplugin"
+	"github.com/aiproxer/aiproxer/pkg/aipsdk/prerequest"
 )
 
 func capsToAipapi(c backendplugin.CapabilitySummary) aipapi.BackendCaps {
@@ -215,6 +216,12 @@ func (e *ClassifiedError) ClassificationCode() string {
 // SDK repair emits, restricted to ErrCapabilityReject (verified sole current
 // producer), so it bridges to *aipapi.RejectError for the frontend reject branch.
 // A new FailedPrecondition emitter needs its own classification review.
+// A pre-output non-retryable permission_denied is a backend entitlement refusal
+// (for example a subscription plan refusing third-party extra usage), so it
+// bridges to the existing *prerequest.RejectError 403 branch. Its reason is a
+// constant: the plugin's own message never crosses the client boundary. A
+// retryable or post-output permission failure keeps its current classification,
+// so a committed attempt is never rewritten.
 func (e *ClassifiedError) Unwrap() error {
 	if e == nil {
 		return nil
@@ -225,12 +232,20 @@ func (e *ClassifiedError) Unwrap() error {
 	if e.Code == string(backendplugin.ErrorCodeFailedPrecondition) && !e.Retryable && !e.OutputCommitted {
 		return &aipapi.RejectError{Reason: capabilityRejectedReason}
 	}
+	if e.Code == string(backendplugin.ErrorCodePermissionDenied) && !e.Retryable && !e.OutputCommitted {
+		return &prerequest.RejectError{Message: backendPermissionDeniedReason}
+	}
 	return nil
 }
 
 // capabilityRejectedReason is the bounded wire-safe reason for projected capability
 // rejections: a constant, never plugin text, so nothing operator-controlled crosses.
 const capabilityRejectedReason = "capability rejected"
+
+// backendPermissionDeniedReason is the bounded wire-safe reason for a backend
+// entitlement refusal: a constant, never plugin text, so nothing
+// operator-controlled crosses the client boundary.
+const backendPermissionDeniedReason = "backend permission denied"
 
 func sanitizePluginError(e *backendplugin.PluginError) *ClassifiedError {
 	if e == nil {

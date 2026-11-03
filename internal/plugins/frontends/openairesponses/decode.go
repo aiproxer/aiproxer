@@ -363,7 +363,7 @@ func parseMessageInputItem(raw json.RawMessage) (aipapi.Message, error) {
 	if err != nil {
 		return aipapi.Message{}, fmt.Errorf("openairesponses: message input role: %w", err)
 	}
-	parts, err := parseContent(m.Content)
+	parts, err := parseContent(m.Content, role)
 	if err != nil {
 		return aipapi.Message{}, fmt.Errorf("openairesponses: message input content: %w", err)
 	}
@@ -488,7 +488,7 @@ func mapRole(r string) (aipapi.Role, error) {
 	}
 }
 
-func parseContent(raw json.RawMessage) ([]aipapi.Part, error) {
+func parseContent(raw json.RawMessage, role aipapi.Role) ([]aipapi.Part, error) {
 	if jsonpresence.IsAbsentOrJSONNull(raw) {
 		return nil, errors.New("message content is required")
 	}
@@ -515,7 +515,7 @@ func parseContent(raw json.RawMessage) ([]aipapi.Part, error) {
 	}
 	parts := make([]aipapi.Part, 0, len(blocks))
 	for i, blk := range blocks {
-		p, err := parseContentBlock(blk)
+		p, err := parseContentBlock(blk, role)
 		if err != nil {
 			return nil, fmt.Errorf("openairesponses: content[%d]: %w", i, err)
 		}
@@ -524,7 +524,7 @@ func parseContent(raw json.RawMessage) ([]aipapi.Part, error) {
 	return parts, nil
 }
 
-func parseContentBlock(blk map[string]json.RawMessage) (aipapi.Part, error) {
+func parseContentBlock(blk map[string]json.RawMessage, role aipapi.Role) (aipapi.Part, error) {
 	tRaw, ok := blk["type"]
 	if !ok {
 		return aipapi.Part{}, errors.New("content block missing type")
@@ -533,8 +533,12 @@ func parseContentBlock(blk map[string]json.RawMessage) (aipapi.Part, error) {
 	if err := json.Unmarshal(tRaw, &typ); err != nil {
 		return aipapi.Part{}, fmt.Errorf("openairesponses: content block type: %w", err)
 	}
-	switch strings.TrimSpace(typ) {
-	case "input_text":
+	typ = strings.TrimSpace(typ)
+	switch typ {
+	case "input_text", "output_text":
+		if typ == "output_text" && role != aipapi.RoleAssistant {
+			return aipapi.Part{}, errors.New("unsupported content block type output_text for non-assistant role")
+		}
 		var s struct {
 			Text string `json:"text"`
 		}

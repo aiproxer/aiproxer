@@ -142,9 +142,12 @@ func DecodeRequest(data []byte, configured ...Limits) (*WireResponseParam, aipap
 				return nil, aipapi.Call{}, err
 			}
 			for i, w := range wireItems {
-				item, err := DecodeItem(w, limits)
+				item, keep, err := DecodeReplayItem(w, limits)
 				if err != nil {
 					return nil, aipapi.Call{}, fmt.Errorf("item[%d]: %w", i, err)
+				}
+				if !keep {
+					continue
 				}
 				canonicalItems = append(canonicalItems, item)
 			}

@@ -54,7 +54,7 @@
     {
       "path": "internal/plugins/frontends/openresponses/profile.go",
       "function": "(*Profile).CompileProof",
-      "cognitive_complexity": 539
+      "cognitive_complexity": 542
     }
   ]
 }

@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/watsonx
 
 go 1.26.6
 
+toolchain go1.26.10
+
 replace github.com/aiproxer/aiproxer => ../..
 
 replace github.com/aiproxer/aiproxer/connector-support/openaicompat => ../../connector-support/openaicompat

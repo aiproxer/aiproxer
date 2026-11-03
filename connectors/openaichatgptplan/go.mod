@@ -2,6 +2,8 @@ module github.com/aiproxer/aiproxer/connectors/openaichatgptplan
 
 go 1.26.6
 
+toolchain go1.26.10
+
 require (
 	github.com/aiproxer/aiproxer v0.1.0
 	github.com/aiproxer/aiproxer/connector-support/oauthcred v0.0.0-00010101000000-000000000000

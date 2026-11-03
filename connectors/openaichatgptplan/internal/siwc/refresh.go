@@ -314,7 +314,8 @@ func (e *RefreshError) SetCommit(commit string) {
 // outcome is a property of the classified failure, and a failure of
 // another kind has no vocabulary to extend.
 func withRefreshCommit(err error, commit string) error {
-	if classified, ok := err.(*RefreshError); ok {
+	var classified *RefreshError
+	if errors.As(err, &classified) {
 		classified.SetCommit(commit)
 	}
 	return err

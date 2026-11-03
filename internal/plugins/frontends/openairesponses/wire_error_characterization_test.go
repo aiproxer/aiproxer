@@ -17,6 +17,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/plugins/frontends/frontendpipe"
 	"github.com/aiproxer/aiproxer/internal/plugins/frontends/openairesponses"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
+	"github.com/aiproxer/aiproxer/pkg/aipsdk/prerequest"
 )
 
 type charErrExecutor struct{ err error }
@@ -31,6 +32,7 @@ func TestWireErrorCharacterization_executeErrors(t *testing.T) {
 	t.Parallel()
 	body := policyBody(t)
 	quotaCode := "insufficient_quota"
+	permissionCode := "unsupported_parameter"
 	cases := []struct {
 		name       string
 		err        error
@@ -66,6 +68,14 @@ func TestWireErrorCharacterization_executeErrors(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 			wantType:   "invalid_request_error",
 			wantMsg:    "missing capability",
+		},
+		{
+			name:       "backend_permission_denied",
+			err:        &prerequest.RejectError{Message: "backend permission denied"},
+			wantStatus: http.StatusForbidden,
+			wantType:   "invalid_request_error",
+			wantCode:   &permissionCode,
+			wantMsg:    "backend permission denied",
 		},
 		{
 			name:       "billing_denied_insufficient_credit",

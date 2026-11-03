@@ -69,8 +69,7 @@ func loadInventoryLiveSnapshot(ctx context.Context, cfg *config.Config, reg *plu
 	}
 	model, err := buildModelRuntime(bctx, bctx.Opts.Infra.HTTPClient, profiles)
 	if err != nil {
-		_ = ledger.Rollback(ctx)
-		return nil, err
+		return nil, joinRollbackFailure(ctx, err, ledger)
 	}
 	return &inventoryLiveSnapshot{
 		config:   profiles.Config,

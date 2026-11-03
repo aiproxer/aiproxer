@@ -373,6 +373,20 @@ func (l *ResourceLedger) beginStopPhase(waitQ, waitC bool, terminal []ledgerLife
 }
 
 // Rollback closes all entries in reverse order; caches terminal result (req 3.4).
+// joinRollbackFailure rolls the ledger back for a construction that is
+// already failing. A rollback failure is joined with the primary error
+// instead of being dropped, so a cleanup that did not run stays visible to
+// the owner of the failed build. Rollback already names each failed entry.
+func joinRollbackFailure(ctx context.Context, primary error, ledger *ResourceLedger) error {
+	if ledger == nil {
+		return primary
+	}
+	if rollbackErr := ledger.Rollback(ctx); rollbackErr != nil {
+		return errors.Join(primary, rollbackErr)
+	}
+	return primary
+}
+
 func (l *ResourceLedger) Rollback(ctx context.Context) error {
 	proceed, err := l.beginStopPhase(true, true, []ledgerLifeState{ledgerLifeRolledBack, ledgerLifeClosed}, nil, nil, nil)
 	if !proceed {
