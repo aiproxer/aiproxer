@@ -127,6 +127,10 @@ type RuntimePoolConfig struct {
 // RuntimePool manages a pool of ACP subprocesses keyed by workspace+model+session.
 // It handles idle reaping, stale killing with PID-reuse hardening, and concurrent
 // access safety.
+//
+// The pool has no shutdown state: Close retires and joins the work it observes,
+// but it does not stop later admission. The owner must stop admission and drain
+// active pool users before calling Close; see [RuntimePool.Close].
 type RuntimePool struct {
 	cfg   RuntimePoolConfig
 	log   *slog.Logger
@@ -1194,6 +1198,13 @@ func (rt *SubprocessRuntime) cleanupOutcome() error {
 }
 
 // Close kills all runtimes in the pool and clears it. Used during shutdown.
+//
+// Close is not an admission barrier. It joins EnsureProcess constructions
+// admitted before it snapshots pool and retirement state, then retires and joins
+// the runtimes and retirements in that snapshot. A concurrent or later
+// EnsureProcess (or SetProcess) can still create and publish a process after
+// Close returns. The owner must stop admission and drain active pool users
+// before calling Close, and must not admit new work afterwards.
 func (p *RuntimePool) Close() error {
 	// Join admitted constructions before snapshotting lifecycle state. A
 	// construction that finishes during shutdown either publishes to the pool or

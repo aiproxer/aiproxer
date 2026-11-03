@@ -144,6 +144,10 @@ type subprocessBackend struct {
 
 // SubprocessEngine is the exported subprocess prompt-turn surface used by
 // product connectors. Implementations own pool lifecycle and stream mapping.
+//
+// Close shuts the backend down. The owner must stop calling Open and drain
+// active streams first: Close retires the work it observes, but, like the
+// underlying pool, it is not an admission barrier.
 type SubprocessEngine interface {
 	Open(ctx context.Context, call *aipapi.Call) (aipapi.ManagedEventStream, error)
 	Close() error
@@ -178,7 +182,8 @@ func NewSubprocessBackend(cfg SubprocessBackendConfig) SubprocessEngine {
 }
 
 // Close shuts down the backend: closes the pool (which kills all subprocesses
-// and closes their transports).
+// and closes their transports). The owner must stop admission and drain active
+// turns before calling Close; Close does not enforce that barrier.
 func (b *subprocessBackend) Close() error {
 	return b.pool.Close()
 }
