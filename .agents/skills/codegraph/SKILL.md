@@ -17,7 +17,7 @@ Query CodeGraph directly. It is a local code index, not a worker: never delegate
    ```
 
    Name the relevant file/package and 2–6 distinctive symbols. State the relationship or flow sought. Avoid broad names such as `Request`, `Context`, or `Stream`.
-3. Treat returned line-numbered source as already read. If it answers the question, stop; do not repeat the lookup with file reads, FFF, or ripgrep.
+3. Treat returned line-numbered source as already read. If it answers the question, stop; do not repeat the lookup with file reads, FFF, or ripgrep. If the display is truncated, read the missing range from its saved output instead of repeating the query. For general retrieval and output sizing, use `docs/agent-workflow.md` (Exploration).
 4. If incomplete, issue one narrower `explore` using symbols learned from the first result. Use specialized commands only for a precise follow-up:
    - `node SYMBOL -f FILE`: exact body plus caller/callee trail; disambiguate common names.
    - `query NAME --kind KIND`: locate an unknown symbol name.
