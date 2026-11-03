@@ -483,7 +483,14 @@ collect_report() {
 }
 
 verdict_of() {
-	grep -oE '^VERDICT: (APPROVED|REJECTED)' "$1" 2>/dev/null | tail -n 1 | cut -d' ' -f2 || true
+	local matches
+	if matches=$(grep -oE '^VERDICT: (APPROVED|REJECTED)' "$1"); then
+		tail -n 1 <<<"$matches" | cut -d' ' -f2
+	else
+		# Preserve no-match (1) versus read/tool failure (>1); discard any
+		# partial match output from a failed command.
+		return "$?"
+	fi
 }
 
 context_block() {
@@ -528,9 +535,10 @@ Constraints:
 - Do not write the reviewer JSON handoff artifact; the panel judge owns it.
 
 Deliverable: write your complete review as Markdown to $dir/report.md with:
-1. Scope as you understood it, and any assumptions.
+1. Scope, exclusions, assumptions and exact input identity per
+   $REPO/docs/agent-handoffs.md (Review verdicts).
 2. Mechanical checks you actually ran: command, exit code, one-line result.
-3. Findings: severity (Critical/Important/Suggestion/FYI), file:line, evidence, spec reference,
+3. Findings: stable ID, severity (Critical/Important/Suggestion/FYI), file:line, evidence, spec reference,
    required remediation.
 4. A one-sentence summary.
 The last line must be exactly \`VERDICT: APPROVED\` or \`VERDICT: REJECTED\`.
@@ -581,9 +589,10 @@ Deliverables:
 1. The reviewer JSON artifact described in $REPO/docs/agent-handoffs.md, written to
    $dir/result.json (role reviewer, task "$SPEC: $SCOPE"), with evidence logs under
    $dir/scratch, validated as that document describes.
-2. Your full review as Markdown at $dir/report.md: scope and assumptions, mechanical checks you
+2. Your full review as Markdown at $dir/report.md: scope, exclusions and exact input identity
+   per $REPO/docs/agent-handoffs.md (Review verdicts), assumptions, mechanical checks you
    ran (command, exit code, result), findings (severity, file:line, evidence, spec reference,
-   remediation), and a "Panel reconciliation" section that lists each reviewer finding as
+   stable ID, remediation), and a "Panel reconciliation" section that lists each reviewer-qualified finding ID as
    confirmed, rejected (with the reason) or unverifiable, followed by findings you raised
    independently. End with a one-sentence summary. The last line must be exactly
    \`VERDICT: APPROVED\` or \`VERDICT: REJECTED\`.
@@ -625,7 +634,12 @@ for i in "${!REVIEWERS[@]}"; do
 	report="$(collect_report "$id")"
 	PANEL+=("$id|${REVIEWERS[$i]}|$status|$report")
 	if [[ -n "$report" ]]; then
-		log "$id (${REVIEWERS[$i]}): exit=$status verdict=$(verdict_of "$report" || true) report=$report ($(wc -l <"$report") lines)"
+		if reviewer_verdict=$(verdict_of "$report"); then
+			log "$id (${REVIEWERS[$i]}): exit=$status verdict=$reviewer_verdict report=$report ($(wc -l <"$report") lines)"
+		else
+			parse_status=$?
+			log "$id (${REVIEWERS[$i]}): exit=$status verdict unavailable (parser exit=$parse_status; 1=no match, >1=check failed) report=$report"
+		fi
 	else
 		log "$id (${REVIEWERS[$i]}): exit=$status, no report"
 	fi
@@ -653,7 +667,15 @@ FP_END="$(fingerprint)"
 
 judge_report="$(collect_report judge)"
 verdict=""
-[[ -n "$judge_report" ]] && verdict="$(verdict_of "$judge_report")"
+if [[ -n "$judge_report" ]]; then
+	if verdict="$(verdict_of "$judge_report")"; then
+		:
+	else
+		parse_status=$?
+		verdict=""
+		log "judge verdict unavailable (parser exit=$parse_status; 1=no match, >1=check failed)"
+	fi
+fi
 log "judge: exit=$(cat "$RUN_DIR/judge/exit_code") verdict=${verdict:-none} report=${judge_report:-none}"
 [[ -s "$RUN_DIR/judge/result.json" ]] && log "judge artifact: $RUN_DIR/judge/result.json"
 log "full log: $RUN_LOG"

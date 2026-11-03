@@ -80,6 +80,37 @@ fail() {
 	fails=$((fails + 1))
 }
 
+# Exercise the parser without launching a panel, including grep failures that
+# must not become an empty result or a partially emitted approval.
+# shellcheck source=/dev/null
+source <(sed -n '/^verdict_of() {/,/^}/p' "$script_dir/kiro-review.sh")
+check_verdict() {
+	local file=$1 want_status=$2 want_text=$3 text status
+	if text=$(verdict_of "$file" 2>"$fixture/verdict.err"); then
+		status=0
+	else
+		status=$?
+	fi
+	[[ "$status" == "$want_status" && "$text" == "$want_text" ]] ||
+		fail "verdict parser: exit=$status text=$text, want exit=$want_status text=$want_text"
+}
+printf 'VERDICT: APPROVED\nVERDICT: REJECTED\n' >"$fixture/verdict.md"
+check_verdict "$fixture/verdict.md" 0 REJECTED
+echo 'review incomplete' >"$fixture/verdict.md"
+check_verdict "$fixture/verdict.md" 1 ''
+check_verdict "$fixture/missing.md" 2 ''
+[[ -s "$fixture/verdict.err" ]] || fail 'verdict parser: read failure diagnostic was hidden'
+if ! (
+	# Called indirectly by verdict_of, whose definition is loaded above.
+	# shellcheck disable=SC2317
+	grep() { printf 'VERDICT: APPROVED\n'; return 2; }
+	if text=$(verdict_of "$fixture/verdict.md"); then status=0; else status=$?; fi
+	[[ "$status" == 2 && -z "$text" ]]
+); then
+	fail 'verdict parser: accepted partial output from a failed grep'
+fi
+((fails)) || echo 'ok: verdict parser distinguishes match, no match and check failure'
+
 # run_case <judge-verdict> <expected-exit> [extra args...]
 run_case() {
 	local verdict=$1 want=$2 state="$fixture/state-$1" status

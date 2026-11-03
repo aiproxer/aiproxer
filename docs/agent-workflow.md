@@ -31,6 +31,12 @@ Load skills before the corresponding implementation or review:
 
 For error/security/observability/database/CLI/gRPC/performance/dependencies/documentation/CI/troubleshooting, load the focused `golang-*` skill from `.agents/catalog.json`. Repository steering overrides generic skill defaults.
 
+## Exploration
+
+- Choose the tool by the question: use exact files and distinctive symbols for code relationships; use file/text tools for documents, configuration and logs.
+- Reuse retrieved source while its identity is unchanged. If output is truncated, read the missing range from the saved result rather than fetching the source again. Truncated or filtered text is partial evidence, not a complete read.
+- For large collections, inspect available size metadata before printing; retain retrieved content and emit bounded batches. Keep full check logs in scratch and display a summary plus the log path; preserve the command's exit status.
+
 ## Canonical skill catalog
 
 - `.agents/skills/` is the single tracked catalog for Codex, OpenCode, Pi, Antigravity CLI, Cursor, and Codebuff. Git worktrees receive it automatically.

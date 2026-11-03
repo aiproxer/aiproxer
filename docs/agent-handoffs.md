@@ -48,6 +48,10 @@ while stdout reports the source, command and real exit status. Execute the gate
 directly through the recorder rather than piping it through `tail`/`grep`, which
 can hide failures. Wait for the background completion notification.
 
+For search-based checks, distinguish matches (`grep` exit 0), no matches (1),
+and execution errors (>1). Decide which match outcome satisfies the check;
+preserve the raw status in its evidence and treat execution errors as failures.
+
 ### Assemble recorded evidence
 
 Write only the result metadata, findings and status to a JSON template at the
@@ -83,6 +87,20 @@ or blocker. Behavioral implementation additionally needs failing, nonempty RED
 evidence. Nonbehavioral work uses `behavioral: false` and its applicable checks;
 it needs no invented RED test. Record unrelated baseline failures as baseline
 evidence and nonblocking findings, not as passing verification.
+
+## Review verdicts
+
+Bind each review report to its included scope, explicit exclusions and exact inputs.
+For repository reviews, include the existing `source.head` and `source.fingerprint`
+identity; for external/ignored file inputs, record paths and content digests since
+the repository snapshot does not cover them. Verify input identity remains stable
+across the checks. A subset re-review approves only that subset unless unchanged
+input identities and earlier accepted evidence establish the rest of the scope.
+
+Give findings stable IDs, retained through remediation and re-review. Prefix the
+existing JSON `detail` with the ID rather than adding schema fields. Panel
+reconciliation qualifies IDs by reviewer, so `r1/F1` and `r2/F1` remain distinct.
+The Markdown report carries scope/exclusions; schema validity still is not approval.
 
 ## Controller acceptance and recovery
 
