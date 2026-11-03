@@ -599,6 +599,11 @@ func FuzzOIDCValidator_RefusesAnything(f *testing.F) {
 	f.Add("..")
 	f.Add("a.b")
 	f.Add("a.b.c.d")
+	// The token below is a SUBSTRING of the constant rejection rendering.
+	// It is the regression seed of the test-only collision: a containment
+	// oracle reports it as a leak, while the constant itself is what the
+	// failure must equal.
+	f.Add("the ID token was rejected")
 	fuzzed := func(t *testing.T, token string) {
 		t.Helper()
 		fake := newFakeOIDCServer(t)
@@ -625,13 +630,11 @@ func FuzzOIDCValidator_RefusesAnything(f *testing.F) {
 		if got := err.Error(); got != want {
 			t.Fatalf("the rendering = %q, want %q", got, want)
 		}
-		// The rendering is a CONSTANT, so it carries no token. The
-		// containment check needs a token long enough to be meaningful: a
-		// one-character token is a substring of almost any English
-		// sentence, and the exact rendering above is the real guarantee.
-		if len(token) > 16 && strings.Contains(err.Error(), token) {
-			t.Fatal("the rendering carries the token")
-		}
+		// The rendering is a CONSTANT and value-free, so the exact
+		// equality IS the leak assertion. A containment check on the
+		// untrusted token adds nothing and is unsound: a token that is a
+		// substring of the rendering would be reported as a leak the
+		// rendering does not carry.
 	}
 	f.Fuzz(fuzzed)
 }
