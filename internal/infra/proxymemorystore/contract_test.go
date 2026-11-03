@@ -843,6 +843,42 @@ func runContract(t *testing.T, open func(t *testing.T) *bun.DB, openSecond func(
 		assert.Equal(t, "/work/one", row.ProjectLabel)
 	})
 
+	t.Run("a different tenant reports owner mismatch and leaves the row unchanged", func(t *testing.T) {
+		f := newContractFixture("tenant_mismatch", runID)
+		db, st := openFixture(t, f)
+		ctx := context.Background()
+		aLeg := f.aLeg("tenant_mismatch")
+
+		_, err := st.UpsertSession(ctx, proxymemory.SessionCapture{
+			Owner:        f.alice,
+			ProjectLabel: "/work/one",
+			ALegID:       aLeg,
+			Transcript:   `["original"]`,
+			ActivityMS:   1_000, SourceSeq: testSourceSeq(1_000),
+		})
+		require.NoError(t, err)
+
+		// The same principal and project under another tenant must not alias
+		// the owner's A-leg, even though only the tenant differs.
+		outcome, err := st.UpsertSession(ctx, proxymemory.SessionCapture{
+			Owner: proxymemory.Owner{
+				TenantID: "tenant-b", PrincipalID: f.alice.PrincipalID, ProjectKey: f.alice.ProjectKey,
+			},
+			ProjectLabel: "/work/evil",
+			ALegID:       aLeg,
+			Transcript:   `["stolen"]`,
+			ActivityMS:   9_000, SourceSeq: testSourceSeq(9_000),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, proxymemory.UpsertOwnerMismatch, outcome)
+
+		row := readSession(t, db, aLeg)
+		assert.Equal(t, f.alice.TenantID, row.TenantID)
+		assert.Equal(t, f.alice.PrincipalID, row.PrincipalID)
+		assert.Equal(t, `["original"]`, row.Transcript)
+		assert.Equal(t, int64(1_000), row.LastActivityMS)
+	})
+
 	t.Run("a different project key reports owner mismatch and leaves the row unchanged", func(t *testing.T) {
 		f := newContractFixture("project_mismatch", runID)
 		db, st := openFixture(t, f)

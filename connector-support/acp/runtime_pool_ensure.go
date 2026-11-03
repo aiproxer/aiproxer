@@ -217,7 +217,8 @@ func (p *RuntimePool) finishEnsureFlight(skey string, flight *ensureFlight, err 
 
 // joinEnsureFlights waits for constructions admitted before the call. Shutdown
 // uses it so a leader's construction, publication and refused-child cleanup are
-// observed instead of outliving Close.
+// observed instead of outliving Close. The join is one-shot: it observes the
+// flights present at the call and does not stop a later EnsureProcess.
 func (p *RuntimePool) joinEnsureFlights() {
 	p.ensureMu.Lock()
 	flights := make([]*ensureFlight, 0, len(p.ensureFlights))

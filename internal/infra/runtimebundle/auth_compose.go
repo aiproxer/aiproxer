@@ -19,11 +19,7 @@ import (
 func localAPIKeyRecordsForAuth(rec []config.AuthLocalAPIKeyRecord) []coreauth.LocalAPIKeyRecord {
 	out := make([]coreauth.LocalAPIKeyRecord, 0, len(rec))
 	for _, r := range rec {
-		out = append(out, coreauth.LocalAPIKeyRecord{
-			KeyID:       r.KeyID,
-			PrincipalID: r.PrincipalID,
-			Key:         r.Key,
-		})
+		out = append(out, r.ToCore())
 	}
 	return out
 }

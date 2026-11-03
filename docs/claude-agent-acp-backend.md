@@ -273,6 +273,12 @@ of extinction. Abrupt process destruction by the OS/operator is not a containmen
 guarantee. Concurrent pool/transport cleanup callers join the same retirement
 before the instance directory can be removed.
 
+**Shutdown ordering belongs to the connector, not the pool.** The connector host
+stops admission and waits for in-flight execution before it closes an instance's
+shared runtime pool. `RuntimePool.Close` joins the constructions and retirements
+it observes; it is not an admission barrier, so a direct caller that keeps calling
+`EnsureProcess` can still create a process after shutdown returns.
+
 The delivery evidence includes a synthetic pinned-runtime lifecycle regression
 for foreground/default bypass, detached drain/reuse, timeout, cancellation and
 persistent-only host-login offers. It masks host credential/configuration

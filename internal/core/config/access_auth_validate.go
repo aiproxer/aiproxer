@@ -82,17 +82,26 @@ type effectiveAuthPolicyResult struct {
 func ValidateAuthLocalAPIKeyRecords(records []AuthLocalAPIKeyRecord) error {
 	conv := make([]coreauth.LocalAPIKeyRecord, 0, len(records))
 	for _, r := range records {
-		conv = append(conv, coreauth.LocalAPIKeyRecord{
-			KeyID:       r.KeyID,
-			PrincipalID: r.PrincipalID,
-			Key:         r.Key,
-			Attribution: r.Attribution.toCore(),
-		})
+		conv = append(conv, r.ToCore())
 	}
 	return coreauth.ValidateLocalAPIKeyRecords(conv)
 }
 
-func (a AuthLocalAttribution) toCore() coreauth.LocalAttribution {
+// ToCore converts one operator-configured record into the core auth record.
+// It is the single conversion authority for startup validation and runtime
+// composition, so safe attribution cannot be dropped at one seam only.
+func (r AuthLocalAPIKeyRecord) ToCore() coreauth.LocalAPIKeyRecord {
+	return coreauth.LocalAPIKeyRecord{
+		KeyID:       r.KeyID,
+		PrincipalID: r.PrincipalID,
+		Key:         r.Key,
+		Attribution: r.Attribution.ToCore(),
+	}
+}
+
+// ToCore converts operator attribution into the core auth attribution. Mutable
+// slice and map fields are cloned so auth records never alias config-owned state.
+func (a AuthLocalAttribution) ToCore() coreauth.LocalAttribution {
 	return coreauth.LocalAttribution{
 		DisplayName:    a.DisplayName,
 		AuthMethod:     a.AuthMethod,
