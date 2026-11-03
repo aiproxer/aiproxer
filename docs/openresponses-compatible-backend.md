@@ -46,6 +46,10 @@ an explicit declaration to claim:
   the pinned profile, but only forward when the operator declares them.
 - `reasoning_replay` — replaying historical reasoning parts is a hard capability
   declared when a call carries reasoning output.
+- `structured_outputs` — the pinned profile represents JSON output
+  (`text.format: {"type":"json_object"}`), but it is not part of the default
+  surface; declare it to serve callers that require a JSON response type (for
+  example the proxy-memory phases).
 
 Declaring the full default surface plus any of those is valid.
 

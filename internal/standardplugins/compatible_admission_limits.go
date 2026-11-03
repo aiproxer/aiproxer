@@ -19,18 +19,18 @@ func CollectCompatibleAdmissionLimits(rows []config.PluginConfig) (compatibleadm
 		if !IsCustomCompatibleBackendKind(kind) {
 			continue
 		}
-		cfg, err := config.DecodeCompatibleModeConfig(row.InstanceID(), kind, row.Config)
+		rowProjection, err := decodeCompatibleRowProjection(kind, row)
 		if err != nil {
 			return nil, err
 		}
-		if cfg.MaxConcurrentRequests <= 0 {
+		if rowProjection.MaxConcurrentRequests <= 0 {
 			continue
 		}
 		id := strings.TrimSpace(row.InstanceID())
 		if id == "" {
 			continue
 		}
-		out[id] = cfg.MaxConcurrentRequests
+		out[id] = rowProjection.MaxConcurrentRequests
 	}
 	if len(out) == 0 {
 		return nil, nil

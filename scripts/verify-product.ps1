@@ -93,7 +93,22 @@ $deadline = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 600
 $env:AIP_PRODUCT_SMOKE_DEADLINE_UNIX = [string]$deadline
 
 $arguments = @("run", "-buildvcs=false", "./tools/devcheck", "-task=product-smoke", "-evidence=`"$Evidence`"")
-$process = Start-Process -FilePath $Go -ArgumentList $arguments -NoNewWindow -PassThru
+# Start the child through System.Diagnostics instead of Start-Process. On
+# Windows PowerShell 5.1 a Start-Process object can finish WaitForExit without
+# exposing ExitCode, and `exit $null` then reports success for a failed child.
+# Process.Start owns the handle this supervisor waits on, so ExitCode is the
+# child's real verdict. If that verdict is unavailable anyway, fail closed:
+# never let a missing code turn into a pass.
+$startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+$startInfo.FileName = $Go
+$startInfo.Arguments = ($arguments -join " ")
+$startInfo.UseShellExecute = $false
+$startInfo.CreateNoWindow = $false
+$process = [System.Diagnostics.Process]::Start($startInfo)
+if ($null -eq $process) {
+    [Console]::Error.WriteLine("product smoke: the supervised command could not be started")
+    exit 126
+}
 if (-not $process.WaitForExit(600000)) {
     $killOutput = & taskkill.exe /F /T /PID $process.Id 2>&1
     if ($LASTEXITCODE -ne 0) {
@@ -102,4 +117,17 @@ if (-not $process.WaitForExit(600000)) {
     }
     exit 124
 }
-exit $process.ExitCode
+$exitCode = $null
+try {
+    if ($process.HasExited) {
+        $exitCode = $process.ExitCode
+    }
+} catch {
+    [Console]::Error.WriteLine("product smoke: the supervised command exited but its exit code is unreadable: $($_.Exception.Message)")
+    exit 126
+}
+if ($null -eq $exitCode) {
+    [Console]::Error.WriteLine("product smoke: the supervised command exited without an exit code; failing closed")
+    exit 126
+}
+exit $exitCode
