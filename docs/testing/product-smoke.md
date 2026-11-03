@@ -79,7 +79,10 @@ passed and the run produced no problem. A non-zero exit prints the reason and
 names each failing or unfinished journey, and still writes the summary. A run
 killed before devcheck writes its summary has no verdict: V1 has no crash
 recovery, and the previous summary is removed before a new run starts so an
-older pass cannot be mistaken for this one.
+older pass cannot be mistaken for this one. The outer supervisor must propagate
+the controller's exit code unchanged: on Windows it reads the code from the
+process handle it started, and if the code is unavailable after the child exits
+it fails closed with exit 126 instead of reporting a pass.
 
 ## Time budget
 

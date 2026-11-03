@@ -13,6 +13,7 @@ on:
       - "tools/localscope/**"
       - "tools/worktreeclean/**"
       - "scripts/worktree-create.sh"
+      - "scripts/verify-product.ps1"
       - ".github/workflows/taskrunner-process-tree.yml"
       - ".github/actions/go-cache/**"
       - "scripts/ci-go-cache.py"
@@ -64,7 +65,7 @@ jobs:
                 relevant=true
                 break
                 ;;
-              tools/taskrunner/**|tools/devcheck/**|tools/internal/scopeplan/**|tools/localscope/**|tools/worktreeclean/**|scripts/worktree-create.sh|.github/workflows/taskrunner-process-tree.yml)
+              tools/taskrunner/**|tools/devcheck/**|tools/internal/scopeplan/**|tools/localscope/**|tools/worktreeclean/**|scripts/worktree-create.sh|scripts/verify-product.ps1|.github/workflows/taskrunner-process-tree.yml)
                 relevant=true
                 break
                 ;;

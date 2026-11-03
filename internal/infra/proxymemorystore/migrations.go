@@ -24,6 +24,14 @@ func EnsureSchema(ctx context.Context, db *bun.DB) error {
 // content-free identity of an A-leg that already contributed to a bank, the
 // exact activity of that extracted source and the monotone activity watermark
 // of the A-leg.
+//
+// The first-release baseline is frozen: an applied migration is recorded in
+// bun_proxy_memory_migrations and never replayed, so editing these statements
+// upgrades no existing database. A schema change after the freeze is a new
+// forward migration file with a later version prefix. Databases created by a
+// pre-release build against an earlier baseline shape are fresh-install only;
+// they are neither detected nor repaired here (docs/proxy-memory.md,
+// "Schema lifetime").
 func baselineDDL() []string {
 	return []string{
 		`CREATE TABLE IF NOT EXISTS proxy_memory_session_bindings (

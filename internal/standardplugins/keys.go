@@ -150,7 +150,7 @@ func customCredentialRoots(cfg *config.Config) ([]string, error) {
 		if _, ok := customCompatibleCredentialKinds[row.FactoryID()]; !ok {
 			continue
 		}
-		decoded, err := config.DecodeCompatibleModeConfig(row.InstanceID(), row.FactoryID(), row.Config)
+		decoded, err := decodeCompatibleRowProjection(row.FactoryID(), row)
 		if err != nil {
 			return nil, err
 		}

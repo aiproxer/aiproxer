@@ -358,7 +358,10 @@ switch -Regex ($Target) {
         $selectArgs = @()
         if ($env:CROSS_PLATFORM_SKIP_COMPILE -eq "1") { $selectArgs += "-skip-compile" }
         if ($env:CROSS_PLATFORM_SELECT) { $selectArgs += @("-select", $env:CROSS_PLATFORM_SELECT) }
-        Invoke-TaskRunner -Label $Target -Cwd $root -Timeout "20m" -Env $localGoEnv -Command (@("go", "run", "./tools/backendplugin/crossplatform_qa", "-root", ".", "-out", ".aip-crossplatform-matrix.json", "-skip-native") + $selectArgs) | Out-Host
+        # Do not pass -skip-native: the tool owns the mandatory process-host
+        # selection (flooding budget, capture, termination and reap). Skipping
+        # it makes a green Windows run prove nothing about those guarantees.
+        Invoke-TaskRunner -Label $Target -Cwd $root -Timeout "20m" -Env $localGoEnv -Command (@("go", "run", "./tools/backendplugin/crossplatform_qa", "-root", ".", "-out", ".aip-crossplatform-matrix.json") + $selectArgs) | Out-Host
         Run-RootGoTest "backend-plugin-cross-platform-qa:backendplugins" (@($goTestFlags) + @("./internal/infra/backendplugins/...", "-run", "TestAdversarial_|TestActivate_|TestStream_|TestDigest|TestManifest|TestDiscover|TestShutdown|TestReap|TestPeer|TestChannel|TestExact|TestUpgrade|TestRollback|TestUninstall|TestConfig|TestSecrecy|TestUnauthorized|TestProtected|TestLaunch|TestKill|TestCancel"))
         Run-RootGoTest "backend-plugin-cross-platform-qa:backendplugin-sdk" (@($goTestFlags) + @("./pkg/aipsdk/backendplugin/...", "-run", "Test"))
         Run-NestedGoTest "backend-plugin-cross-platform-qa:connector-support/acp:test" "connector-support/acp" (@($goTestFlags) + @("-run", "KillProcessTree_|ProcessTree_CrossCompile|Cancel"))
