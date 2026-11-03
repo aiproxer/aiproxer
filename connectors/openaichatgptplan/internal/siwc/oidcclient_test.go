@@ -32,18 +32,22 @@ func FuzzParseJWKS_RefusesAnything(f *testing.F) {
 	f.Add(`{"keys":[{"kty":"RSA","kid":"a","n":"AQAB","e":"AQAB"},{"kty":"RSA","kid":"a","n":"AQAB","e":"AQAB"}]}`)
 	f.Add(strings.Repeat("a", 4096))
 	f.Add(strings.Repeat(`{"kty":"RSA"},`, 512))
+	// The document below is a SUBSTRING of the constant refusal. It is the
+	// regression seed of the test-only collision: a containment oracle
+	// reports it as a leak, while the constant itself is what the failure
+	// must equal.
+	f.Add("the provider's document")
 
 	f.Fuzz(func(t *testing.T, document string) {
 		keys, err := parseJWKS([]byte(document))
 		if err != nil {
+			// The refusal is a CONSTANT and value-free, so the exact
+			// equality IS the leak assertion. A containment check on the
+			// untrusted document adds nothing and is unsound: a document
+			// that is a substring of the constant would be reported as a
+			// leak the failure does not carry.
 			if err.Error() != errMalformedDocument.Error() {
 				t.Fatalf("the failure is not the constant refusal: %v", err)
-			}
-			// The refusal names no part of the document. A short document
-			// is not checked: the constant itself is made of letters, and
-			// a one-letter document would match it.
-			if len(document) > 16 && strings.Contains(err.Error(), document) {
-				t.Fatal("the failure carries the document")
 			}
 			return
 		}
