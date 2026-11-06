@@ -221,7 +221,7 @@ func TestDecodeCreate_invalidJSON(t *testing.T) {
 
 func TestDecodeCreate_functionCallInputItem(t *testing.T) {
 	t.Parallel()
-	const body = `{"model":"gpt-4o-mini","input":[{"type":"function_call","id":"x","call_id":"c","name":"n","arguments":"{}"}]}`
+	const body = `{"model":"gpt-4o-mini","input":[{"type":"function_call","id":"x","call_id":"c","name":"n","arguments":"{\"a\":1}"}]}`
 	d, err := openairesponses.DecodeCreateRequest([]byte(body), openairesponses.DecodeOptions{
 		RouteSelector: "stub:m",
 	})
@@ -235,22 +235,145 @@ func TestDecodeCreate_functionCallInputItem(t *testing.T) {
 	if m.Role != aipapi.RoleAssistant || len(m.Parts) != 1 || m.Parts[0].Kind != aipapi.PartJSON {
 		t.Fatalf("unexpected message: %+v", m)
 	}
-	var functionCall struct {
-		Type      string `json:"type"`
-		ID        string `json:"id"`
-		CallID    string `json:"call_id"`
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
+	part := m.Parts[0]
+	if part.ToolCallID != "c" || part.ToolName != "n" {
+		t.Fatalf("tool identity: call_id=%q name=%q", part.ToolCallID, part.ToolName)
 	}
-	if err := json.Unmarshal(m.Parts[0].Content, &functionCall); err != nil {
-		t.Fatalf("part json: %v", err)
-	}
-	if functionCall.Type != "function_call" || functionCall.ID != "x" || functionCall.CallID != "c" ||
-		functionCall.Name != "n" || functionCall.Arguments != "{}" {
-		t.Fatalf("function_call payload: %+v", functionCall)
+	if got := string(part.Content); got != `{"a":1}` {
+		t.Fatalf("arguments = %s, want the exact argument document", got)
 	}
 	if err := d.Call.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestDecodeCreate_functionCallHistoryPreservesOrderAndExactArguments proves a
+// two-call Responses history reaches the canonical message view with its exact
+// tool identity, argument bytes, and item order, and that the ordered-item
+// projector used by OpenResponses-compatible backends consumes it without an
+// envelope or a reordering.
+func TestDecodeCreate_functionCallHistoryPreservesOrderAndExactArguments(t *testing.T) {
+	t.Parallel()
+	const body = `{
+  "model":"gpt-4o-mini",
+  "stream":true,
+  "input":[
+    {"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]},
+    {"type":"function_call","id":"fc_1","call_id":"call_1","name":"close_agent","arguments":"{\"target\":\"nope\",\"nested\":{\"b\":2,\"a\":1}}"},
+    {"type":"function_call_output","call_id":"call_1","output":"err"},
+    {"type":"function_call","id":"fc_2","call_id":"call_2","name":"exec_command","arguments":{"cmd":"echo hi"}},
+    {"type":"function_call_output","call_id":"call_2","output":"hi"}
+  ]
+}`
+	d, err := openairesponses.DecodeCreateRequest([]byte(body), openairesponses.DecodeOptions{
+		RouteSelector: "stub:m",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Call.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	wantRoles := []aipapi.Role{aipapi.RoleUser, aipapi.RoleAssistant, aipapi.RoleTool, aipapi.RoleAssistant, aipapi.RoleTool}
+	if len(d.Call.Messages) != len(wantRoles) {
+		t.Fatalf("messages = %d, want %d: %+v", len(d.Call.Messages), len(wantRoles), d.Call.Messages)
+	}
+	for i, want := range wantRoles {
+		if d.Call.Messages[i].Role != want {
+			t.Fatalf("Messages[%d].Role = %q, want %q", i, d.Call.Messages[i].Role, want)
+		}
+	}
+	wantCalls := []struct {
+		callID, name, arguments string
+	}{
+		{"call_1", "close_agent", `{"target":"nope","nested":{"b":2,"a":1}}`},
+		{"call_2", "exec_command", `{"cmd":"echo hi"}`},
+	}
+	for i, want := range wantCalls {
+		part := d.Call.Messages[1+i*2].Parts[0]
+		if part.Kind != aipapi.PartJSON || part.ToolCallID != want.callID || part.ToolName != want.name {
+			t.Fatalf("call %d part identity: %+v", i, part)
+		}
+		if got := string(part.Content); got != want.arguments {
+			t.Fatalf("call %d arguments = %s, want %s", i, got, want.arguments)
+		}
+		result := d.Call.Messages[2+i*2].Parts[0]
+		if result.Kind != aipapi.PartToolResult || result.ToolCallID != want.callID {
+			t.Fatalf("call %d result: %+v", i, result)
+		}
+	}
+
+	items, _, err := aipapi.ProjectLegacyToOrderedItems(*d.Call, aipapi.DefaultOrderedItemProjectionTarget())
+	if err != nil {
+		t.Fatalf("ordered projection: %v", err)
+	}
+	wantKinds := []aipapi.ItemKind{
+		aipapi.ItemKindMessage,
+		aipapi.ItemKindToolCall,
+		aipapi.ItemKindToolResult,
+		aipapi.ItemKindToolCall,
+		aipapi.ItemKindToolResult,
+	}
+	if len(items) != len(wantKinds) {
+		t.Fatalf("items = %d, want %d: %+v", len(items), len(wantKinds), items)
+	}
+	for i, want := range wantKinds {
+		if items[i].Kind != want {
+			t.Fatalf("Items[%d].Kind = %q, want %q", i, items[i].Kind, want)
+		}
+	}
+	for i, want := range wantCalls {
+		toolCall := items[1+i*2].ToolCall
+		if toolCall == nil || toolCall.CallID != want.callID || toolCall.Name != want.name {
+			t.Fatalf("item call %d identity: %+v", i, toolCall)
+		}
+		if got := string(toolCall.Arguments); got != want.arguments {
+			t.Fatalf("item call %d arguments = %s, want %s", i, got, want.arguments)
+		}
+	}
+}
+
+// TestDecodeCreate_functionCallArgumentForms pins how the Responses wire
+// argument carrier (a JSON string or a JSON document) becomes one canonical
+// argument document without dropping or inventing content.
+func TestDecodeCreate_functionCallArgumentForms(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name          string
+		argumentsJSON string
+		want          string
+	}{
+		{name: "string object document", argumentsJSON: `"{\"a\": 1}"`, want: `{"a": 1}`},
+		{name: "object document", argumentsJSON: `{"a": 1}`, want: `{"a": 1}`},
+		{name: "array string", argumentsJSON: `"[1,2]"`, want: `[1,2]`},
+		{name: "string document keeps its quoted argument text", argumentsJSON: `"\"hello\""`, want: `"hello"`},
+		{name: "absent", argumentsJSON: ``, want: `{}`},
+		{name: "null", argumentsJSON: `null`, want: `{}`},
+		{name: "empty string normalizes to the empty object document", argumentsJSON: `""`, want: `{}`},
+		{name: "non-json string", argumentsJSON: `"not json"`, want: `"not json"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			arguments := ""
+			if tc.argumentsJSON != "" {
+				arguments = `,"arguments":` + tc.argumentsJSON
+			}
+			body := `{"model":"m","input":[{"type":"function_call","call_id":"c","name":"n"` + arguments + `}]}`
+			d, err := openairesponses.DecodeCreateRequest([]byte(body), openairesponses.DecodeOptions{
+				RouteSelector: "stub:m",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			part := d.Call.Messages[0].Parts[0]
+			if got := string(part.Content); got != tc.want {
+				t.Fatalf("arguments = %s, want %s", got, tc.want)
+			}
+			if err := d.Call.Validate(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

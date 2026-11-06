@@ -1231,10 +1231,11 @@ func classifyItemContinuation(call aipapi.Call, callID string) ContinuationShape
 }
 
 // ToolCallFields returns the canonical tool-call identity and arguments of one
-// legacy message part. The pinned legacy openairesponses frontend keeps the
-// OpenAI Responses function_call envelope in PartJSON.Content and leaves the
-// top-level fields empty; recovering those exact fields keeps the connector's
-// continuation proof and replay faithful without changing the public canonical
+// legacy message part. Canonical parts carry the identity at the top level and
+// the argument document in Content. An older openairesponses frontend instead
+// kept the OpenAI Responses function_call envelope in PartJSON.Content and left
+// the top-level fields empty; recovering those exact fields keeps continuations
+// captured from older builds faithful without changing the public canonical
 // contract.
 func ToolCallFields(part aipapi.Part) (callID, name string, args json.RawMessage) {
 	if part.Kind != aipapi.PartJSON {

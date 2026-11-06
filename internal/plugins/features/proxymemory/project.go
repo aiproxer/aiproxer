@@ -36,13 +36,33 @@ const (
 // connector-support/acp/workspace.go.
 var workspaceExtensionKeys = []string{"project_dir", "workspace_path", "cwd", "project"}
 
-// instructionPrefixes are the working-directory line prefixes of design §3.
-var instructionPrefixes = []string{"Working directory:", "Primary working directory:"}
+// claudeCWDPrefix is the working-directory line of Claude Code's bare-mode
+// system context: "CWD: <absolute path>".
+const claudeCWDPrefix = "CWD:"
+
+// instructionPrefix is one recognized working-directory line prefix.
+type instructionPrefix struct {
+	prefix string
+	// absolute requires absolute-path syntax before the value is accepted.
+	absolute bool
+}
+
+// instructionPrefixes are the working-directory line prefixes. The first two
+// are the design §3 sources; claudeCWDPrefix adds the bare-mode Claude Code
+// context observed in native traffic. A CWD value must be absolute because the
+// line is machine-generated for a process working directory, so prose such as
+// "CWD: unknown" never names a project.
+var instructionPrefixes = []instructionPrefix{
+	{prefix: "Working directory:"},
+	{prefix: "Primary working directory:"},
+	{prefix: claudeCWDPrefix, absolute: true},
+}
 
 // DeriveProject derives the project identity of one request per design §3:
-// an explicit workspace extension, then a working-directory instruction line,
-// then a Codex environment-context block. It performs no filesystem or
-// environment access; the derived value stays an opaque label.
+// an explicit workspace extension, then a working-directory instruction line
+// (including Claude Code's bare-mode CWD line), then a Codex
+// environment-context block. It performs no filesystem or environment access;
+// the derived value stays an opaque label.
 func DeriveProject(call *aipapi.Call) (Project, bool) {
 	if call == nil {
 		return Project{}, false
@@ -151,16 +171,47 @@ func instructionLabelFromContent(content []aipapi.ContentPart) (string, bool) {
 func instructionLabelFromText(text string) (string, bool) {
 	for line := range strings.SplitSeq(text, "\n") {
 		trimmed := strings.TrimSpace(line)
-		for _, prefix := range instructionPrefixes {
-			if !strings.HasPrefix(trimmed, prefix) {
+		for _, candidate := range instructionPrefixes {
+			if !strings.HasPrefix(trimmed, candidate.prefix) {
 				continue
 			}
-			if label, ok := normalizeLabel(strings.TrimSpace(trimmed[len(prefix):])); ok {
+			value := strings.TrimSpace(trimmed[len(candidate.prefix):])
+			if candidate.absolute && !isAbsolutePathSyntax(value) {
+				continue
+			}
+			if label, ok := normalizeLabel(value); ok {
 				return label, true
 			}
 		}
 	}
 	return "", false
+}
+
+// isAbsolutePathSyntax accepts POSIX rooted paths, rooted drive paths and UNC
+// paths with a server and share. It is the syntax rule the explicit workspace
+// header uses; it performs no filesystem access or resolution.
+func isAbsolutePathSyntax(p string) bool {
+	if p == "" {
+		return false
+	}
+	if strings.HasPrefix(p, "/") {
+		return true
+	}
+	if len(p) >= 3 {
+		c := p[0]
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) && p[1] == ':' && (p[2] == '/' || p[2] == '\\') {
+			return true
+		}
+	}
+	if !strings.HasPrefix(p, `\\`) {
+		return false
+	}
+	rest := p[2:]
+	if rest == "" || rest[0] == '\\' {
+		return false
+	}
+	_, share, ok := strings.Cut(rest, `\`)
+	return ok && share != "" && share[0] != '\\'
 }
 
 // projectFromEnvironmentContext scans user-role text parts: messages first,

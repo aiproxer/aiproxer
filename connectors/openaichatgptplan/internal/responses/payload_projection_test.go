@@ -818,6 +818,24 @@ func TestProjectedFunctionCallCarrierSelection(t *testing.T) {
 		}
 	})
 
+	t.Run("JSON string document is argument text", func(t *testing.T) {
+		t.Parallel()
+		const arguments = `"hello"`
+		call := aipapi.Call{Messages: []aipapi.Message{
+			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{{
+				Kind:       aipapi.PartJSON,
+				ToolCallID: "call_1",
+				ToolName:   "widget",
+				Content:    json.RawMessage(arguments),
+			}}},
+		}}
+		body := decodedBody(t, projectedRequest(t, responses.ProjectInput{Call: call, Model: fixtureModel}))
+		projected := inputItems(t, body)[0]
+		if got := projected["arguments"]; got != arguments {
+			t.Fatalf("%s\n  a canonical JSON string document is argument text and must not be decoded a second time\n  projected arguments: %v\n  canonical arguments: %s", carrierRule, got, arguments)
+		}
+	})
+
 	t.Run("envelope-looking argument data is not an identity authority", func(t *testing.T) {
 		t.Parallel()
 		const arguments = `{"type":"function_call","call_id":"call_1","name":"widget","arguments":{"x":1},"keep":true}`

@@ -21,7 +21,7 @@ func TestBuildInputItems_preservesActionTrajectoryOrder(t *testing.T) {
 			{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("use lookup")}},
 			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{
 				reasoning("r1"),
-				{Kind: aipapi.PartJSON, ToolCallID: "call-1", ToolName: "lookup", Content: json.RawMessage(`{"type":"function_call","call_id":"call-1","name":"lookup","arguments":"{\"q\":\"x\"}"}`)},
+				{Kind: aipapi.PartJSON, ToolCallID: "call-1", ToolName: "lookup", Content: json.RawMessage(`{"q":"x"}`)},
 			}},
 			{Role: aipapi.RoleTool, Parts: []aipapi.Part{{Kind: aipapi.PartToolResult, ToolCallID: "call-1", Content: json.RawMessage(`{"answer":"y"}`)}}},
 			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{reasoning("r2"), aipapi.TextPart("done")}},
@@ -49,6 +49,72 @@ func TestBuildInputItems_preservesActionTrajectoryOrder(t *testing.T) {
 		if got.Type != want {
 			t.Fatalf("item[%d] type = %q, want %q; body=%s", i, got.Type, want, body)
 		}
+	}
+}
+
+// TestBuildInputItems_canonicalFunctionCallPartPreservesArguments proves the
+// Codex connector reads the canonical top-level tool identity and replays its
+// argument document verbatim, instead of looking for the old envelope.
+func TestBuildInputItems_canonicalFunctionCallPartPreservesArguments(t *testing.T) {
+	t.Parallel()
+	call := &aipapi.Call{
+		Tools: []aipapi.ToolDef{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
+		Messages: []aipapi.Message{
+			{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("use lookup")}},
+			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{{
+				Kind:       aipapi.PartJSON,
+				ToolCallID: "call-1",
+				ToolName:   "lookup",
+				Content:    json.RawMessage(`{"query":"original"}`),
+			}}},
+			{Role: aipapi.RoleTool, Parts: []aipapi.Part{{Kind: aipapi.PartToolResult, ToolCallID: "call-1", Content: json.RawMessage(`{"answer":"y"}`)}}},
+		},
+	}
+	items, err := buildInputItems(call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("input items = %d, want 3", len(items))
+	}
+	fnCall, ok := items[1].(functionCallItem)
+	if !ok {
+		t.Fatalf("item[1] type = %T, want functionCallItem", items[1])
+	}
+	if fnCall.CallID != "call-1" || fnCall.Name != "lookup" || fnCall.Arguments != `{"query":"original"}` {
+		t.Fatalf("canonical function_call = %#v", fnCall)
+	}
+}
+
+// TestBuildInputItems_canonicalStringDocumentPreservesQuotes proves a JSON
+// string document is argument text, so the Codex payload must not unquote or
+// re-encode it.
+func TestBuildInputItems_canonicalStringDocumentPreservesQuotes(t *testing.T) {
+	t.Parallel()
+	call := &aipapi.Call{
+		Tools: []aipapi.ToolDef{{Name: "echo", Parameters: json.RawMessage(`{"type":"object"}`)}},
+		Messages: []aipapi.Message{
+			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{{
+				Kind:       aipapi.PartJSON,
+				ToolCallID: "call-1",
+				ToolName:   "echo",
+				Content:    json.RawMessage(`"hello"`),
+			}}},
+		},
+	}
+	items, err := buildInputItems(call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("input items = %d, want 1", len(items))
+	}
+	fnCall, ok := items[0].(functionCallItem)
+	if !ok {
+		t.Fatalf("item[0] type = %T, want functionCallItem", items[0])
+	}
+	if fnCall.Arguments != `"hello"` {
+		t.Fatalf("string document arguments = %q, want %q", fnCall.Arguments, `"hello"`)
 	}
 }
 

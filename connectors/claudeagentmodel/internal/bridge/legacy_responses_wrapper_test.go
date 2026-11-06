@@ -7,9 +7,10 @@ import (
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 )
 
-// legacyResponsesWrapperPart is the pinned legacy openairesponses canonical
-// shape: the frontend keeps the OpenAI Responses function_call envelope in
-// PartJSON.Content and leaves the top-level tool identity empty.
+// legacyResponsesWrapperPart is the pre-repair openairesponses canonical shape:
+// the frontend kept the OpenAI Responses function_call envelope in
+// PartJSON.Content and left the top-level tool identity empty. The connector
+// still accepts this carrier for continuations captured from older builds.
 func legacyResponsesWrapperPart(callID, name, args string) aipapi.Part {
 	return legacyResponsesWrapperPartWithItemID(callID, "", name, args)
 }
@@ -98,6 +99,36 @@ func TestS3_LegacyResponsesWrapperProvesExactContinuation(t *testing.T) {
 	}
 	if !PrefixesEqual(proof.Prefix, pending.Prefix) && !PrefixesEqual(proof.Prefix, pending.PrefixSeparateText) {
 		t.Fatal("wrapper continuation proof does not reproduce the parked prefix")
+	}
+}
+
+// TestS3_CanonicalResponsesPartProvesContinuation proves the repaired
+// openairesponses shape (top-level identity, argument document in Content) is
+// accepted by the same continuation proof as the older envelope carrier.
+func TestS3_CanonicalResponsesPartProvesContinuation(t *testing.T) {
+	t.Parallel()
+	pending := legacyPendingContinuation(t, "canonical responses read", "let me look", "toolu_1")
+	continuation := legacyResponsesContinuationWithPart(
+		"canonical responses read",
+		"let me look",
+		aipapi.Part{
+			Kind:       aipapi.PartJSON,
+			ToolCallID: "toolu_1",
+			ToolName:   "Read",
+			Content:    json.RawMessage(`{"file_path":"x"}`),
+		},
+		"toolu_1",
+		"contents",
+	)
+	results, ok := TrailingResults(continuation)
+	if !ok || len(results) != 1 || results[0].CallID != "toolu_1" {
+		t.Fatalf("trailing results=%+v ok=%v", results, ok)
+	}
+	if shape := ClassifyContinuation(continuation, "toolu_1"); shape != ContinuationReady {
+		t.Fatalf("shape=%v, want ready", shape)
+	}
+	if _, err := MatchPendingContinuation(continuation, &pending, results[0]); err != nil {
+		t.Fatalf("MatchPendingContinuation: %v", err)
 	}
 }
 

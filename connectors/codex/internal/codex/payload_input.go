@@ -501,6 +501,24 @@ func partToFunctionCallItem(p aipapi.Part) (inputItem, bool, error) {
 	if p.Kind != aipapi.PartJSON || len(p.Content) == 0 {
 		return nil, false, nil
 	}
+	// Canonical parts carry the tool identity at the top level and Content is
+	// the argument text. Use those bytes verbatim; a JSON string document keeps
+	// its quotes.
+	callID := strings.TrimSpace(p.ToolCallID)
+	name := strings.TrimSpace(p.ToolName)
+	if callID != "" || name != "" {
+		if callID == "" || name == "" {
+			return nil, false, newNativeHistoryBuildError("missing_call_id")
+		}
+		return functionCallItem{
+			Type:      "function_call",
+			CallID:    callID,
+			Name:      name,
+			Arguments: string(p.Content),
+		}, true, nil
+	}
+	// Legacy envelope continuation: an older frontend kept the Responses
+	// function_call object inside Content and left the top-level identity empty.
 	var v struct {
 		Type      string          `json:"type"`
 		ID        string          `json:"id"`
@@ -523,11 +541,11 @@ func partToFunctionCallItem(p aipapi.Part) (inputItem, bool, error) {
 	}
 	// Chat Completions carries the call id as "id" and the name/arguments under
 	// "function"; Responses carries them at the top level as "call_id"/"name".
-	callID := strings.TrimSpace(v.CallID)
+	callID = strings.TrimSpace(v.CallID)
 	if callID == "" {
 		callID = strings.TrimSpace(v.ID)
 	}
-	name := strings.TrimSpace(v.Name)
+	name = strings.TrimSpace(v.Name)
 	args := v.Arguments
 	if name == "" {
 		name = strings.TrimSpace(v.Function.Name)

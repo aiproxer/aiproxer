@@ -46,6 +46,13 @@ func TestParseFunctionCallID(t *testing.T) {
 			wantOK:   true,
 		},
 		{
+			name:     "canonical top-level identity with an argument document",
+			part:     aipapi.Part{Kind: aipapi.PartJSON, ToolCallID: "call_5", ToolName: "toolE", Content: json.RawMessage(`{"a":1}`)},
+			wantID:   "call_5",
+			wantName: "toolE",
+			wantOK:   true,
+		},
+		{
 			name:   "non-function type rejected",
 			part:   aipapi.Part{Kind: aipapi.PartJSON, Content: json.RawMessage(`{"type":"text"}`)},
 			wantOK: false,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/aiproxer/aiproxer/internal/core/routing"
 	backend "github.com/aiproxer/aiproxer/internal/plugins/backends/openairesponses"
+	"github.com/aiproxer/aiproxer/internal/plugins/frontends/openairesponses"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -351,6 +352,101 @@ func TestParamsForCall_functionCallInputFromAssistantJSON(t *testing.T) {
 	s := string(raw)
 	if !strings.Contains(s, `"type":"function_call"`) || !strings.Contains(s, "call_1") || !strings.Contains(s, "get_weather") {
 		t.Fatalf("expected function_call input item: %s", s)
+	}
+	if !strings.Contains(s, `"arguments":"{\"city\":\"NYC\"}"`) {
+		t.Fatalf("legacy envelope arguments must replay their exact text: %s", s)
+	}
+}
+
+// TestParamsForCall_canonicalStringDocumentKeepsQuotes proves canonical
+// argument bytes are the document: a JSON string document keeps its quotes on
+// the Responses wire instead of being silently unquoted.
+func TestParamsForCall_canonicalStringDocumentKeepsQuotes(t *testing.T) {
+	t.Parallel()
+	call := aipapi.Call{
+		Messages: []aipapi.Message{
+			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{{
+				Kind:       aipapi.PartJSON,
+				ToolCallID: "call_1",
+				ToolName:   "get_weather",
+				Content:    json.RawMessage(`"hello"`),
+			}}},
+		},
+	}
+	cand := routing.AttemptCandidate{Primary: routing.Primary{Model: "gpt-4o-mini"}}
+	p, err := backend.ParamsForCall(&call, cand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(raw); !strings.Contains(s, `"arguments":"\"hello\""`) {
+		t.Fatalf("string document lost its quotes: %s", s)
+	}
+}
+
+// TestParamsForCall_functionCallInputFromCanonicalPart proves the strict
+// Responses wire carries a canonical tool-call part (top-level identity and an
+// argument document) as a function_call input item, not as message content.
+func TestParamsForCall_functionCallInputFromCanonicalPart(t *testing.T) {
+	t.Parallel()
+	call := aipapi.Call{
+		Messages: []aipapi.Message{
+			{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("hi")}},
+			{
+				Role: aipapi.RoleAssistant,
+				Parts: []aipapi.Part{{
+					Kind:       aipapi.PartJSON,
+					ToolCallID: "call_1",
+					ToolName:   "get_weather",
+					Content:    json.RawMessage(`{"city":"NYC"}`),
+				}},
+			},
+		},
+	}
+	cand := routing.AttemptCandidate{Primary: routing.Primary{Model: "gpt-4o-mini"}}
+	p, err := backend.ParamsForCall(&call, cand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	for _, want := range []string{`"type":"function_call"`, `"call_id":"call_1"`, `"name":"get_weather"`, `"arguments":"{\"city\":\"NYC\"}"`} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("wire is missing %s: %s", want, s)
+		}
+	}
+}
+
+// TestParamsForCall_decodedHistoryReplaysExactStringDocument chains the shipped
+// decoder into this backend: a client that sends a JSON-string argument
+// document must get the same argument text back on the wire, not a
+// double-encoded or unquoted rewrite.
+func TestParamsForCall_decodedHistoryReplaysExactStringDocument(t *testing.T) {
+	t.Parallel()
+	const body = `{"model":"gpt-4o-mini","input":[{"type":"function_call","call_id":"call_1","name":"echo","arguments":"\"hello\""}]}`
+	decoded, err := openairesponses.DecodeCreateRequest([]byte(body), openairesponses.DecodeOptions{
+		RouteSelector: "openai-responses:gpt-4o-mini",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cand := routing.AttemptCandidate{Primary: routing.Primary{Model: "gpt-4o-mini"}}
+	p, err := backend.ParamsForCall(decoded.Call, cand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(raw); !strings.Contains(s, `"arguments":"\"hello\""`) {
+		t.Fatalf("decoded string document did not replay exactly: %s", s)
 	}
 }
 

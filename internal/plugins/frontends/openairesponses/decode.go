@@ -61,14 +61,6 @@ type wireCreate struct {
 	PromptCacheKey string            `json:"prompt_cache_key"`
 }
 
-type wireFunctionCallPart struct {
-	Type      string `json:"type"`
-	ID        string `json:"id,omitempty"`
-	CallID    string `json:"call_id"`
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
-}
-
 var responsesKnownBodyKeys = map[string]bool{
 	"model": true, "stream": true, "input": true, "instructions": true,
 	"tools": true, "tool_choice": true, "parallel_tool_calls": true,
@@ -372,7 +364,6 @@ func parseMessageInputItem(raw json.RawMessage) (aipapi.Message, error) {
 
 func parseFunctionCallInputItem(raw json.RawMessage) (aipapi.Message, error) {
 	var v struct {
-		ID        string          `json:"id"`
 		CallID    string          `json:"call_id"`
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
@@ -388,45 +379,60 @@ func parseFunctionCallInputItem(raw json.RawMessage) (aipapi.Message, error) {
 	if name == "" {
 		return aipapi.Message{}, errSkipMalformedHistory
 	}
-	argStr := "{}"
-	if jsonpresence.IsPresentNonNullJSON(v.Arguments) {
-		if err := frontendlimits.Bytes("function_call.arguments", len(v.Arguments), frontendlimits.MaxRawJSONPayload); err != nil {
-			return aipapi.Message{}, err
-		}
-		switch v.Arguments[0] {
-		case '"':
-			var s string
-			if err := json.Unmarshal(v.Arguments, &s); err != nil {
-				return aipapi.Message{}, fmt.Errorf("openairesponses: function_call arguments: %w", err)
-			}
-			argStr = s
-		default:
-			if !json.Valid(v.Arguments) {
-				return aipapi.Message{}, errors.New("openairesponses: function_call arguments must be JSON")
-			}
-			argStr = string(v.Arguments)
-		}
-	}
-	wire := wireFunctionCallPart{
-		Type:      "function_call",
-		CallID:    callID,
-		Name:      name,
-		Arguments: argStr,
-	}
-	if id := strings.TrimSpace(v.ID); id != "" {
-		wire.ID = id
-	}
-	content, err := json.Marshal(wire)
+	arguments, err := canonicalFunctionCallArguments(v.Arguments)
 	if err != nil {
-		return aipapi.Message{}, fmt.Errorf("openairesponses: function_call marshal: %w", err)
+		return aipapi.Message{}, err
 	}
 	return aipapi.Message{
 		Role: aipapi.RoleAssistant,
 		Parts: []aipapi.Part{{
-			Kind:    aipapi.PartJSON,
-			Content: content,
+			Kind:       aipapi.PartJSON,
+			ToolCallID: callID,
+			ToolName:   name,
+			Content:    arguments,
 		}},
 	}, nil
+}
+
+// canonicalFunctionCallArguments maps the Responses wire argument carrier to
+// the canonical tool-call argument document. The Responses API sends a JSON
+// string holding the document; some clients send the document directly.
+// Valid documents keep their exact bytes, including a JSON string document
+// that is its own argument text. Non-JSON text is stored as a JSON string, the
+// only valid canonical representation, and absent, null, or whitespace-only
+// arguments become the established empty-object document used by the other
+// frontends and openaiwire, because an empty string is not a valid argument
+// document. The Responses item id is a separate identifier and never becomes
+// call authority.
+func canonicalFunctionCallArguments(raw json.RawMessage) (json.RawMessage, error) {
+	if !jsonpresence.IsPresentNonNullJSON(raw) {
+		return json.RawMessage(`{}`), nil
+	}
+	if err := frontendlimits.Bytes("function_call.arguments", len(raw), frontendlimits.MaxRawJSONPayload); err != nil {
+		return nil, err
+	}
+	if raw[0] == '"' {
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
+			return nil, fmt.Errorf("openairesponses: function_call arguments: %w", err)
+		}
+		trimmed := strings.TrimSpace(s)
+		if trimmed == "" {
+			return json.RawMessage(`{}`), nil
+		}
+		if json.Valid([]byte(s)) {
+			return append(json.RawMessage(nil), s...), nil
+		}
+		encoded, err := json.Marshal(s)
+		if err != nil {
+			return nil, fmt.Errorf("openairesponses: function_call arguments: %w", err)
+		}
+		return encoded, nil
+	}
+	if !json.Valid(raw) {
+		return nil, errors.New("openairesponses: function_call arguments must be JSON")
+	}
+	return append(json.RawMessage(nil), raw...), nil
 }
 
 func parseFunctionCallOutputItem(raw json.RawMessage) (aipapi.Message, error) {

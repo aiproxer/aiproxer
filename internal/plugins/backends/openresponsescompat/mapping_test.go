@@ -471,6 +471,7 @@ func TestMapping_WireToolArguments_Normalization(t *testing.T) {
 	}{
 		{name: "plain_object_wrapped", in: `{"location":"Paris"}`, want: `"{\"location\":\"Paris\"}"`},
 		{name: "json_string_kept", in: `"{\"location\":\"Paris\"}"`, want: `"{\"location\":\"Paris\"}"`},
+		{name: "whitespace_document_preserved", in: ` { "location" : "Paris" } `, want: `" { \"location\" : \"Paris\" } "`},
 		{name: "empty_absent", in: ``, want: ``},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -481,6 +482,34 @@ func TestMapping_WireToolArguments_Normalization(t *testing.T) {
 			}
 			if string(got) != tc.want {
 				t.Fatalf("wireToolArguments(%q) = %q, want %q", tc.in, string(got), tc.want)
+			}
+		})
+	}
+}
+
+// TestMapping_WireMessageToolArguments_WrapsExactlyOnce proves the legacy
+// message-authority conversion always wraps the document once, including a JSON
+// string document, so the upstream decodes the exact argument text.
+func TestMapping_WireMessageToolArguments_WrapsExactlyOnce(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "object", in: `{"location":"Paris"}`, want: `"{\"location\":\"Paris\"}"`},
+		{name: "string document", in: `"hello"`, want: `"\"hello\""`},
+		{name: "whitespace preserved", in: ` { "a" : 1 } `, want: `" { \"a\" : 1 } "`},
+		{name: "empty_absent", in: ``, want: ``},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := wireMessageToolArguments([]byte(tc.in))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Fatalf("wireMessageToolArguments(%q) = %q, want %q", tc.in, string(got), tc.want)
 			}
 		})
 	}

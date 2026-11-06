@@ -328,7 +328,19 @@ func assistantWireFunctionCalls(parts []aipapi.Part) ([]responses.ResponseInputI
 }
 
 func partToFunctionCallInputItem(p aipapi.Part) (responses.ResponseInputItemUnionParam, bool) {
-	if p.Kind != aipapi.PartJSON || len(p.Content) == 0 {
+	if p.Kind != aipapi.PartJSON {
+		return responses.ResponseInputItemUnionParam{}, false
+	}
+	// Canonical parts carry the tool identity at the top level and Content is
+	// the argument document. This is the shape every decoder now produces.
+	callID := strings.TrimSpace(p.ToolCallID)
+	name := strings.TrimSpace(p.ToolName)
+	if callID != "" && name != "" {
+		return responses.ResponseInputItemParamOfFunctionCall(canonicalArgumentsText(p.Content), callID, name), true
+	}
+	// Legacy envelope continuation: an older frontend kept the Responses
+	// function_call object inside Content and left the top-level identity empty.
+	if len(p.Content) == 0 {
 		return responses.ResponseInputItemUnionParam{}, false
 	}
 	var probe struct {
@@ -348,28 +360,50 @@ func partToFunctionCallInputItem(p aipapi.Part) (responses.ResponseInputItemUnio
 	if err := json.Unmarshal(p.Content, &v); err != nil {
 		return responses.ResponseInputItemUnionParam{}, false
 	}
-	callID := strings.TrimSpace(v.CallID)
-	name := strings.TrimSpace(v.Name)
+	callID = strings.TrimSpace(v.CallID)
+	name = strings.TrimSpace(v.Name)
 	if callID == "" || name == "" {
 		return responses.ResponseInputItemUnionParam{}, false
 	}
+	argStr, ok := envelopeArgumentsText(v.Arguments)
+	if !ok {
+		return responses.ResponseInputItemUnionParam{}, false
+	}
+	return responses.ResponseInputItemParamOfFunctionCall(argStr, callID, name), true
+}
+
+// canonicalArgumentsText projects a canonical tool-call argument document to
+// the Responses wire argument string. The canonical bytes are the argument
+// text, so a JSON string document keeps its quotes; absent or null arguments
+// become the empty-object document.
+func canonicalArgumentsText(raw json.RawMessage) string {
+	if !jsonpresence.IsPresentNonNullJSON(raw) {
+		return "{}"
+	}
+	return string(raw)
+}
+
+// envelopeArgumentsText decodes the arguments field of a legacy function_call
+// envelope. There the field is the wire JSON string, so its decoded value is
+// the argument text.
+func envelopeArgumentsText(raw json.RawMessage) (string, bool) {
 	argStr := "{}"
-	if jsonpresence.IsPresentNonNullJSON(v.Arguments) {
-		switch v.Arguments[0] {
+	if jsonpresence.IsPresentNonNullJSON(raw) {
+		switch raw[0] {
 		case '"':
 			var s string
-			if err := json.Unmarshal(v.Arguments, &s); err != nil {
-				return responses.ResponseInputItemUnionParam{}, false
+			if err := json.Unmarshal(raw, &s); err != nil {
+				return "", false
 			}
 			argStr = s
 		default:
-			if !json.Valid(v.Arguments) {
-				return responses.ResponseInputItemUnionParam{}, false
+			if !json.Valid(raw) {
+				return "", false
 			}
-			argStr = string(v.Arguments)
+			argStr = string(raw)
 		}
 	}
-	return responses.ResponseInputItemParamOfFunctionCall(argStr, callID, name), true
+	return argStr, true
 }
 
 func toolResultString(p aipapi.Part) string {

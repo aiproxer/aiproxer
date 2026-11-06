@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -147,7 +148,8 @@ func initExportFixture(t *testing.T, root, attrs string) {
 
 func TestExportOmissions_Repository(t *testing.T) {
 	t.Parallel()
-	specs := filepath.Join("..", "..", "..", ".kiro", "specs")
+	root := filepath.Join("..", "..", "..")
+	specs := filepath.Join(root, ".kiro", "specs")
 	for _, validate := range []func(string) ([]string, []string){ValidateLifecycleWithOmissions, ValidateBudgetsWithOmissions} {
 		errs, omissions := validate(specs)
 		for _, path := range omissions {
@@ -157,4 +159,38 @@ func TestExportOmissions_Repository(t *testing.T) {
 			t.Fatalf("validation findings: %v", errs)
 		}
 	}
+
+	// An archived spec has no active directory, so only the active-path rule
+	// in .gitattributes still marks it as Enterprise billing prose. Moving the
+	// directory under archive/ must not publish the files that rule excludes.
+	attributes, err := os.ReadFile(filepath.Join(root, ".gitattributes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := regexp.MustCompile(`(?m)^\.kiro/specs/([^/\s]+)/\*\* export-ignore$`)
+	for _, match := range active.FindAllStringSubmatch(string(attributes), -1) {
+		relative := filepath.Join(".kiro", "specs", "archive", match[1])
+		if _, err := os.Stat(filepath.Join(root, relative)); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			t.Fatal(err)
+		}
+		if !exportIgnored(t, root, relative) {
+			t.Errorf("%s lost the export-ignore rule of active spec %s", relative, match[1])
+		}
+	}
+}
+
+// exportIgnored reports whether the repository excludes a path from the export.
+func exportIgnored(t *testing.T, root, relative string) bool {
+	t.Helper()
+	cmd := exec.Command("git", "-C", root, "check-attr", "-z", "export-ignore", "--", filepath.ToSlash(relative))
+	cmd.Env = gitscope.Environ()
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git check-attr %s: %v", relative, err)
+	}
+	fields := strings.Split(string(out), "\x00")
+	return len(fields) == 4 && fields[2] == "set"
 }

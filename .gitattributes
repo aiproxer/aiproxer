@@ -36,6 +36,7 @@ docs/dogfood-local.md whitespace=cr-at-eol
 .kiro/specs/archive/usage-record-ledger-billing/** export-ignore
 .kiro/specs/billing-financial-safety-contracts/** export-ignore
 .kiro/specs/proxy-memory-commercial/** export-ignore
+.kiro/specs/archive/proxy-memory-commercial export-ignore
 .kiro/specs/archive/open-core-billing-split/** export-ignore
 
 # Mixed historical artifacts with concrete billing internals: excluded file by

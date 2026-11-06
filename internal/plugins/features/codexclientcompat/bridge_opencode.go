@@ -71,6 +71,19 @@ func hasStructuredToolTranscript(msgs []aipapi.Message) bool {
 // in sync across callers. ok is true when the part is a recognized function-call
 // part; id and name are trimmed and may be empty.
 func parseFunctionCallID(p aipapi.Part) (id, name string, ok bool) {
+	if p.Kind != aipapi.PartJSON {
+		return "", "", false
+	}
+	// Canonical parts carry the tool identity at the top level and Content is
+	// the argument document.
+	if id = strings.TrimSpace(p.ToolCallID); id != "" {
+		return id, strings.TrimSpace(p.ToolName), true
+	}
+	if name = strings.TrimSpace(p.ToolName); name != "" {
+		return "", name, true
+	}
+	// Legacy envelope continuation: an older frontend kept the Responses
+	// function_call object inside Content and left the top-level identity empty.
 	if len(p.Content) == 0 {
 		return "", "", false
 	}
