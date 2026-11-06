@@ -189,11 +189,10 @@ func cohereToolCallFromPart(p aipapi.Part) (cohereToolCall, error) {
 				args = a
 			}
 		} else if json.Valid(p.Content) {
-			a, err := cohereArgumentsString(p.Content)
-			if err != nil {
-				return cohereToolCall{}, fmt.Errorf("cohere: assistant tool_call arguments: %w", err)
-			}
-			args = a
+			// Canonical message authority stores the argument document itself,
+			// including a JSON string document. Keep those bytes as the wire
+			// argument text instead of decoding the document a second time.
+			args = string(p.Content)
 		} else {
 			return cohereToolCall{}, fmt.Errorf("cohere: assistant tool_call content is not valid JSON")
 		}

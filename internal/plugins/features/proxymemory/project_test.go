@@ -140,6 +140,51 @@ func TestDeriveProject(t *testing.T) {
 			wantOK:    true,
 		},
 		{
+			name: "a Claude Code bare-mode CWD line yields the working directory",
+			call: &aipapi.Call{Instructions: []aipapi.Message{{
+				Role: aipapi.RoleSystem,
+				Parts: []aipapi.Part{
+					{Kind: aipapi.PartText, Text: "x-anthropic-billing-header: cc_version=2.1.316.0fe; cc_entrypoint=sdk-cli;"},
+					{Kind: aipapi.PartText, Text: "You are a Claude agent, built on Anthropic's Claude Agent SDK."},
+					{Kind: aipapi.PartText, Text: "CWD: /home/user/project\nDate: 2026-11-04"},
+				},
+			}}},
+			wantLabel: "/home/user/project",
+			wantOK:    true,
+		},
+		{
+			name:      "a CWD line accepts rooted Windows syntax",
+			call:      &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem, `CWD: C:\work\project`)}},
+			wantLabel: "C:/work/project",
+			wantOK:    true,
+		},
+		{
+			name:      "a CWD line accepts a UNC path",
+			call:      &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem, `CWD: \\server\share\project`)}},
+			wantLabel: "/server/share/project",
+			wantOK:    true,
+		},
+		{
+			name:   "a CWD line rejects a UNC root without a share",
+			call:   &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem, `CWD: \\server`)}},
+			wantOK: false,
+		},
+		{
+			name: "a non-path CWD value is not a project",
+			call: &aipapi.Call{Instructions: []aipapi.Message{
+				textMessage(aipapi.RoleSystem, "CWD: project"),
+			}},
+			wantOK: false,
+		},
+		{
+			name: "a non-path CWD value falls through to a working-directory line",
+			call: &aipapi.Call{Instructions: []aipapi.Message{
+				textMessage(aipapi.RoleSystem, "CWD: unknown\nWorking directory: /fallback"),
+			}},
+			wantLabel: "/fallback",
+			wantOK:    true,
+		},
+		{
 			name:      "a Codex environment context part yields the cwd",
 			call:      &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleUser, envContextR)}},
 			wantLabel: "/r",
@@ -238,6 +283,11 @@ func TestDeriveProject(t *testing.T) {
 			wantOK: false,
 		},
 		{
+			name:   "a user-role CWD line is not a project",
+			call:   &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleUser, "CWD: /user")}},
+			wantOK: false,
+		},
+		{
 			name:   "a nil call gives ok=false",
 			call:   nil,
 			wantOK: false,
@@ -268,6 +318,29 @@ func TestDeriveProject(t *testing.T) {
 				t.Errorf("DeriveProject() key = %q, want %q", got.Key, wantKey)
 			}
 		})
+	}
+}
+
+func TestDeriveProject_ClaudeCWDSharesProjectWithCodexEnvironment(t *testing.T) {
+	t.Parallel()
+
+	codex, ok := DeriveProject(&aipapi.Call{Messages: []aipapi.Message{
+		textMessage(aipapi.RoleUser, "<environment_context>\n<cwd>/r</cwd>\n</environment_context>"),
+	}})
+	if !ok {
+		t.Fatal("DeriveProject did not derive the Codex environment project")
+	}
+	claude, ok := DeriveProject(&aipapi.Call{Instructions: []aipapi.Message{{
+		Role: aipapi.RoleSystem,
+		Parts: []aipapi.Part{
+			{Kind: aipapi.PartText, Text: "CWD: /r\nDate: 2026-11-04"},
+		},
+	}}})
+	if !ok {
+		t.Fatal("DeriveProject did not derive the Claude Code CWD project")
+	}
+	if claude != codex {
+		t.Fatalf("Claude Code project = %+v, want the Codex project %+v", claude, codex)
 	}
 }
 

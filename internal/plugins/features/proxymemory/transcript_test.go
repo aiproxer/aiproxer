@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aiproxer/aiproxer/internal/plugins/frontends/openairesponses"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 )
 
@@ -262,6 +263,49 @@ func TestTranscriptRenderHistoryMessagesAuthority(t *testing.T) {
 			assertEntries(t, RenderHistory(tc.call), tc.want)
 		})
 	}
+}
+
+// TestTranscriptRenderHistoryResponsesFrontendFunctionCall proves a real
+// Responses history decoded by the shipped frontend records the tool call with
+// its exact identity and arguments instead of dropping it from the transcript.
+func TestTranscriptRenderHistoryResponsesFrontendFunctionCall(t *testing.T) {
+	t.Parallel()
+	const body = `{
+  "model":"gpt-4o-mini",
+  "input":[
+    {"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]},
+    {"type":"function_call","id":"fc_1","call_id":"call_1","name":"close_agent","arguments":"{\"target\":\"nope\"}"},
+    {"type":"function_call_output","call_id":"call_1","output":"err"}
+  ]
+}`
+	d, err := openairesponses.DecodeCreateRequest([]byte(body), openairesponses.DecodeOptions{
+		RouteSelector: "stub:m",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEntries(t, RenderHistory(d.Call), []Entry{
+		{Type: entryTypeMessage, Role: "user", Text: "hi"},
+		{Type: entryTypeFunctionCall, Name: "close_agent", CallID: "call_1", Arguments: `{"target":"nope"}`},
+		{Type: entryTypeFunctionCallOutput, CallID: "call_1", Output: "err"},
+	})
+}
+
+// TestTranscriptRenderHistoryResponsesStringDocument proves a JSON string
+// argument document is recorded as its own argument text, not as an escaped
+// wire carrier.
+func TestTranscriptRenderHistoryResponsesStringDocument(t *testing.T) {
+	t.Parallel()
+	const body = `{"model":"m","input":[{"type":"function_call","call_id":"c1","name":"echo","arguments":"\"hello\""}]}`
+	d, err := openairesponses.DecodeCreateRequest([]byte(body), openairesponses.DecodeOptions{
+		RouteSelector: "stub:m",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEntries(t, RenderHistory(d.Call), []Entry{
+		{Type: entryTypeFunctionCall, Name: "echo", CallID: "c1", Arguments: `"hello"`},
+	})
 }
 
 func TestTranscriptRenderHistoryItemsAuthority(t *testing.T) {

@@ -122,9 +122,31 @@ func checkRequirements(id string, call aipapi.Call, caps aipapi.BackendCaps, ds 
 	return nil
 }
 
+// wireMessageToolArguments converts one canonical message-authority argument
+// document to the pinned profile's JSON-string wire form. Message authority
+// stores the document itself, never an already-wrapped carrier, so every
+// document is wrapped exactly once. Wrapping keeps the document's exact bytes,
+// including surrounding whitespace, so replay is byte-faithful.
+func wireMessageToolArguments(raw []byte) (json.RawMessage, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+	if !json.Valid(trimmed) {
+		return nil, fmt.Errorf("%w: function call arguments must be valid JSON", ErrUnrepresentable)
+	}
+	b, err := json.Marshal(string(raw))
+	if err != nil {
+		return nil, fmt.Errorf("%w: function call arguments: %v", ErrUnrepresentable, err)
+	}
+	return b, nil
+}
+
 // wireToolArguments normalizes canonical tool call arguments to the pinned
-// profile's JSON-string wire form: a JSON string stays verbatim; any other
-// valid JSON value is wrapped into a JSON string.
+// profile's JSON-string wire form: an already-wrapped JSON string stays
+// verbatim; any other valid JSON value is wrapped into a JSON string. Wrapping
+// keeps the document's exact bytes, including surrounding whitespace, so replay
+// is byte-faithful.
 func wireToolArguments(raw []byte) (json.RawMessage, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {
@@ -139,7 +161,7 @@ func wireToolArguments(raw []byte) (json.RawMessage, error) {
 	if !json.Valid(trimmed) {
 		return nil, fmt.Errorf("%w: function call arguments must be valid JSON", ErrUnrepresentable)
 	}
-	b, err := json.Marshal(string(trimmed))
+	b, err := json.Marshal(string(raw))
 	if err != nil {
 		return nil, fmt.Errorf("%w: function call arguments: %v", ErrUnrepresentable, err)
 	}

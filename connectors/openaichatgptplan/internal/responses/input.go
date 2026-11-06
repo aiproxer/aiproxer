@@ -480,7 +480,7 @@ func projectFunctionCallPart(part aipapi.Part, field string) (wireFunctionCall, 
 			return wireFunctionCall{}, projectionError(ProjectionReasonToolCall, field,
 				"the canonical tool call identity is incomplete")
 		}
-		arguments, err := argumentsText(part.Content)
+		arguments, err := canonicalPartArgumentsText(part.Content)
 		if err != nil {
 			return wireFunctionCall{}, projectionError(ProjectionReasonToolCall, field, err.Error())
 		}
@@ -583,7 +583,23 @@ func decodeToolCallEnvelope(raw json.RawMessage) (decodedToolCall, bool, error) 
 	return call, true, nil
 }
 
-// argumentsText renders canonical arguments as the wire's JSON-text string.
+// canonicalPartArgumentsText renders a message-authority PartJSON argument
+// document as the wire's JSON-text string. Message authority stores the
+// document itself, including a JSON string document that is its own argument
+// text, so the bytes are the text and are never decoded a second time.
+func canonicalPartArgumentsText(raw json.RawMessage) (string, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return "", nil
+	}
+	if !json.Valid(trimmed) {
+		return "", errors.New("the tool call arguments are not valid JSON")
+	}
+	return string(raw), nil
+}
+
+// argumentsText renders a wire-carrier canonical argument as the wire's
+// JSON-text string.
 //
 // A canonical JSON string carries argument text and is decoded once; any other
 // JSON value is its own text. The projector never re-encodes or reorders the

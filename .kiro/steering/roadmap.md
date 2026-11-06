@@ -20,6 +20,6 @@ Exceptions (no slot consumed): demonstrated regressions, security/credential iso
 
 ## Competing work
 
-- **Proxy Memory:** freeze feature development. Preserve the completed implementation and existing branches. Finish only bounded corrections or closeout work that is already nearly complete.
+- **Proxy Memory:** completed and archived (durable Enterprise terminal handoff and the B1-B9 local certification matrix). No further work; task 2.4 stays deferred by owner decision D2.
 - **Other open PRs:** merge worthwhile, substantially completed changes after normal review. Park the rest without follow-on campaigns.
 - **Weekly metric:** manually count goal-advancing merged PRs divided by all merged PRs. No automation.

@@ -28,6 +28,18 @@ func normalizeLegacyAuthority(id string, spec BackendSpec, call aipapi.Call) (ai
 	if err != nil {
 		return aipapi.Call{}, fmt.Errorf("%s: %w", id, err)
 	}
+	for i := range items {
+		if items[i].Kind != aipapi.ItemKindToolCall || items[i].ToolCall == nil {
+			continue
+		}
+		args, err := wireMessageToolArguments(items[i].ToolCall.Arguments)
+		if err != nil {
+			return aipapi.Call{}, fmt.Errorf("%s: item %d: %w", id, i, err)
+		}
+		toolCall := *items[i].ToolCall
+		toolCall.Arguments = args
+		items[i].ToolCall = &toolCall
+	}
 	out := aipapi.CloneCall(call)
 	out.Instructions = nil
 	out.Messages = nil

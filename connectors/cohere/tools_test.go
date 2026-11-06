@@ -410,6 +410,13 @@ func TestCohereTools_ToolResultRoundtrip(t *testing.T) {
 			wantResult:    "sunny",
 		},
 		{
+			name:          "canonical JSON string document args",
+			assistantPart: aipapi.Part{Kind: aipapi.PartJSON, ToolCallID: "call_hist_1", ToolName: "get_weather", Content: json.RawMessage(`"hello"`)},
+			toolPart:      aipapi.Part{Kind: aipapi.PartToolResult, ToolCallID: "call_hist_1", ToolName: "get_weather", Text: "sunny"},
+			wantArgs:      `"hello"`,
+			wantResult:    "sunny",
+		},
+		{
 			name: "envelope args and JSON string result",
 			assistantPart: aipapi.Part{Kind: aipapi.PartJSON, ToolCallID: "call_hist_1", ToolName: "get_weather", Content: json.RawMessage(
 				`{"id":"call_hist_1","type":"function","function":{"name":"get_weather","arguments":{"city":"Paris"}}}`)},

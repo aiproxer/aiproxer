@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/aiproxer/aiproxer/internal/core/routing"
+	"github.com/aiproxer/aiproxer/internal/plugins/frontends/openairesponses"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 )
 
@@ -285,6 +286,58 @@ func TestLegacyAuthority_ProjectedItemsCarryExactOrderedFields(t *testing.T) {
 	}
 	if string(payload["tools"]) == "" {
 		t.Fatal("tools must be forwarded when the legacy call declares them")
+	}
+}
+
+// TestLegacyAuthority_ResponsesFrontendArgumentsReachWireExactly decodes a real
+// Responses function_call item through the shipped frontend and proves the
+// compatible backend forwards its argument text byte-for-byte, including JSON
+// string documents and surrounding document whitespace.
+func TestLegacyAuthority_ResponsesFrontendArgumentsReachWireExactly(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name          string
+		wireArguments string
+		want          string
+	}{
+		{name: "object document", wireArguments: `"{\"target\":\"nope\"}"`, want: `"{\"target\":\"nope\"}"`},
+		{name: "whitespace object document", wireArguments: `"{ \"a\" : 1 }"`, want: `"{ \"a\" : 1 }"`},
+		{name: "string document", wireArguments: `"\"hello\""`, want: `"\"hello\""`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			body := []byte(`{"model":"m","input":[{"type":"function_call","call_id":"c1","name":"t","arguments":` + tc.wireArguments + `}]}`)
+			decoded, err := openairesponses.DecodeCreateRequest(body, openairesponses.DecodeOptions{
+				RouteSelector: "stub:m",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			be, obs := newObserverBackend(t, "", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, completeResourceJSON)
+			})
+			es, err := be.Open(context.Background(), *decoded.Call, routing.AttemptCandidate{Primary: routing.Primary{Model: "model-x"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = drainManagedEvents(t, es)
+
+			req := obs.last(t)
+			var payload struct {
+				Input []map[string]json.RawMessage `json:"input"`
+			}
+			if err := json.Unmarshal(req.Body, &payload); err != nil {
+				t.Fatal(err)
+			}
+			if len(payload.Input) != 1 {
+				t.Fatalf("input items = %d, want 1: %s", len(payload.Input), req.Body)
+			}
+			if got := string(payload.Input[0]["arguments"]); got != tc.want {
+				t.Fatalf("wire arguments = %s, want %s", got, tc.want)
+			}
+		})
 	}
 }
 
