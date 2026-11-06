@@ -51,6 +51,9 @@ type Handler struct {
 	// pipeOnce serializes the first spec() build; handlers serve concurrent requests.
 	pipeOnce sync.Once
 	pipe     frontendpipe.Spec[EncodeOptions]
+	// namespaceWarnOnce bounds the operator-visible projection notice to one
+	// line per handler generation, not one line per request.
+	namespaceWarnOnce sync.Once
 }
 
 type aLegCanceler interface {
@@ -111,11 +114,12 @@ func (h *Handler) buildPipe() {
 			return false
 		},
 		Decode: func(dctx frontendpipe.DecodeContext) (*frontendpipe.Decoded, error) {
-			decoded, err := DecodeCreateRequest(dctx.Body, DecodeOptions{RouteSelector: dctx.RouteSelector, Headers: dctx.Headers, HTTPHeaders: h.HTTPHeaders})
+			decoded, err := DecodeCreateRequest(dctx.Body, DecodeOptions{RouteSelector: dctx.RouteSelector, Headers: dctx.Headers, HTTPHeaders: h.HTTPHeaders, NamespaceTools: h.Config.NamespaceTools})
 			if err != nil {
 				return nil, err
 			}
-			return &frontendpipe.Decoded{Call: decoded.Call, Stream: decoded.Stream, RouteSelector: dctx.RouteSelector}, nil
+			h.warnNamespaceProjection(decoded.namespaceTools)
+			return &frontendpipe.Decoded{Call: decoded.Call, Stream: decoded.Stream, RouteSelector: dctx.RouteSelector, Extra: decoded}, nil
 		},
 		BuildEncodeOpts: func(decoded *frontendpipe.Decoded) EncodeOptions {
 			call := decoded.Call
@@ -136,6 +140,9 @@ func (h *Handler) buildPipe() {
 			opts := EncodeOptions{
 				ResponseID:               responseIDForCallFromSum(call, getSum),
 				ExposeAipUsageExtensions: h.Config.ExposeAipUsageExtensions,
+			}
+			if dec, ok := decoded.Extra.(*DecodedCreate); ok {
+				opts.namespaceTools = dec.namespaceTools
 			}
 			opts.MessageID = "msg_" + opts.ResponseID
 			if clk := h.Exec.WallClock(); clk != nil {
@@ -198,6 +205,23 @@ func (h *Handler) logWriteJSONErr(ctx context.Context, msg string, werr error) {
 		return
 	}
 	diag.LogError(ctx, h.logger(), msg, diag.AttrOpts{}, werr)
+}
+
+// warnNamespaceProjection reports the first actual namespace projection once
+// per handler generation. Counts are bounded by the declared tool limit and
+// carry no namespace, tool, or argument text.
+func (h *Handler) warnNamespaceProjection(m *namespaceToolMapping) {
+	if !m.hasNamespaces() {
+		return
+	}
+	h.namespaceWarnOnce.Do(func() {
+		h.logger().Warn(
+			"openairesponses: namespace tool declarations projected to flat function names; set namespace_tools=reject to refuse",
+			"namespaces", m.namespaceCount,
+			"members", m.memberCount,
+			"history_members", m.historyMembers,
+		)
+	})
 }
 
 // logger returns the handler's diagnostics logger. It never returns nil, so a

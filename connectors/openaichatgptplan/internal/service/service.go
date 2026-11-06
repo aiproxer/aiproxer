@@ -113,6 +113,10 @@ func (s *Service) Describe(context.Context) (backendplugin.PluginDescriptor, err
 			StaticCapabilities: backendplugin.CapabilitySummary{
 				Streaming: true,
 				Tools:     true,
+				// The static descriptor MIRRORS the runtime capability; it is not
+				// admission authority. Runtime admission reads the resolved
+				// profile below, including the exact call extension.
+				OpaqueExtensions: true,
 			},
 			TransportCapabilities: backendplugin.TransportCapabilitySummary{
 				Cancellation:        true,
@@ -187,11 +191,28 @@ type instance struct {
 }
 
 // Resolve reports the capability profile of the configured instance.
+//
+// The resolved profile is the runtime admission authority: generic core admits
+// a call only when the profile declares both opaque-extension capability and
+// the EXACT call extension that carries the preserved hosted web-search
+// declaration. The static FactoryDescriptor mirrors the capability bit, but a
+// descriptor alone cannot admit the carrier because it carries no exact
+// extension identity.
 func (i *instance) Resolve(context.Context, *string) (backendplugin.ResolvedProfile, error) {
 	return backendplugin.ResolvedProfile{
 		Capabilities: backendplugin.CapabilitySummary{
 			Streaming: true,
 			Tools:     true,
+			// The connector consumes the preserved hosted-declaration carrier
+			// deliberately (omit in interoperable posture, refuse in strict
+			// posture), so it supports the generic opaque-extension seam.
+			OpaqueExtensions: true,
+		},
+		DialectSupport: backendplugin.DialectSupport{
+			ExtensionTypes: []backendplugin.ExtensionRequirementDTO{{
+				Namespace: "call",
+				Type:      responses.WebSearchDeclarationsExtensionKey,
+			}},
 		},
 		TransportCapabilities: backendplugin.TransportCapabilitySummary{
 			Cancellation:        true,

@@ -57,6 +57,38 @@ func InputStringResolver(idw *largebody.CallIdentityWriter) jsonshape.StringWrit
 // ProfileID is the static identifier for the certified OpenAI Responses fast-path profile (Requirements 4, 17).
 const ProfileID = "openai_responses_v1"
 
+// ErrHostedWebSearchRequiresCanonicalDecode reports that the bounded proof pass
+// met a hosted web-search declaration in raw top-level tools. The proof pass
+// cannot carry the frontend's declaration carrier, so it declines to canonical
+// decode BEFORE parseTools can accept the shape; the canonical path preserves
+// the closed declaration table for backend admission and policy. It must never
+// wire-execute a hosted shape, independent of the selected backend or the
+// backend's WireBackend availability.
+var ErrHostedWebSearchRequiresCanonicalDecode = errors.New("openairesponses: hosted web search declaration requires canonical decode")
+
+// parseProofTools enforces the hosted-declaration guard BEFORE the shared
+// tools parser. Keeping the guard here rather than inline in CompileProof holds
+// that function's measured cognitive complexity at its baseline while still
+// declining to canonical processing before parseTools sees a hosted shape.
+func parseProofTools(raw json.RawMessage) (parsedTools, error) {
+	if hasHostedWebSearchDeclaration(raw) {
+		return parsedTools{}, ErrHostedWebSearchRequiresCanonicalDecode
+	}
+	if hasNamespaceToolDeclaration(raw) {
+		return parsedTools{}, ErrNamespaceToolsRequiresCanonicalDecode
+	}
+	return parseTools(raw, namespaceToolPolicyProject)
+}
+
+// namespaceHistoryField reports whether the event is a namespace field inside
+// the input array, carrying the previous observation forward.
+func namespaceHistoryField(e jsonshape.Event, seen bool) bool {
+	if e.Type == jsonshape.EventKey && e.Key == "namespace" && len(e.Path) > 0 && e.Path[0] == "input" {
+		return true
+	}
+	return seen
+}
+
 // Profile implements frontendpipe.FrontendProfile for OpenAI Responses create (POST /v1/responses).
 type Profile struct{}
 
@@ -174,6 +206,7 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 	var hasInput bool
 	var inputIsString bool
 	var inputIsArray bool
+	var inputHasNamespace bool
 	var toolChoiceIsString bool
 
 	// Chunk tracking for composite extraction and number tokens across chunk boundaries
@@ -205,6 +238,11 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 				hasInput = true
 			}
 		}
+		// Any namespace field inside the input array is a namespaced history
+		// carrier. The wire path forwards raw bytes and cannot restore the
+		// client identity, so decline to canonical decode regardless of where
+		// the item sits or whether the input array is too large to parse.
+		inputHasNamespace = namespaceHistoryField(e, inputHasNamespace)
 
 		if e.TopLevel && e.Type != jsonshape.EventKey && e.Type != jsonshape.EventArrayEnd && e.Type != jsonshape.EventObjectEnd {
 			switch e.Key {
@@ -556,8 +594,11 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 	if unknownKey != "" {
 		return frontendpipe.ProofOutput{}, fmt.Errorf("openairesponses: unknown body key %q", unknownKey)
 	}
-	if hasUnsupportedControl {
+	switch {
+	case hasUnsupportedControl:
 		return frontendpipe.ProofOutput{}, errors.New("openairesponses: unsupported control key (store/previous_response_id/truncation)")
+	case inputHasNamespace:
+		return frontendpipe.ProofOutput{}, ErrNamespaceHistoryRequiresCanonicalDecode
 	}
 
 	if inputIsArray && inputArrayIsLarge {
@@ -635,11 +676,17 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 		}
 	}
 
-	// 8. Parse tools and options
-	tools, err := parseTools(fieldBufs["tools"].Bytes())
+	// 8. Parse tools and options.
+	//
+	// parseProofTools recognizes the raw hosted shape BEFORE parseTools accepts
+	// it and declines to canonical processing. Otherwise a hosted declaration
+	// could be silently dropped or raw-forwarded to a WireBackend before
+	// admission.
+	parsedToolSet, err := parseProofTools(fieldBufs["tools"].Bytes())
 	if err != nil {
 		return frontendpipe.ProofOutput{}, fmt.Errorf("openairesponses: tools: %w", err)
 	}
+	tools := parsedToolSet.Tools
 
 	var toolChoice aipapi.ToolChoice
 	if toolChoiceIsString {
@@ -655,7 +702,7 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 			return frontendpipe.ProofOutput{}, fmt.Errorf("openairesponses: unsupported tool_choice string %q", s)
 		}
 	} else if fieldBufs["tool_choice"].Len() > 0 {
-		tc, err := parseToolChoice(fieldBufs["tool_choice"].Bytes())
+		tc, err := parseToolChoice(fieldBufs["tool_choice"].Bytes(), nil)
 		if err != nil {
 			return frontendpipe.ProofOutput{}, fmt.Errorf("openairesponses: tool_choice: %w", err)
 		}
@@ -805,7 +852,7 @@ func (p *Profile) CompileProof(ctx context.Context, in frontendpipe.ProofInput) 
 		}
 		msgs = make([]aipapi.Message, 0, len(items))
 		for i, it := range items {
-			m, err := parseInputItem(it)
+			m, err := parseInputItem(it, nil, namespaceToolPolicyProject)
 			if err != nil {
 				// Requirement 17.3: Malformed histories/aliases that current decoders repair/drop/normalize are canonical-only.
 				if errors.Is(err, errSkipMalformedHistory) {

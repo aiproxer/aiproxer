@@ -742,7 +742,7 @@ func TestDecodeCreate_unsupportedToolType(t *testing.T) {
 	body := []byte(`{
   "model": "gpt-4o-mini",
   "stream": false,
-  "tools": [{"type":"web_search_preview"}],
+  "tools": [{"type":"file_search"}],
   "input": [{"type":"message","role":"user","content":"q"}]
 }`)
 	_, err := openairesponses.DecodeCreateRequest(body, openairesponses.DecodeOptions{

@@ -568,7 +568,8 @@ func classifyPolicyError(err error, policyErr *PolicyError) *ClassifiedError {
 	class := ErrorClassInvalidUserContext
 	switch policyErr.Reason {
 	case PolicyReasonUnsupportedField, PolicyReasonUnsupportedTool,
-		PolicyReasonGenerationOption, PolicyReasonCacheHint, PolicyReasonProtocolExtension:
+		PolicyReasonGenerationOption, PolicyReasonCacheHint, PolicyReasonProtocolExtension,
+		PolicyReasonWebSearchDeclaration:
 		// The request asks for semantics this route cannot represent: the
 		// same body cannot succeed.
 		class = ErrorClassUnsupportedCapability

@@ -9,5 +9,5 @@ import (
 type Config = frontendconfig.Config
 
 func DecodeConfig(n yaml.Node) (Config, error) {
-	return frontendconfig.Decode(n, ID)
+	return frontendconfig.DecodeWithToolNamespacePolicy(n, ID)
 }

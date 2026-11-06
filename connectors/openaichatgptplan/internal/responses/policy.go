@@ -73,7 +73,30 @@ import (
 const (
 	previewStore  = false
 	previewStream = true
+
+	// WebSearchDeclarationsExtensionKey is the documented cross-module wire
+	// contract: the OpenAI Responses frontend preserves the closed hosted
+	// web-search declaration table under this opaque extension key. Both
+	// modules define the literal privately; the staged end-to-end proof pins
+	// the two definitions together. The connector also advertises this exact
+	// extension in its runtime Resolve profile, so generic core admits only a
+	// backend that consumes the carrier deliberately.
+	WebSearchDeclarationsExtensionKey = "openairesponses.web_search_declarations"
+
+	// maxWebSearchDeclarationsBytes matches the backend-plugin metadata carrier
+	// bound. The frontend enforces the same bound before the call is admitted.
+	maxWebSearchDeclarationsBytes = 64 << 10
 )
+
+// supportedWebSearchDeclarationTypes is the closed declaration table this
+// connector consumes. Unknown/new variants fail closed as unsupported
+// capability until a reviewed table update.
+var supportedWebSearchDeclarationTypes = map[string]struct{}{
+	"web_search":                    {},
+	"web_search_preview":            {},
+	"web_search_2025_08_26":         {},
+	"web_search_preview_2025_03_11": {},
+}
 
 // ErrRequestNotAdmissible reports that the SIWC preview policy refused a
 // request.
@@ -171,6 +194,12 @@ const (
 	// PolicyReasonProtocolExtension reports a protocol extension with no
 	// public wire carrier.
 	PolicyReasonProtocolExtension PolicyReason = "protocol_extension_unsupported"
+	// PolicyReasonWebSearchDeclaration reports a preserved hosted web-search
+	// declaration the SIWC preview route cannot carry. It is a dedicated
+	// reason, not the generic protocol-extension reason, because the carrier
+	// arrives through the documented cross-module extension and its omission is
+	// a provider capability decision, never a silent drop.
+	PolicyReasonWebSearchDeclaration PolicyReason = "web_search_declaration_unsupported"
 )
 
 // PolicyError is one deterministic preview-policy refusal.
@@ -372,6 +401,17 @@ func AdmitCall(in ProjectInput, mode PolicyMode) (Admission, error) {
 		})
 	}
 
+	// The hosted web-search carrier is consumed BEFORE the generic
+	// protocol-extension loop: it is the one protocol-facing extension this
+	// connector can degrade explicitly, once per declaration. A malformed or
+	// over-bound carrier is an unsupported-capability refusal in both postures,
+	// never an invalid-user-context rejection.
+	webSearchOmissions, err := consumeWebSearchDeclarations(&call, posture)
+	if err != nil {
+		return Admission{}, err
+	}
+	omissions = append(omissions, webSearchOmissions...)
+
 	// A protocol extension is provider-facing metadata with no public wire
 	// carrier. Two families are not provider semantics: proxy-internal
 	// bookkeeping (the "aip." prefix) and the frontend encode/decode
@@ -402,6 +442,87 @@ func AdmitCall(in ProjectInput, mode PolicyMode) (Admission, error) {
 	}
 	admitted.Omissions = omissions
 	return admitted, nil
+}
+
+// consumeWebSearchDeclarations validates and consumes the hosted web-search
+// declaration carrier on a cloned call.
+//
+// The carrier is a bounded JSON array of documented declaration type strings.
+// Every malformed, empty, unknown or over-bound entry is a policy refusal
+// classified as unsupported capability, because the same body can never
+// succeed on this route. In interoperable posture the carrier is removed from
+// the clone and every declaration becomes one explicit Omission; in strict
+// posture the request is refused before projection or network I/O. History is
+// never touched by this function.
+func consumeWebSearchDeclarations(call *aipapi.Call, posture PolicyMode) ([]Omission, error) {
+	if call == nil {
+		return nil, nil
+	}
+	raw, ok := call.Extensions[WebSearchDeclarationsExtensionKey]
+	if !ok {
+		return nil, nil
+	}
+	declarations, err := parseWebSearchDeclarations(raw)
+	if err != nil {
+		return nil, err
+	}
+	if posture == PolicyModeStrict {
+		return nil, policyError(PolicyReasonWebSearchDeclaration,
+			webSearchDeclarationField(0, declarations[0]),
+			"strict posture refuses a preserved hosted web-search declaration before projection or network")
+	}
+	delete(call.Extensions, WebSearchDeclarationsExtensionKey)
+	omissions := make([]Omission, 0, len(declarations))
+	for i, declarationType := range declarations {
+		omissions = append(omissions, Omission{
+			Field:  webSearchDeclarationField(i, declarationType),
+			Wire:   "tools",
+			Reason: PolicyReasonWebSearchDeclaration,
+			Detail: "omitted: the SIWC preview route does not support a hosted web-search declaration",
+		})
+	}
+	return omissions, nil
+}
+
+// parseWebSearchDeclarations validates one carrier value.
+//
+// The diagnostic never echoes a malformed or unknown entry, because a
+// malicious carrier could put arbitrary content where only a documented type
+// string belongs. A valid declaration's type is safe to name in the omission
+// field: it is one of the closed table's literals.
+func parseWebSearchDeclarations(raw json.RawMessage) ([]string, error) {
+	carrierPath := fmt.Sprintf("Extensions[%q]", WebSearchDeclarationsExtensionKey)
+	if len(raw) > maxWebSearchDeclarationsBytes {
+		return nil, policyError(PolicyReasonWebSearchDeclaration, carrierPath,
+			fmt.Sprintf("the hosted web-search declaration carrier exceeds %d bytes", maxWebSearchDeclarationsBytes))
+	}
+	var declarations []string
+	if err := json.Unmarshal(raw, &declarations); err != nil {
+		return nil, policyError(PolicyReasonWebSearchDeclaration, carrierPath,
+			"the hosted web-search declaration carrier is not a JSON array of type strings")
+	}
+	if len(declarations) == 0 {
+		return nil, policyError(PolicyReasonWebSearchDeclaration, carrierPath,
+			"the hosted web-search declaration carrier is empty")
+	}
+	if len(declarations) > aipapi.MaxTools {
+		return nil, policyError(PolicyReasonWebSearchDeclaration, carrierPath,
+			fmt.Sprintf("the hosted web-search declaration carrier has %d entries; maximum is %d", len(declarations), aipapi.MaxTools))
+	}
+	for i, declarationType := range declarations {
+		if _, ok := supportedWebSearchDeclarationTypes[declarationType]; !ok {
+			return nil, policyError(PolicyReasonWebSearchDeclaration,
+				fmt.Sprintf("Extensions[%q][%d]", WebSearchDeclarationsExtensionKey, i),
+				"the hosted web-search declaration is not in the documented closed table")
+		}
+	}
+	return declarations, nil
+}
+
+// webSearchDeclarationField names one declaration inside the carrier, including
+// its declared type, for a stable operator-visible omission record.
+func webSearchDeclarationField(index int, declarationType string) string {
+	return fmt.Sprintf("Extensions[%q][%d] (type %q)", WebSearchDeclarationsExtensionKey, index, declarationType)
 }
 
 // AdmitProjectedRequest applies the wire-side preview contract to one

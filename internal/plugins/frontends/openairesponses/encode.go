@@ -14,6 +14,10 @@ type EncodeOptions struct {
 	MessageID                string
 	CreatedAt                int64
 	ExposeAipUsageExtensions bool
+	// namespaceTools restores client namespace/bare-member identities for
+	// model-emitted projected tool names. It is per-request state, never a
+	// wire field.
+	namespaceTools *namespaceToolMapping
 }
 
 func defaultEncodeOptions(call *aipapi.Call, opts EncodeOptions) EncodeOptions {
