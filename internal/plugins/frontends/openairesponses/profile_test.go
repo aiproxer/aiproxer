@@ -448,6 +448,122 @@ func TestOpenAIResponsesProfile_CompileProof_ToolsAndOptions(t *testing.T) {
 	}
 }
 
+// TestOpenAIResponsesProfile_HostedWebSearchDeclinesBeforeParseTools proves the
+// raw-tools guard. The bounded proof path cannot carry the frontend's hosted
+// web-search declaration carrier, so a raw hosted shape must decline to the
+// canonical decode path BEFORE parseTools can accept it. A positive ordinary
+// function-tool control keeps the fast path available for requests that carry
+// no hosted shape.
+func TestOpenAIResponsesProfile_HostedWebSearchDeclinesBeforeParseTools(t *testing.T) {
+	t.Parallel()
+	prof := openairesponses.NewProfile()
+	for _, hostedType := range []string{
+		"web_search",
+		"web_search_preview",
+		"web_search_2025_08_26",
+		"web_search_preview_2025_03_11",
+		"web_search_2099_01_01",
+	} {
+		t.Run(hostedType, func(t *testing.T) {
+			t.Parallel()
+			body := []byte(fmt.Sprintf(`{"model":"gpt-4o","input":"hello","tools":[{"type":%q}]}`, hostedType))
+			if _, err := prof.CompileProof(context.Background(), defaultProofInput(body, "stub:gpt-4o", nil)); !errors.Is(err, openairesponses.ErrHostedWebSearchRequiresCanonicalDecode) {
+				t.Fatalf("a raw hosted web-search declaration must decline to canonical decode, got %v", err)
+			}
+		})
+	}
+
+	// A function tool named web_search is not a hosted shape and still takes
+	// the bounded proof path.
+	t.Run("function named web_search keeps the fast path", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"model":"gpt-4o","input":"hello","tools":[{"type":"function","name":"web_search","parameters":{"type":"object"}}]}`)
+		out, err := prof.CompileProof(context.Background(), defaultProofInput(body, "stub:gpt-4o", nil))
+		if err != nil {
+			t.Fatalf("an ordinary function named web_search must keep the fast path: %v", err)
+		}
+		canon, err := openairesponses.DecodeCreateRequest(body, openairesponses.DecodeOptions{RouteSelector: "stub:gpt-4o"})
+		if err != nil {
+			t.Fatalf("canonical decode: %v", err)
+		}
+		if got, want := out.Proof().Identity.Sum(), largebody.CanonicalCallIdentity(canon.Call).Sum(); got != want {
+			t.Fatalf("fast-path identity mismatch for an ordinary request: got %x want %x", got, want)
+		}
+	})
+}
+
+// TestOpenAIResponsesProfile_HostedWebSearchFallsBackToCanonicalNotWire serves
+// a hosted web-search request through the real frontend pipeline with a
+// wire-capable executor. The proof must decline, canonical decode must preserve
+// the declaration carrier, and no wire execution may happen.
+func TestOpenAIResponsesProfile_HostedWebSearchFallsBackToCanonicalNotWire(t *testing.T) {
+	t.Parallel()
+
+	var candidateProofCalled bool
+	var proofOutcome frontendpipe.CandidateProofResult
+	var executedCall *aipapi.Call
+	exec := &testExecView{
+		onExecute: func(ctx context.Context, call *aipapi.Call) (aipapi.EventStream, error) {
+			executedCall = call
+			return aipapi.NewFixedEventStream([]aipapi.Event{
+				{Kind: aipapi.EventResponseStarted},
+				{Kind: aipapi.EventMessageStarted},
+				{Kind: aipapi.EventResponseFinished},
+			}), nil
+		},
+	}
+	h := &openairesponses.Handler{
+		Exec:                 exec,
+		DefaultRouteSelector: "stub:gpt-4o",
+	}
+	spec := h.Spec()
+	spec.LargePayload = frontendpipe.LargePayloadConfig{
+		Enabled:        true,
+		ThresholdBytes: 20,
+	}
+	spec.OnCandidateProof = func(r *http.Request, res frontendpipe.CandidateProofResult) {
+		candidateProofCalled = true
+		proofOutcome = res
+	}
+
+	body := `{"model":"gpt-4o","input":"find the answer","tools":[{"type":"web_search_preview","user_location":{"type":"approximate"}},{"type":"function","name":"lookup","parameters":{"type":"object"}}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	frontendpipe.ServeHTTP(spec, rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected HTTP 200 on canonical fallback, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !candidateProofCalled {
+		t.Fatal("expected candidate proof to be attempted")
+	}
+	if !errors.Is(proofOutcome.Err, openairesponses.ErrHostedWebSearchRequiresCanonicalDecode) {
+		t.Fatalf("expected the hosted web-search proof decline, got %v", proofOutcome.Err)
+	}
+	if exec.assessCalls.Load() != 0 {
+		t.Fatalf("AssessLargeBody calls = %d, want 0 on hosted web-search decline", exec.assessCalls.Load())
+	}
+	if exec.executeLargeCalls.Load() != 0 {
+		t.Fatalf("ExecuteLargeBody calls = %d, want 0: a hosted shape must never be wire-executed", exec.executeLargeCalls.Load())
+	}
+	if executedCall == nil {
+		t.Fatal("expected canonical decode to execute the request")
+	}
+	raw, ok := executedCall.Extensions[webSearchDeclarationsCarrierKey]
+	if !ok {
+		t.Fatalf("canonical decode must preserve the hosted web-search carrier, got %v", executedCall.Extensions)
+	}
+	var declarations []string
+	if err := json.Unmarshal(raw, &declarations); err != nil {
+		t.Fatalf("carrier json: %v", err)
+	}
+	if len(declarations) != 1 || declarations[0] != "web_search_preview" {
+		t.Fatalf("carrier declarations = %v, want [web_search_preview]", declarations)
+	}
+}
+
 // Requirement 16.3, 17.1: Exact canonical identity differential corpus across all 9 canonical test cases.
 func TestOpenAIResponsesProfile_CompileProof_ExactIdentityDifferentialCorpus(t *testing.T) {
 	t.Parallel()

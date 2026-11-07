@@ -12,11 +12,12 @@ Migration is staged. The official direct-inference connector is empirically prov
 
 ## Boundary Context
 
-- **In scope**: a new external SIWC connector; host/profile identity; OAuth registration/refresh/logout; public `/v1/models`; public `/v1/responses`; SIWC request policy; canonical event mapping; coexistence; empirical validation; legacy direct-inference removal and safe cleanup.
-- **Out of scope**: new frontend protocols; OpenAI-specific canonical/core types; paid/remotely hosted token-sharing product support; private ChatGPT endpoints; emulation of unsupported hosted tools; preservation of private Codex `/responses/compact`.
-- **Adjacent expectations**: routing, output commitment, reasoning preservation, accounting, and connector-host contracts are revalidated, not redesigned without evidence.
-- **Boundary ownership**: provider auth/wire policy/inventory belongs to the backend connector; client-specific compatibility stays feature-owned; routing/commitment/canonical events/accounting stay in existing core/SDK contracts.
-- **Revalidation triggers**: SIWC endpoints/scopes, Responses preview restrictions, backend-plugin ABI, canonical reasoning/tool semantics, local-only credential security, Codex app-server RPC.
+- **In scope**: a new external SIWC connector; host/profile identity; OAuth registration/refresh/logout; public `/v1/models`; public `/v1/responses`; SIWC request policy; the minimal OpenAI Responses hosted-declaration carriage needed for hosted web search; canonical event mapping; coexistence; empirical validation; legacy direct-inference removal and safe cleanup.
+- **Out of scope**: new frontend protocols; generic hosted-tool support, `namespace`/tool-grouping, or a frontend protocol redesign beyond that minimal carriage; OpenAI-specific canonical/core types; paid/remotely hosted token-sharing product support; private ChatGPT endpoints; emulation of unsupported hosted tools; preservation of private Codex `/responses/compact`.
+- **Adjacent expectations**: routing, output commitment, reasoning preservation, accounting, extension admission, and connector-host contracts are revalidated, not redesigned without evidence.
+- **Boundary ownership**: the frontend owns wire preservation of the hosted web-search declaration identity; the existing generic opaque-extension admission owns cross-backend capability gating; the SIWC connector owns omission/strict policy; routing/commitment/canonical events/accounting stay in existing core/SDK contracts.
+- **Declaration carriage boundary**: the end-to-end slice preserves the documented hosted web-search declaration types as a bounded opaque extension admitted only by exact backend support. It does not add a canonical hosted-tool field/type, change generic core, or let a non-supporting backend serve the request with the declaration silently absent.
+- **Revalidation triggers**: SIWC endpoints/scopes, Responses preview restrictions, hosted web-search declaration types, opaque-extension admission/capability contracts, backend-plugin ABI, canonical reasoning/tool semantics, local-only credential security, Codex app-server RPC.
 
 ## Requirements
 
@@ -30,7 +31,7 @@ Migration is staged. The official direct-inference connector is empirically prov
 4. The root module shall not gain a mandatory dependency on the new connector module.
 5. The standard distribution shall discover the connector through existing trusted manifest/release metadata.
 6. While the new connector is under validation, `openai-codex` and `openai-codex-app-server` shall remain independently usable and shall not redirect internally to the new implementation.
-7. The direct factory shall advertise inference execution class, dynamic inventory, streaming/tool capabilities supported by SIWC, and local/personal-auth scope.
+7. The direct factory shall advertise inference execution class, dynamic inventory, streaming/tool capabilities supported by SIWC, the exact hosted-declaration extension it consumes, and local/personal-auth scope; the runtime resolved profile shall declare the opaque-extension capability and exact hosted-declaration extension, with the static descriptor capability mirrored.
 8. The direct factory's packaged manifest export shall declare `access_scope: local_only` and `credential_mode: oauth_user`: the effective backend credential is the selected user's SIWC OAuth profile, so the generic `oauth_user => local_only` manifest rule applies.
 9. The connector shall not implement any connector-local single-user / server-mode check. Multi-user rejection is provided once by the generic host backend security-profile gate, which runs before backend construction, connector `Configure`, and any child-process launch.
 10. Absence from the host-owned multi-user approval registry shall keep the direct factory denied in `access.mode: multi_user`. The connector shall not attempt to appear in, or override, that registry.
@@ -99,11 +100,11 @@ Migration is staged. The official direct-inference connector is empirically prov
 1. Before provider execution, one connector-owned policy component shall enforce the current documented SIWC contract and either produce a legal request or a stable local/provider-limitation error.
 2. The connector shall not forward unsupported top-level fields including `background`, `conversation`, `max_output_tokens`, `max_tool_calls`, `metadata`, `moderation`, `multi_agent`, `prompt`, `prompt_cache_retention`, `safety_identifier`, `temperature`, `top_logprobs`, `top_p`, `truncation`, and `user`.
 3. HTTP requests shall omit `previous_response_id` and carry required history in `input`.
-4. Unsupported hosted tools (image generation, file search, Code Interpreter, native computer use, hosted MCP/connectors, Responses `tool_search`, and top-level `programmatic_tool_calling`) shall be rejected before provider execution.
-5. Function/custom tools shall remain supported with stable call/result identifiers through canonical events.
+4. When an OpenAI Responses request carries a hosted web-search tool declaration, the OpenAI Responses frontend shall preserve the declaration's documented type for backend admission rather than reject or flatten it into a function/custom tool declaration, and the SIWC connector shall omit the declaration from the provider request and record an operator-visible omission under the default interoperable posture of the operator-configurable policy, or reject the request before provider execution under the operator-selected strict posture; a backend that does not explicitly support that preserved declaration shall reject the request before provider execution rather than silently ignore it, only the SIWC connector shall apply the omission, and no wire fast path may execute a request carrying that declaration before canonical admission/policy. The connector shall never silently drop, fabricate, or reorder model-authored web-search history items or events, and shall reject before provider execution any request whose web-search history it cannot preserve exactly. Every other unsupported hosted tool (image generation, file search, Code Interpreter, native computer use, hosted MCP/connectors, Responses `tool_search`, and top-level `programmatic_tool_calling`) shall be rejected before provider execution under both postures.
+5. Function/custom tools shall remain supported with stable call/result identifiers through canonical events; a function or custom tool named `web_search` shall remain a caller-executed tool and shall not be placed in the hosted-declaration extension.
 6. Text, supported images and supported file input shall remain available when model/canonical representation permits.
 7. Unsupported audio/video/upload/transcription assumptions shall fail explicitly rather than route or degrade silently.
-8. SIWC policy shall remain provider-local; no OpenAI-specific field/switch shall be added to `pkg/aipapi` or generic core.
+8. SIWC policy and the hosted-declaration carriage shall remain provider-local; no OpenAI-specific field/switch shall be added to `pkg/aipapi` or generic core. The carriage shall use the existing opaque-extension admission seam, and generic core shall gate only on the generic opaque-extension capability and the exact extension identity.
 9. The policy shall be centralized/table-driven enough that preview changes do not create scattered string branches.
 
 ### Requirement 7: Model Inventory Bound to the Selected ChatGPT Profile
@@ -207,7 +208,7 @@ Migration is staged. The official direct-inference connector is empirically prov
 
 #### Acceptance Criteria
 1. Unit tests shall cover PKCE/state/nonce, ID-token validation, scope validation, issued-client handling, host-id persistence, profile selection, serialized refresh, token rotation persistence, quarantine and logout.
-2. Unit tests shall cover request projection, unsupported-field/tool policy, instruction mapping, tools, model listing, error classification and terminal streams.
+2. Unit tests shall cover request projection, unsupported-field/tool policy, hosted-declaration carriage and name non-classification, instruction mapping, tools, model listing, error classification and terminal streams.
 3. Integration tests shall prove exact HTTP methods/paths/headers/bodies/SSE and absence of private Codex fields.
 4. The direct migration shall preserve the existing app-server; tests of the deferred SIWC app-server belong to #1633.
 5. Concurrency-sensitive profile refresh, first-start host-id creation, profile switch vs inventory refresh, and shutdown shall be covered under current repository verification policy. App-server restart belongs to #1633.
@@ -217,9 +218,10 @@ Migration is staged. The official direct-inference connector is empirically prov
 9. Documentation shall describe direct SIWC inference and distinguish it from the retained legacy Codex app-server, including security, preview limits, supported deployment scope and profile management; it shall not describe the deferred SIWC app-server as implemented.
 10. Release notes shall explain the intentional direct route/config migration, private-inference removal and retained legacy app-server.
 11. The direct factory is `oauth_user` and `local_only`, absent from the host-owned multi-user approval registry. The retained legacy app-server remains `local_only` and unapproved for multi-user; future factory posture is owned by #1633.
-12. Manifest/descriptor parity tests shall prove the direct export's packaged manifest posture equals its runtime `FactoryDescriptor` `AccessScope` / `CredentialMode`.
+12. Manifest/descriptor parity tests shall prove the direct export's packaged manifest posture equals its runtime `FactoryDescriptor` `AccessScope` / `CredentialMode`; static `FactoryDescriptor.StaticCapabilities.OpaqueExtensions` and runtime `ResolvedProfile.Capabilities.OpaqueExtensions` shall both be true but shall not be treated as interchangeable, and runtime admission authority shall be the resolved profile plus the exact `ResolvedProfile.DialectSupport.ExtensionTypes` entry; the proof shall show that static descriptor capability alone does not admit a request.
 13. No configuration knob shall be introduced that permits `local_only` or `oauth_user` backends in `access.mode: multi_user`. A future shared-service ChatGPT-plan backend is a separate security design with a distinct factory and an explicit host approval, not a reclassified one.
 
 ## Deferred
 
 - SIWC-backed Codex app-server implementation, acceptance, and any later legacy app-server replacement: [#1633](https://github.com/aiproxer/aiproxer-enterprise/issues/1633), post-OSS split milestone. Retain the legacy app-server and its dependencies in this spec's end state.
+- OpenAI Responses `namespace` tool declarations and `additional_tools` input items, including stable namespaced function call/result identity, remain a separate slice. This spec's hosted web-search carriage does not make Codex requests that send them work.

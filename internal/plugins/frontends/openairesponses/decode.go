@@ -22,10 +22,71 @@ import (
 // empty call_id outputs) that should be dropped instead of failing decode.
 var errSkipMalformedHistory = errors.New("skip malformed history fragment")
 
-// Extension keys used by this frontend for round-trip metadata.
+// Extension keys used by this frontend. extModelJSONKey is round-trip metadata;
+// extWebSearchDeclarationsKey is a deliberately protocol-facing opaque carrier.
 const (
 	extModelJSONKey = "openairesponses.model"
+
+	// extWebSearchDeclarationsKey is the documented cross-module wire contract:
+	// the OpenAI Responses frontend preserves the closed hosted web-search
+	// declaration table under this opaque extension key, and the SIWC connector
+	// consumes the same literal. Both modules define it privately; the staged
+	// end-to-end proof pins the two definitions together.
+	extWebSearchDeclarationsKey = "openairesponses.web_search_declarations"
+
+	// maxWebSearchDeclarationsBytes bounds the carrier value to the same 64 KiB
+	// the backend-plugin extension metadata carrier accepts.
+	maxWebSearchDeclarationsBytes = 64 << 10
 )
+
+// supportedWebSearchDeclarationTypes is the closed OpenAI Responses hosted
+// web-search declaration table. A new/unknown variant fails closed until a
+// reviewed table update; a function or custom tool that happens to be named
+// web_search is not in this table and stays a caller-executed tool.
+var supportedWebSearchDeclarationTypes = map[string]struct{}{
+	"web_search":                    {},
+	"web_search_preview":            {},
+	"web_search_2025_08_26":         {},
+	"web_search_preview_2025_03_11": {},
+}
+
+func isSupportedWebSearchDeclarationType(typ string) bool {
+	_, ok := supportedWebSearchDeclarationTypes[typ]
+	return ok
+}
+
+// isHostedWebSearchDeclarationCandidate reports whether a raw tool type belongs
+// to the hosted web-search family, including an unknown/new variant. The proof
+// fast path uses this broad check to decline to canonical processing before
+// parseTools runs; canonical decode then decides whether the exact type is in
+// the closed table. It is intentionally name-blind and namespace-blind.
+func isHostedWebSearchDeclarationCandidate(typ string) bool {
+	return strings.HasPrefix(typ, "web_search")
+}
+
+// hasHostedWebSearchDeclaration scans raw top-level tools bytes for a hosted
+// web-search declaration without calling parseTools.
+func hasHostedWebSearchDeclaration(raw json.RawMessage) bool {
+	if jsonpresence.IsAbsentOrJSONNull(raw) {
+		return false
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return false
+	}
+	for _, item := range items {
+		var probe struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(item, &probe); err != nil {
+			continue
+		}
+		if isHostedWebSearchDeclarationCandidate(probe.Type) {
+			return true
+		}
+	}
+	return false
+}
 
 // DecodeOptions configures decoding of a Responses API create request.
 type DecodeOptions struct {
@@ -35,6 +96,9 @@ type DecodeOptions struct {
 	Headers http.Header
 	// HTTPHeaders carries configured header aliases; zero value uses defaults.
 	HTTPHeaders aipsdk.HTTPHeaders
+	// NamespaceTools selects the operator policy for OpenAI Responses namespace
+	// tool declarations: "project" (default) or "reject".
+	NamespaceTools string
 }
 
 // DecodedCreate is the result of decoding POST /v1/responses JSON.
@@ -42,6 +106,10 @@ type DecodedCreate struct {
 	Call   *aipapi.Call
 	Stream bool
 	Model  string
+	// namespaceTools is the per-request reversible projection built from the
+	// request's namespace declarations. It is consumed by the same handler's
+	// response encoder and never persisted or sent upstream.
+	namespaceTools *namespaceToolMapping
 }
 
 type wireCreate struct {
@@ -87,6 +155,10 @@ func DecodeCreateRequest(body []byte, opts DecodeOptions) (*DecodedCreate, error
 	if len(w.Input) == 0 {
 		return nil, errors.New("openairesponses: input is required")
 	}
+	namespacePolicy, err := normalizeNamespaceToolPolicy(opts.NamespaceTools)
+	if err != nil {
+		return nil, err
+	}
 	if err := frontendlimits.Count("metadata", len(w.Metadata), frontendlimits.MaxMetadata); err != nil {
 		return nil, fmt.Errorf("openairesponses: %w", err)
 	}
@@ -98,15 +170,15 @@ func DecodeCreateRequest(body []byte, opts DecodeOptions) (*DecodedCreate, error
 	if err != nil {
 		return nil, fmt.Errorf("openairesponses: instructions: %w", err)
 	}
-	msgs, err := parseInput(w.Input)
-	if err != nil {
-		return nil, fmt.Errorf("openairesponses: input: %w", err)
-	}
-	tools, err := parseTools(w.Tools)
+	parsedToolSet, err := parseTools(w.Tools, namespacePolicy)
 	if err != nil {
 		return nil, fmt.Errorf("openairesponses: tools: %w", err)
 	}
-	toolChoice, err := parseToolChoice(w.ToolChoice)
+	msgs, err := parseInput(w.Input, parsedToolSet.Namespace, namespacePolicy)
+	if err != nil {
+		return nil, fmt.Errorf("openairesponses: input: %w", err)
+	}
+	toolChoice, err := parseToolChoice(w.ToolChoice, parsedToolSet.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("openairesponses: tool_choice: %w", err)
 	}
@@ -126,6 +198,13 @@ func DecodeCreateRequest(body []byte, opts DecodeOptions) (*DecodedCreate, error
 	if len(remainingText) > 0 {
 		ext[openrouterwire.ExtraBodyExtPrefix+"text"] = remainingText
 	}
+	if len(parsedToolSet.WebSearchDeclarations) > 0 {
+		carrier, err := json.Marshal(parsedToolSet.WebSearchDeclarations)
+		if err != nil {
+			return nil, fmt.Errorf("openairesponses: marshal web-search declarations: %w", err)
+		}
+		ext[extWebSearchDeclarationsKey] = carrier
+	}
 
 	var rawBody map[string]json.RawMessage
 	if json.Unmarshal(body, &rawBody) == nil {
@@ -140,7 +219,7 @@ func DecodeCreateRequest(body []byte, opts DecodeOptions) (*DecodedCreate, error
 		Route:          aipapi.RouteIntent{Selector: sel},
 		Instructions:   instructions,
 		Messages:       msgs,
-		Tools:          tools,
+		Tools:          parsedToolSet.Tools,
 		ToolChoice:     toolChoice,
 		Extensions:     ext,
 		PromptCacheKey: strings.TrimSpace(w.PromptCacheKey),
@@ -166,7 +245,7 @@ func DecodeCreateRequest(body []byte, opts DecodeOptions) (*DecodedCreate, error
 	if err := sessionwire.ApplyWorkspaceHint(call, opts.Headers, opts.HTTPHeaders); err != nil {
 		return nil, fmt.Errorf("openairesponses: %w", err)
 	}
-	return &DecodedCreate{Call: call, Stream: w.Stream, Model: model}, nil
+	return &DecodedCreate{Call: call, Stream: w.Stream, Model: model, namespaceTools: parsedToolSet.Namespace}, nil
 }
 
 // parseTextConfig extracts the canonical Responses text verbosity while
@@ -229,7 +308,7 @@ func parseInstructions(raw json.RawMessage) ([]aipapi.Message, error) {
 	return nil, errors.New("openairesponses: instructions must be a JSON string in this adapter")
 }
 
-func parseInput(raw json.RawMessage) ([]aipapi.Message, error) {
+func parseInput(raw json.RawMessage, namespaceTools *namespaceToolMapping, policy string) ([]aipapi.Message, error) {
 	if len(raw) == 0 {
 		return nil, errors.New("openairesponses: input is empty")
 	}
@@ -257,7 +336,7 @@ func parseInput(raw json.RawMessage) ([]aipapi.Message, error) {
 		}
 		out := make([]aipapi.Message, 0, len(items))
 		for i, it := range items {
-			m, err := parseInputItem(it)
+			m, err := parseInputItem(it, namespaceTools, policy)
 			if err != nil {
 				if errors.Is(err, errSkipMalformedHistory) {
 					continue
@@ -272,7 +351,7 @@ func parseInput(raw json.RawMessage) ([]aipapi.Message, error) {
 	}
 }
 
-func parseInputItem(raw json.RawMessage) (aipapi.Message, error) {
+func parseInputItem(raw json.RawMessage, namespaceTools *namespaceToolMapping, policy string) (aipapi.Message, error) {
 	var probe struct {
 		Type string `json:"type"`
 	}
@@ -281,9 +360,9 @@ func parseInputItem(raw json.RawMessage) (aipapi.Message, error) {
 	}
 	switch strings.TrimSpace(probe.Type) {
 	case "function_call_output":
-		return parseFunctionCallOutputItem(raw)
+		return parseFunctionCallOutputItem(raw, policy)
 	case "function_call":
-		return parseFunctionCallInputItem(raw)
+		return parseFunctionCallInputItem(raw, namespaceTools, policy)
 	case "reasoning":
 		return parseReasoningInputItem(raw)
 	case "", "message":
@@ -362,10 +441,11 @@ func parseMessageInputItem(raw json.RawMessage) (aipapi.Message, error) {
 	return aipapi.Message{Role: role, Parts: parts}, nil
 }
 
-func parseFunctionCallInputItem(raw json.RawMessage) (aipapi.Message, error) {
+func parseFunctionCallInputItem(raw json.RawMessage, namespaceTools *namespaceToolMapping, policy string) (aipapi.Message, error) {
 	var v struct {
 		CallID    string          `json:"call_id"`
 		Name      string          `json:"name"`
+		Namespace string          `json:"namespace"`
 		Arguments json.RawMessage `json:"arguments"`
 	}
 	if err := json.Unmarshal(raw, &v); err != nil {
@@ -376,6 +456,20 @@ func parseFunctionCallInputItem(raw json.RawMessage) (aipapi.Message, error) {
 		return aipapi.Message{}, errors.New("openairesponses: function_call requires call_id")
 	}
 	name := strings.TrimSpace(v.Name)
+	namespace := strings.TrimSpace(v.Namespace)
+	if namespace != "" {
+		if policy == namespaceToolPolicyReject {
+			return aipapi.Message{}, fmt.Errorf("openairesponses: namespaced function_call is refused by namespace_tools=%s", namespaceToolPolicyReject)
+		}
+		if name == "" {
+			return aipapi.Message{}, errors.New("openairesponses: namespaced function_call requires a name")
+		}
+		projected, err := namespaceTools.mapHistory(namespace, name)
+		if err != nil {
+			return aipapi.Message{}, fmt.Errorf("openairesponses: namespaced function_call: %w", err)
+		}
+		name = projected
+	}
 	if name == "" {
 		return aipapi.Message{}, errSkipMalformedHistory
 	}
@@ -435,16 +529,20 @@ func canonicalFunctionCallArguments(raw json.RawMessage) (json.RawMessage, error
 	return append(json.RawMessage(nil), raw...), nil
 }
 
-func parseFunctionCallOutputItem(raw json.RawMessage) (aipapi.Message, error) {
+func parseFunctionCallOutputItem(raw json.RawMessage, policy string) (aipapi.Message, error) {
 	var v struct {
-		CallID string          `json:"call_id"`
-		Output json.RawMessage `json:"output"`
+		CallID    string          `json:"call_id"`
+		Namespace string          `json:"namespace"`
+		Output    json.RawMessage `json:"output"`
 	}
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return aipapi.Message{}, fmt.Errorf("openairesponses: function_call_output json: %w", err)
 	}
 	if strings.TrimSpace(v.CallID) == "" {
 		return aipapi.Message{}, errSkipMalformedHistory
+	}
+	if strings.TrimSpace(v.Namespace) != "" && policy == namespaceToolPolicyReject {
+		return aipapi.Message{}, fmt.Errorf("openairesponses: namespaced function_call_output is refused by namespace_tools=%s", namespaceToolPolicyReject)
 	}
 	out := v.Output
 	if jsonpresence.IsAbsentOrJSONNull(out) {
@@ -598,73 +696,87 @@ func parseContentBlock(blk map[string]json.RawMessage, role aipapi.Role) (aipapi
 	}
 }
 
-func parseTools(raw json.RawMessage) ([]aipapi.ToolDef, error) {
+// parsedTools is the result of one top-level tools parse: canonical function
+// tools, the preserved hosted web-search declaration types, and the per-request
+// reversible namespace projection (always non-nil, possibly empty).
+type parsedTools struct {
+	Tools                 []aipapi.ToolDef
+	WebSearchDeclarations []string
+	Namespace             *namespaceToolMapping
+}
+
+func parseTools(raw json.RawMessage, policy string) (parsedTools, error) {
+	mapping := newNamespaceToolMapping()
 	if jsonpresence.IsAbsentOrJSONNull(raw) {
-		return []aipapi.ToolDef{}, nil
+		return parsedTools{Tools: []aipapi.ToolDef{}, Namespace: mapping}, nil
 	}
 	var items []json.RawMessage
 	if err := json.Unmarshal(raw, &items); err != nil {
-		return nil, fmt.Errorf("openairesponses: tools: %w", err)
+		return parsedTools{}, fmt.Errorf("openairesponses: tools: %w", err)
 	}
 	if err := frontendlimits.Count("tools", len(items), frontendlimits.MaxTools); err != nil {
-		return nil, err
+		return parsedTools{}, err
 	}
-	out := make([]aipapi.ToolDef, 0, len(items))
+	out := parsedTools{Tools: make([]aipapi.ToolDef, 0, len(items)), Namespace: mapping}
 	for i, it := range items {
 		var probe struct {
 			Type string `json:"type"`
 		}
 		if err := json.Unmarshal(it, &probe); err != nil {
-			return nil, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
+			return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
 		}
-		if probe.Type != "" && probe.Type != "function" {
-			return nil, fmt.Errorf("openairesponses: tools[%d]: unsupported type %q", i, probe.Type)
-		}
-		var w struct {
-			Function struct {
-				Name        string          `json:"name"`
-				Description string          `json:"description"`
-				Parameters  json.RawMessage `json:"parameters"`
-			} `json:"function"`
-			// Flat shape used by some Responses clients / SDK unions (type + name at top level).
-			Name        string          `json:"name"`
-			Description string          `json:"description"`
-			Parameters  json.RawMessage `json:"parameters"`
-		}
-		if err := json.Unmarshal(it, &w); err != nil {
-			return nil, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
-		}
-		name := strings.TrimSpace(w.Function.Name)
-		desc := w.Function.Description
-		params := w.Function.Parameters
-		if name == "" {
-			name = strings.TrimSpace(w.Name)
-			if desc == "" {
-				desc = w.Description
+		typ := strings.TrimSpace(probe.Type)
+		switch {
+		case typ == "" || typ == "function":
+			name, desc, params, err := parseFunctionToolWire(it)
+			if err != nil {
+				return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
+			}
+			if name == "" {
+				return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: function name is required", i)
 			}
 			if len(params) == 0 {
-				params = w.Parameters
+				params = json.RawMessage(`{}`)
 			}
+			if err := frontendlimits.Bytes("tool parameters", len(params), frontendlimits.MaxToolSchema); err != nil {
+				return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
+			}
+			if err := mapping.addTopLevel(name); err != nil {
+				return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
+			}
+			out.Tools = append(out.Tools, aipapi.ToolDef{
+				Name:        name,
+				Description: desc,
+				Parameters:  params,
+			})
+		case typ == "namespace":
+			if policy == namespaceToolPolicyReject {
+				return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: namespace tool declarations are refused by namespace_tools=%s", i, namespaceToolPolicyReject)
+			}
+			if err := expandNamespaceTool(it, i, mapping, &out.Tools); err != nil {
+				return parsedTools{}, err
+			}
+		case isSupportedWebSearchDeclarationType(typ):
+			// Type strings only: every other declaration attribute is
+			// deliberately discarded and never reaches the carrier.
+			out.WebSearchDeclarations = append(out.WebSearchDeclarations, typ)
+		default:
+			return parsedTools{}, fmt.Errorf("openairesponses: tools[%d]: unsupported type %q", i, probe.Type)
 		}
-		if name == "" {
-			return nil, fmt.Errorf("openairesponses: tools[%d]: function name is required", i)
+	}
+	if len(out.WebSearchDeclarations) > 0 {
+		carrier, err := json.Marshal(out.WebSearchDeclarations)
+		if err != nil {
+			return parsedTools{}, fmt.Errorf("openairesponses: marshal web-search declarations: %w", err)
 		}
-		if len(params) == 0 {
-			params = json.RawMessage(`{}`)
+		if err := frontendlimits.Bytes("tools web search declarations", len(carrier), maxWebSearchDeclarationsBytes); err != nil {
+			return parsedTools{}, err
 		}
-		if err := frontendlimits.Bytes("tool parameters", len(params), frontendlimits.MaxToolSchema); err != nil {
-			return nil, fmt.Errorf("openairesponses: tools[%d]: %w", i, err)
-		}
-		out = append(out, aipapi.ToolDef{
-			Name:        name,
-			Description: desc,
-			Parameters:  params,
-		})
 	}
 	return out, nil
 }
 
-func parseToolChoice(raw json.RawMessage) (aipapi.ToolChoice, error) {
+func parseToolChoice(raw json.RawMessage, namespaceTools *namespaceToolMapping) (aipapi.ToolChoice, error) {
 	if jsonpresence.IsAbsentOrJSONNull(raw) {
 		return aipapi.ToolChoice{Mode: aipapi.ToolChoiceAuto}, nil
 	}
@@ -699,7 +811,11 @@ func parseToolChoice(raw json.RawMessage) (aipapi.ToolChoice, error) {
 		if name == "" {
 			return aipapi.ToolChoice{}, errors.New("openairesponses: tool_choice function name is required")
 		}
-		return aipapi.ToolChoice{Mode: aipapi.ToolChoiceRequired, Name: name}, nil
+		resolved, err := namespaceTools.resolveToolChoiceName(name)
+		if err != nil {
+			return aipapi.ToolChoice{}, fmt.Errorf("openairesponses: tool_choice: %w", err)
+		}
+		return aipapi.ToolChoice{Mode: aipapi.ToolChoiceRequired, Name: resolved}, nil
 	default:
 		return aipapi.ToolChoice{}, fmt.Errorf("openairesponses: unsupported tool_choice type %q", obj.Type)
 	}

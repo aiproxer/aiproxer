@@ -1,7 +1,7 @@
 {
   "feature_name": "openai-chatgpt-plan-go-connector-migration",
   "created_at": "2026-09-30T13:00:00+02:00",
-  "updated_at": "2026-10-19T22:54:44+02:00",
+  "updated_at": "2026-11-06T15:46:02+01:00",
   "language": "en",
   "phase": "ready-for-implementation",
   "approvals": {
@@ -18,5 +18,13 @@
       "approved": true
     }
   },
-  "ready_for_implementation": true
+  "ready_for_implementation": true,
+  "amendment_status": "approved",
+  "amendment_note": "2026-11-06: owner approved the reviewed SIWC hosted web-search amendment (SIWC-only omission, strict refusal, no historical search loss, raw-tools-before-parseTools fast-path guard, task ceiling 40). Approved source fingerprint sha256=4d022db08b6d6f1c3b9767439d23db6ad093e7b5ca93eac6d97108d9fb26f665. Implementation is separately authorized and not part of this spec change.",
+  "baseline_approvals": {
+    "requirements": true,
+    "design": true,
+    "tasks": true,
+    "note": "Historical baseline approvals recorded in spec.json before the 2026-11-06 amendment. The live approvals object is the authority; it is true after the owner approved the reviewed amendment."
+  }
 }

@@ -36,6 +36,7 @@ type streamFuncArgsDone struct {
 	SequenceNumber int    `json:"sequence_number"`
 	ItemID         string `json:"item_id"`
 	Name           string `json:"name"`
+	Namespace      string `json:"namespace,omitempty"`
 	Arguments      string `json:"arguments"`
 	OutputIndex    int64  `json:"output_index"`
 }
@@ -45,6 +46,7 @@ type streamFuncItemDone struct {
 	ID        string `json:"id"`
 	CallID    string `json:"call_id"`
 	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
 	Arguments string `json:"arguments"`
 	Status    string `json:"status"`
 }
@@ -69,6 +71,7 @@ type streamFuncCallInProgress struct {
 	ID        string `json:"id"`
 	CallID    string `json:"call_id"`
 	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
 	Arguments string `json:"arguments"`
 	Status    string `json:"status"`
 }
@@ -204,6 +207,7 @@ type streamCompletedOut struct {
 	Status    string                   `json:"status,omitempty"`
 	Role      string                   `json:"role,omitempty"`
 	Name      string                   `json:"name,omitempty"`
+	Namespace string                   `json:"namespace,omitempty"`
 	Arguments string                   `json:"arguments,omitempty"`
 	Content   []streamMsgContent       `json:"content,omitempty"`
 	Summary   []streamReasoningSummary `json:"summary,omitempty"`

@@ -238,3 +238,7 @@ same `call_id`, so the upstream sees a correctly linked call/output pair. The
 `codex-client-compat` bridge recognizes Chat Completions-style tool calls when
 matching tool results, so results that belong to a known call are preserved
 rather than treated as orphaned.
+
+## Client tool namespaces
+
+Codex CLI clients may advertise tool groups as OpenAI Responses `namespace` declarations. The `openai-responses` frontend projects each member to a flat function name and restores the client's original namespace and bare name on output. The default policy serves the request with a bounded operator warning; `namespace_tools: reject` refuses namespace declarations and namespaced history instead. See [OpenAI Responses namespace tools](openai-responses-namespace-tools.md).

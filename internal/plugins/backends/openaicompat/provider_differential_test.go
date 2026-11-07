@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -886,6 +887,46 @@ func TestProviderDifferential_NoStaleFramingHeadersAndExactLength(t *testing.T) 
 	// Verify exact rewritten Content-Length
 	if wireReq.ContentLength != rewrittenLen {
 		t.Errorf("wire ContentLength = %d, want %d", wireReq.ContentLength, rewrittenLen)
+	}
+}
+
+// TestProviderDifferential_HostedWebSearchDeclinesBeforeWire pins the fast-path
+// guard on a wire-capable backend: a raw hosted web-search declaration must
+// decline to canonical processing before it can be forwarded, while an ordinary
+// function-tool request still takes the wire path unchanged.
+func TestProviderDifferential_HostedWebSearchDeclinesBeforeWire(t *testing.T) {
+	t.Parallel()
+
+	prof := frontresponses.NewProfile()
+	hosted := []byte(`{"model":"gpt-4o","stream":true,"input":"find the answer","tools":[{"type":"web_search_preview","user_location":{"type":"approximate","city":"San Francisco"},"search_context_size":"high"}]}`)
+	_, err := prof.CompileProof(context.Background(), frontendpipe.ProofInput{
+		Ctx:                  context.Background(),
+		URLPath:              "/v1/responses",
+		RouteSelector:        "test-openai-responses:gpt-4o",
+		RoutePrefixes:        routeselect.NewPrefixSet([]string{"test-openai-responses"}),
+		DefaultRouteSelector: "test-openai-responses:default",
+		RouteFromBodyModel:   true,
+		Source:               newMemSource(hosted),
+		BodyBytes:            int64(len(hosted)),
+	})
+	if !errors.Is(err, frontresponses.ErrHostedWebSearchRequiresCanonicalDecode) {
+		t.Fatalf("a raw hosted web-search declaration must decline before wire execution, got %v", err)
+	}
+
+	// Positive control: an ordinary function-tool request still uses the wire
+	// path and reaches the provider with its declarations intact.
+	ordinary := []byte(`{"model":"gpt-4o","stream":true,"input":"look it up","tools":[{"type":"function","name":"lookup","parameters":{"type":"object"}}]}`)
+	captured, _ := executeWireFlow(t, ordinary, nil, "gpt-4o", true)
+	tools, ok := captured.ParsedJSON["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("ordinary wire request tools = %#v, want one function declaration", captured.ParsedJSON["tools"])
+	}
+	tool, ok := tools[0].(map[string]any)
+	if !ok || tool["name"] != "lookup" {
+		t.Fatalf("ordinary wire request tool = %#v, want function lookup", tools[0])
+	}
+	if bytes.Contains(captured.Body, []byte("web_search")) || bytes.Contains(captured.Body, []byte("user_location")) {
+		t.Fatalf("the ordinary wire request must not carry a hosted web-search shape: %s", captured.Body)
 	}
 }
 

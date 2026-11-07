@@ -155,6 +155,54 @@
 - The current private direct connector is obsolete for the intended subscription-backed use case.
 - App-server remains useful but should move to official SIWC provider semantics.
 
+### Hosted web search and end-to-end declaration carriage
+
+**Context**
+The owner objective is a working default Codex session, not a connector-only policy that is unreachable because the shared OpenAI Responses frontend rejects `web_search` before routing. The old policy guard refused every non-function/custom declaration, and the frontend never delivered a hosted declaration to it. This section traces the existing carriage seams before selecting the smallest end-to-end boundary.
+
+**Sources consulted**
+- `https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations`
+- `https://developers.openai.com/api/docs/guides/tools-web-search`
+- `https://developers.openai.com/api/reference/resources/responses/methods/create`
+- Codex CLI request-shape reports: `https://github.com/openai/codex/issues/26234`, `https://github.com/openai/codex/issues/31875`
+
+**Findings: the wire contract**
+- The preview page says: "Supported tools: Group function/custom tools in namespaces or supply them through `additional_tools` input items. Web search remains subject to model and account/workspace policy." Its unsupported list is image generation, file search, Code Interpreter, native computer use, hosted MCP/connectors and `tool_search`; `programmatic_tool_calling` is not accepted in top-level `tools`.
+- The web-search guide documents the hosted declaration types `web_search` and the legacy `web_search_preview`; the Responses reference also names the versioned `web_search_2025_08_26` and `web_search_preview_2025_03_11`.
+- A hosted search produces a model-authored `web_search_call` output item whose action may be `search`, `open_page` or `find_in_page`. The canonical item model has no equivalent.
+- `namespace` is a declaration that groups function/custom tools. It is not a web-search declaration, and a member's name alone does not establish whether it is caller-executed or hosted.
+- Codex CLI sends `web_search` as a top-level tool, and also sends `namespace` declarations (and, on some versions, `additional_tools` input items) for MCP/skills. The web-search carriage therefore cannot by itself make every Codex request work.
+
+**Findings: existing carriage seams**
+- `internal/plugins/frontends/openairesponses/decode.go` currently rejects every top-level tool whose `type` is neither `function` nor absent; it never reaches a connector.
+- `aipapi.Call.Extensions` is the existing generic residual-metadata map. The backend-plugin bridge copies each entry into `Invocation.SafeMetadata` under `ext.<key>` (bounded to 64 KiB per value and 64 fields) and `CallFromInvocation` restores it, so an extension can reach the connector without a new ABI field.
+- `aipapi.DeriveProtocolRequirements` treats every non-internal `Call.Extensions` key as `CapabilityOpaqueExtensions` plus an exact `ExtensionRequirement{Namespace: "call", Type: key}`. `MatchRequirements` rejects a candidate that does not advertise that exact extension **before provider I/O**. A backend that lacks the extension therefore fails explicitly; it does not silently serve the request without web search.
+- `CapabilitySummary.OpaqueExtensions` and `ResolvedProfile.DialectSupport.ExtensionTypes` let a connector advertise the generic capability and the exact extension type. The SIWC connector currently advertises neither.
+- `SemanticExtensions` is a separate negotiated residual carrier that requires the semantic-extensions ABI minor/feature and is rejected by the SIWC projector. Using it would require a larger ABI/contract change and is not the smallest seam.
+- `ItemKindExtension` would change item authority/trajectory and require an ordered-item projection change. A new canonical `ToolDef`/hosted-tool field would be a public `pkg/aipapi` contract addition and would violate requirement 6.8. Frontend branching on backend kind would move routing policy into the wrong owner. A connector-specific frontend would duplicate the Responses frontend.
+- `internal/testkit/backendplugin/stage_openai_chatgpt_plan_harness_requests_test.go` already drives the real OpenAI Responses frontend → core executor → staged SIWC executable → local reference provider. The end-to-end proof extends that harness; it does not add a new test plane.
+
+**Owner decision (2026-11-06): SIWC-only omission**
+- The frontend preserves the declaration type for admission, but only the SIWC connector applies omission. Every other backend rejects the exact extension at admission; no global/frontend/core omission exists.
+- SIWC strict posture rejects before projection/network.
+- Model-authored web-search history is never dropped, fabricated, or reordered; unrepresentable history is refused.
+- `namespace`/`additional_tools` carriage remains separate and is required for Codex requests that send them.
+
+**Selected boundary**
+- The frontend preserves only the closed table `web_search`, `web_search_preview`, `web_search_2025_08_26`, `web_search_preview_2025_03_11` from the top-level `tools` array, as at most `aipapi.MaxTools` type strings (carrier value ≤64 KiB) under the opaque extension key `openairesponses.web_search_declarations`. Type strings only: no declaration attributes, filters, user location, bodies, or conversation content. Function tools stay canonical; hosted declarations are not flattened into function tools; a function/custom tool named `web_search` is not carried; every other hosted type still fails decode; unknown/new variants fail closed.
+- The key is deliberately not frontend round-trip metadata, so the existing extension-requirement admission applies. Only the SIWC connector advertises the exact extension and applies omission; every other backend rejects at admission. Runtime admission reads `ResolvedProfile.Capabilities`, so the SIWC connector must return `OpaqueExtensions: true` there and the exact `ResolvedProfile.DialectSupport.ExtensionTypes` entry; `FactoryDescriptor.StaticCapabilities.OpaqueExtensions` mirrors it. `Describe` alone is not admission authority. The policy consumes the carrier before projection and keeps its policy-local omission/strict behavior.
+- Empty, malformed, unknown, or over-bound carrier entries are policy refusals classified as unsupported capability, not invalid user context.
+- The key literal is defined privately in both modules and pinned by a staged frontend→host→SIWC test with the real `Resolve` profile. No `pkg/aipapi`/`pkg/aipsdk` field or switch is added; generic core sees only an opaque exact extension. This is the requirement 6.8 boundary.
+- The `openairesponses` large-payload/`CompileProof` fast path also parses `tools`; it must detect hosted web-search types from the raw `tools` bytes **before** `parseTools` and decline to canonical processing. Because 4.3 changes that shared `parseTools`, 4.3 owns the guard and its `frontendpipe`/`openaicompat` validation; 5.4 owns runtime `Resolve` advertisement and end-to-end admission/omission proof. The proof must show raw-order decline, enable the fast path, and show an ordinary request still takes it in a wire-capable harness (not SIWC). It must not rely on SIWC currently lacking a `WireBackend`.
+- The behavior change for other backends is explicit: a request carrying the carrier is rejected at admission unless the backend declares the exact extension. It no longer fails at frontend decode, but it is never silently served without web search. The owner decision records this non-supporting-backend rejection; it changes the error surface but is never silent.
+- Current `origin/main` is `64b1df490`; `#1738` changed `openairesponses` function-call history decoding and the SIWC input projection but left `parseTools` unchanged. The carrier work must layer on `#1738` and preserve canonical function-call identity and exact argument bytes.
+
+**Preserved behavior**
+- The omission applies only to declarations. Removing the carrier leaves every input item untouched. An input item carrying model-authored search history that cannot be preserved exactly is refused before provider execution, and an upstream `web_search_call` remains a terminal `unrepresentable_output_item` failure. Neither path drops, fabricates, or reorders history.
+- Hosted web-search execution is out of scope: the declaration is omitted or refused, not forwarded, so the connector never advertises a search capability it cannot map to canonical events.
+- A hosted `tool_choice` remains a frontend decode rejection; this slice carries declarations only. A Codex request that forces a hosted web-search choice is not claimed.
+- `namespace` and `additional_tools` carriage remain separate. They are not treated as web-search synonyms, and a default Codex request that sends them still fails until that slice is approved.
+
 ## Brownfield Gap Repair
 
 Codebase investigation added requirements that were not obvious from the initial migration idea:

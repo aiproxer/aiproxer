@@ -125,14 +125,32 @@ func TestDescribe_DirectInferenceFactory(t *testing.T) {
 	// is bridged once per completed stream by the managed stream. Ordered
 	// items and proxy-owned session authority remain unadvertised: promising
 	// them would make the host send content this build drops.
+	//
+	// semantic_extensions_v1 is exercised narrowly: it is the bounded ABI
+	// carrier that lets the preview policy receive a client prompt-cache hint
+	// and omit it explicitly (or refuse it in strict posture). The descriptor
+	// must NOT advertise exact_openresponses_fields instead: that feature
+	// promises exact field semantics, including exact reasoning/file/extension
+	// fields, which the public SIWC preview route does not accept.
 	exercisedFeatures := map[string]bool{
 		backendplugin.FeatureCancellationHandshake: true,
 		backendplugin.FeatureAccountingEvidence:    true,
+		backendplugin.FeatureSemanticExtensions:    true,
 	}
+	advertised := map[string]bool{}
 	for _, f := range d.Features {
+		advertised[f.Name] = true
 		if !exercisedFeatures[f.Name] {
 			t.Errorf("descriptor advertises feature %q that this build does not exercise", f.Name)
 		}
+	}
+	if !advertised[backendplugin.FeatureSemanticExtensions] {
+		t.Errorf("descriptor must advertise %q so the prompt-cache alias reaches the preview policy, got %+v",
+			backendplugin.FeatureSemanticExtensions, d.Features)
+	}
+	if advertised[backendplugin.FeatureExactOpenResponsesFields] {
+		t.Errorf("descriptor must not advertise %q: the SIWC preview route does not accept exact OpenResponses fields",
+			backendplugin.FeatureExactOpenResponsesFields)
 	}
 }
 

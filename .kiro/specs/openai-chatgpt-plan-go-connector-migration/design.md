@@ -34,13 +34,15 @@ After the direct-inference empirical gate passes, this specification removes the
 - Direct public Responses projection and SSE normalization.
 - Account-specific model inventory.
 - SIWC preview request/error policy.
+- Minimal OpenAI Responses hosted web-search declaration carriage: frontend preservation as a bounded opaque extension, exact extension admission, and SIWC capability/consumption.
 - Coexistence, direct-inference empirical gate, cutover and legacy inference removal.
 - Cleanup of obsolete Codex-only feature/config/docs/test assumptions.
 
 ### Out of Boundary
 
 - Canonical routing/failover/commitment semantics.
-- Frontend protocol redesign.
+- Frontend protocol redesign beyond the minimal hosted-declaration carriage owned here.
+- Generic hosted-tool support, `namespace`/tool-grouping, or hosted web-search execution.
 - Generic reasoning-preservation policy except adapter revalidation.
 - Billing/rating redesign.
 - Remote SaaS authorization architecture.
@@ -49,6 +51,7 @@ After the direct-inference empirical gate passes, this specification removes the
 ### Allowed Dependencies
 
 - Public root contracts: `pkg/aipapi`, `pkg/aipsdk/backendplugin`, `pkg/aipsdk/modelinventory`.
+- Existing `openairesponses` frontend decode path and `Call.Extensions` opaque-extension admission; no `pkg/aipapi`/`pkg/aipsdk` contract change.
 - Connector-support modules such as `oauthcred` and provider-neutral OpenAI-compatible helpers.
 - Go standard library HTTP/crypto primitives where suitable.
 - A small connector-local JWT/JWK dependency if safer than custom cryptographic parsing.
@@ -58,6 +61,7 @@ After the direct-inference empirical gate passes, this specification removes the
 
 - SIWC OAuth scope/endpoint changes.
 - Responses preview field/tool changes.
+- Hosted web-search declaration types or opaque-extension admission/capability changes.
 - Backend-plugin ABI/credential-mode changes.
 - App-server launch/RPC changes.
 - Canonical reasoning/tool-item contract changes.
@@ -140,13 +144,13 @@ flowchart LR
 ```
 
 **Project Boundary Questions (AIProxer)**
-- **Core-owned or plugin-owned?** Plugin-owned. SIWC is provider authentication/transport policy.
-- **New canonical concept?** No. Existing instructions/messages/tools/events suffice.
+- **Core-owned or plugin-owned?** Split by seam: the frontend preserves the wire declaration identity, the existing core opaque-extension admission gates it, and the SIWC connector owns omission/strict policy. No new core branch.
+- **New canonical concept?** No. The carriage reuses the existing opaque `Call.Extensions` admission; no hosted-tool field or item type is added.
 - **Streaming-first preserved?** Yes. Provider request always streams; downstream non-stream is host collection.
-- **Provider SDK/wire leakage avoided?** Yes. OpenAI wire types remain inside the connector.
+- **Provider SDK/wire leakage avoided?** Yes. OpenAI wire types remain inside the connector and frontend.
 - **No retry after visible output?** Yes. Existing first-output commitment remains authoritative.
 - **Secure-session/startup posture affected?** Yes. Local-only personal-auth policy and protected credentials must be revalidated. The posture is *declared* in the connector's manifest export (`access_scope: local_only`, `credential_mode: oauth_user`) and *enforced* once by the generic host backend security-profile gate plus the host-owned multi-user approval registry. The connector itself implements no single-user/server-mode check and is never given the deployment access mode.
-- **Extension seam used?** Existing backend-plugin ABI; no new core extension plane.
+- **Extension seam used?** Existing opaque-extension admission and backend-plugin ABI; no new core extension plane or public SDK field.
 
 ### Technology Stack
 
@@ -211,8 +215,9 @@ Potentially modified:
 
 ### Root/feature/config changes after validation
 
+- `internal/plugins/frontends/openairesponses/decode.go`, `profile.go` — bounded carrier in decode; raw-`tools`-before-`parseTools` fast-path decline in profile.
 - `internal/plugins/features/codexclientcompat/` — remove retired Codex-only targeting/extensions; keep only empirically justified feature behavior.
-- `internal/testkit/backendplugin/` — add new staging during coexistence; remove legacy staging after cutover.
+- `internal/testkit/backendplugin/` — add new staging during coexistence, including `stage_openai_chatgpt_plan_declaration_carriage_test.go` for the end-to-end proof; remove legacy staging after cutover.
 - examples/docs/release gates — introduce new route/config, then delete old references.
 - `connectors/codex/` — remove the private inference export after the direct gate only; retain the app-server and any shared implementation it needs.
 
@@ -259,6 +264,8 @@ sequenceDiagram
     O-->>P: response.completed
     P-->>H: canonical terminal + usage
 ```
+
+The policy consumes and removes the hosted-declaration carrier before projection, so the provider request carries only supported function tools and no web-search declaration.
 
 ### Deferred app-server token renewal (handoff to #1633)
 
@@ -350,19 +357,17 @@ Browser/callback is a connector CLI/operator surface, not a core HTTP API.
 
 ### SIWC Request Policy
 
-Pure provider policy consuming a canonical call/projected Responses body and returning a legal request or typed provider limitation. It owns mandatory stream/store flags, unsupported fields/tools, HTTP no-`previous_response_id`, system-message legality and preview diagnostics. It does not own frontend parsing, routing or client-family detection.
+Pure provider policy over the canonical call and projected Responses document; it owns transport flags, unsupported fields, HTTP `previous_response_id`, system-message legality, preview diagnostics and declaration policy, not frontend parsing, routing or client families.
+Hosted web-search declarations reach it only through the minimal openairesponses carriage: the frontend preserves only the closed table `web_search`, `web_search_preview`, `web_search_2025_08_26`, `web_search_preview_2025_03_11` as an array of at most `aipapi.MaxTools` type strings (carrier value ≤64 KiB) under the opaque extension key `openairesponses.web_search_declarations`; function tools stay canonical, hosted declarations are not flattened into function tools, a function/custom tool named `web_search` is not carried, every other hosted type still fails decode, and unknown/new web-search variants fail closed until a reviewed table update.
+The key is not frontend round-trip metadata, so `DeriveProtocolRequirements` requires `opaque_extensions` plus the exact `call` extension; a backend that does not declare it is rejected before provider I/O, never served with the declaration silently absent. Only the SIWC connector declares the exact extension and applies the omission; the shared frontend and core never omit it. Runtime admission reads `ResolvedProfile.Capabilities`, so the SIWC connector must return `OpaqueExtensions: true` there and the exact `ResolvedProfile.DialectSupport.ExtensionTypes` entry; `FactoryDescriptor.StaticCapabilities.OpaqueExtensions` mirrors it. `Describe` alone is not admission authority. Its policy consumes the carrier before the generic protocol-extension loop.
+The policy validates the bounded array; empty, malformed, unknown, or over-bound entries are refusals classified as unsupported capability, not invalid user context. In the `policy_mode` interoperable posture it removes the carrier from the cloned call and records one `Omission` per declaration with a dedicated stable reason, the carrier path with declared type in `Field` and the wire field `tools` in `Wire`. The connector's `recordOmissions` remains the connector-local detail log; because a spawned connector's stderr is not the integrated operator boundary, the connector also emits exactly one fixed, content-free canonical `EventWarning` marker after `response_started` whenever an omission occurred, and the host adapter consumes that exact marker after recording one fixed content-free operator warning. Ordinary canonical warnings are unchanged; strict posture refuses before projection or network and emits no marker.
+No omission ever applies to history: an unrepresentable model-authored search input item is refused before provider execution, and an upstream `web_search_call` output remains an `unrepresentable_output_item` terminal failure, never a dropped or synthesized event.
+The classification is table-driven and name-blind; `namespace` groups function/custom tools, is not a web-search synonym, and is neither parsed nor flattened here, so a namespace declaration remains outside this policy's supported declaration set.
+The key literal is a documented cross-module wire contract, defined privately on both sides and pinned by a staged end-to-end test; no `pkg/aipapi`/`pkg/aipsdk` field or switch is added. The frontend wire fast path detects hosted web-search types from raw `tools` before `parseTools` and declines them to canonical processing; it never wire-executes them, independent of the selected backend or current SIWC wire-backend availability. The wire-side guard remains a defense for an already-projected document: a raw hosted declaration that bypasses the carrier is refused.
 
 ### Responses Projector
 
-Maps:
-- `Call.Instructions` → `instructions`;
-- system conversational text → deterministic legal instruction merge;
-- legal developer/user/assistant/tool chronology → `input`;
-- function definitions and tool choice;
-- reasoning option where supported;
-- image/file parts where legal.
-
-No Codex prompt fallback is allowed.
+Maps `Call.Instructions` to `instructions`; folds system conversational text deterministically; preserves legal developer/user/assistant/tool chronology in `input`; projects function definitions and tool choice; projects the supported reasoning option; and carries legal image/file parts. No Codex prompt fallback is allowed.
 
 ### Responses Stream
 
@@ -427,25 +432,19 @@ Provider body text is bounded/redacted. Quota is not an authentication-refresh t
 ## Testing Strategy
 
 ### Unit
-- profile permissions/atomicity/versioning;
-- host-id persistence/race;
-- authorization URL parameters;
-- PKCE/state/nonce;
-- JWKS/claim/scope validation;
-- rotating refresh;
-- request-policy table;
-- instruction/system mapping;
-- function call/result projection;
-- model parsing;
-- terminal event classification.
+- profile permissions/atomicity/versioning, host-id persistence/race;
+- authorization URL parameters, PKCE/state/nonce, JWKS/claim/scope validation, rotating refresh;
+- frontend hosted-declaration carriage, exact extension admission and capability parity;
+- request-policy table (web-search types, strict refusal, name-blind function tools, namespace refusal, search-history refusal), instruction/system mapping, function call/result projection;
+- model parsing, terminal event classification.
 
 ### Integration
-- `httptest` auth/token/JWKS/models/responses services;
-- exact public URL/header/body contract;
+- `httptest` auth/token/JWKS/models/responses services and exact public URL/header/body contract;
 - forced upstream stream for downstream non-stream call;
 - profile-partitioned model cache;
 - token refresh during configured instance lifetime;
 - backend-plugin descriptor/configure/execute/list-models path;
+- staged frontend→host→SIWC carriage with real `Resolve` admission: default omission, strict refusal, non-supporting-backend rejection before provider I/O, no declaration on the upstream wire, and hosted-shape fast-path decline with a positive ordinary-request control in `frontendpipe`/`openaicompat`;
 - negative proof against private Codex fields.
 
 ### Deferred app-server (#1633)
@@ -481,6 +480,7 @@ A dedicated opt-in probe may automate wire checks, but final migration still req
 - State/nonce/PKCE are fresh per attempt and time-bounded.
 - Refresh-token reuse/terminal invalidation requires reauthorization.
 - Config should reference profiles/stores rather than embed long-lived OAuth secrets.
+- The hosted-declaration carrier holds only documented type strings, never declaration bodies, attributes, filters, user location, or conversation content; a non-supporting backend rejects the exact extension before provider I/O.
 
 ## Performance & Scalability
 
