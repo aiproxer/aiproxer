@@ -268,6 +268,7 @@ func (i *instance) openManagedStream(
 		return nil, classifyBeforeTerminal(err)
 	}
 	recordOmissions(ctx, inv.RequestID, binding.profileID, admission.Omissions)
+	omitted := hasDegradationOmissions(admission.Omissions)
 
 	// The credential is acquired from the BOUND registration, and the record
 	// that supplied it is validated before any request exists.
@@ -284,7 +285,7 @@ func (i *instance) openManagedStream(
 		cancel()
 		return nil, classifyBeforeTerminal(err)
 	}
-	return newManagedStream(raw, cancel, credential.ProfileID, inv.AttemptID, exec.accountingEvidenceV1), nil
+	return newManagedStream(raw, cancel, credential.ProfileID, inv.AttemptID, exec.accountingEvidenceV1, omitted), nil
 }
 
 // attemptBinding is the ONE registration an attempt is authorized to act for.
@@ -445,11 +446,26 @@ func recordOmissions(ctx context.Context, requestID, profileID string, omissions
 	}
 }
 
+// hasDegradationOmissions reports whether the admission omitted a value the
+// client actually asked the provider to receive. Dropping the proxy-owned
+// previous_response_id from a materialized continuation is normal bookkeeping,
+// not a degradation, so it alone never becomes an operator warning.
+func hasDegradationOmissions(omissions []responses.Omission) bool {
+	for _, omission := range omissions {
+		if omission.Reason == responses.PolicyReasonPreviousResponseOmitted {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 // managedStream is the canonical, managed stream of one provider answer.
 //
-// It forwards the normalized canonical events unchanged, owns the request
-// context that aborts the upstream request on cancellation, and bridges the
-// completed stream's usage to the accounting sideband exactly once.
+// It forwards the normalized canonical events unchanged (apart from one fixed
+// omission warning), owns the request context that aborts the upstream request
+// on cancellation, and bridges the completed stream's usage to the accounting
+// sideband exactly once.
 type managedStream struct {
 	inner     *responses.NormalizedStream
 	cancel    context.CancelFunc
@@ -467,7 +483,21 @@ type managedStream struct {
 	identitySource string
 	// emitted records that the one sideband record of this stream exists.
 	emitted bool
+	// omissionWarning requests one fixed canonical warning after
+	// response_started. The three fields are touched by Recv's single reader
+	// only, so no lock or goroutine is needed.
+	omissionWarning        bool
+	omissionWarningEmitted bool
+	warningPending         bool
 }
+
+// siwcPreviewOmissionWarning is the private exact marker the connector emits
+// once on a served stream when the preview policy omitted at least one
+// unsupported request field. It carries no request content. The host adapter
+// duplicates the literal across the module boundary, consumes this exact event
+// after recording a fixed operator warning, and never forwards it to the
+// client; the staged acceptance test pins both sides together.
+const siwcPreviewOmissionWarning = "siwc_preview_omission_v1"
 
 // newManagedStream wraps one raw provider answer.
 //
@@ -477,18 +507,19 @@ type managedStream struct {
 // the request. The provider's correlation identity - the FULL value from the
 // answer envelope, before its diagnostic display bound - names the charge
 // itself.
-func newManagedStream(raw *responses.Stream, cancel context.CancelFunc, profileID, attemptID string, accountingEvidenceV1 bool) *managedStream {
+func newManagedStream(raw *responses.Stream, cancel context.CancelFunc, profileID, attemptID string, accountingEvidenceV1, omissionWarning bool) *managedStream {
 	attributed := strings.TrimSpace(profileID)
 	buffer := backendplugin.NewUsageEvidenceBuffer()
 	buffer.SetEnabled(accountingEvidenceV1)
 	identity, source := chargeIdentity(raw.RequestIdentity(), attemptID)
 	return &managedStream{
-		inner:          raw.Normalize(),
-		cancel:         cancel,
-		usage:          buffer,
-		dedupeKey:      usageDedupeKey(attributed, identity),
-		profileID:      attributed,
-		identitySource: source,
+		inner:           raw.Normalize(),
+		cancel:          cancel,
+		usage:           buffer,
+		dedupeKey:       usageDedupeKey(attributed, identity),
+		profileID:       attributed,
+		identitySource:  source,
+		omissionWarning: omissionWarning,
 	}
 }
 
@@ -496,9 +527,22 @@ func newManagedStream(raw *responses.Stream, cancel context.CancelFunc, profileI
 //
 // The usage evidence is captured on the way through, so the sideband record
 // exists by the time the forwarding coordinator drains it after this event.
+// When the preview policy omitted a field, one fixed content-free warning is
+// interleaved immediately after response_started, never before it.
 func (s *managedStream) Recv(ctx context.Context) (aipapi.Event, error) {
 	if s == nil || s.inner == nil {
 		return aipapi.Event{}, io.EOF
+	}
+	if s.warningPending {
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return aipapi.Event{}, ctx.Err()
+			default:
+			}
+		}
+		s.warningPending = false
+		return aipapi.Event{Kind: aipapi.EventWarning, WarningMessage: siwcPreviewOmissionWarning}, nil
 	}
 	event, err := s.inner.Recv(ctx)
 	if err != nil {
@@ -509,6 +553,10 @@ func (s *managedStream) Recv(ctx context.Context) (aipapi.Event, error) {
 			return event, classified
 		}
 		return event, err
+	}
+	if s.omissionWarning && !s.omissionWarningEmitted && event.Kind == aipapi.EventResponseStarted {
+		s.omissionWarningEmitted = true
+		s.warningPending = true
 	}
 	s.captureUsage(ctx, event)
 	return event, nil

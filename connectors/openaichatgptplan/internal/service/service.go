@@ -91,13 +91,23 @@ func (s *Service) Describe(context.Context) (backendplugin.PluginDescriptor, err
 		// The cancellation handshake is implemented by the shared backend-plugin
 		// execute helper this connector runs. The accounting evidence sideband
 		// is implemented by the managed stream: the completed answer's usage is
-		// bridged once through the existing V1 host-only record. Ordered items
-		// and proxy-owned session authority are not part of this connector's
-		// declared surface; advertising them would promise content handling
-		// this build cannot honor.
+		// bridged once through the existing V1 host-only record.
+		//
+		// semantic_extensions_v1 is the bounded residual carrier the preview
+		// policy consumes: a client prompt-cache hint reaches the policy as one
+		// carrier, so interoperable posture can omit it explicitly (or strict
+		// posture can refuse it) instead of the ABI rejecting the attempt
+		// before policy. Only the recognized prompt-cache alias is omitted;
+		// every other residual semantic remains a projector refusal.
+		//
+		// exact_openresponses_fields is deliberately NOT advertised: the SIWC
+		// preview route does not accept exact Responses fields, so claiming
+		// that feature would promise semantics this build cannot honor. Ordered
+		// items and proxy-owned session authority are likewise not advertised.
 		Features: []backendplugin.Feature{
 			{Name: backendplugin.FeatureCancellationHandshake},
 			{Name: backendplugin.FeatureAccountingEvidence},
+			{Name: backendplugin.FeatureSemanticExtensions},
 		},
 		Factories: []backendplugin.FactoryDescriptor{{
 			Kind:        FactoryKind,

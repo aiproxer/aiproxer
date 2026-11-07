@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -21,6 +22,19 @@ import (
 const defaultMaxStderrBytes = 64 << 10
 
 const maxBufferedUsageEvidence = 1024
+
+// siwcPreviewOmissionMarker is the private exact marker the SIWC connector
+// emits once on a served stream when its preview policy omitted an unsupported
+// request field. The connector duplicates the literal across the module
+// boundary; the staged acceptance test pins both sides together. The adapter
+// consumes this exact warning after recording a fixed operator warning, so it
+// never reaches the client stream or the OpenResponses lifecycle.
+const siwcPreviewOmissionMarker = "siwc_preview_omission_v1"
+
+// siwcPreviewOmissionLogMessage is the fixed, content-free operator warning
+// recorded for the marker. It never includes connector warning text, request
+// fields, client ids or conversation content.
+const siwcPreviewOmissionLogMessage = "openai-chatgpt-plan: request degraded under the SIWC preview policy"
 
 // errCanonicalEventAfterFinish rejects a canonical event that follows
 // response_finished on a prompt-cache-negotiated connector. response_finished
@@ -211,6 +225,10 @@ type managedStream struct {
 	// are rejected instead of sent, so a malformed connector cannot fill the
 	// event channel and block before the terminal frame settles the sideband.
 	promptCacheFinishQueued atomic.Bool
+	// omissionWarningLogged records that the exact private SIWC omission marker
+	// already produced its one fixed operator warning for this attempt. It is
+	// touched only by the Execute pump through onPluginFrame.
+	omissionWarningLogged bool
 	// lineageALegID/lineageBLegID are the exact attempt A-leg and transport leg
 	// pseudonym the host supplied in the start invocation. A plugin-side
 	// prompt-cache observation may only echo these values (or leave a field
@@ -746,6 +764,19 @@ func (s *managedStream) onPluginFrame(frame backendplugin.ServerFrame) error {
 		ev, err := eventToAipapi(frame.Event)
 		if err != nil {
 			return err
+		}
+		// The SIWC connector emits one private exact marker for a served request
+		// whose preview policy omitted an unsupported field. Record one fixed,
+		// content-free operator warning and consume this exact event: it has no
+		// client-visible meaning, and forwarding it would hit the OpenResponses
+		// unknown-event path instead of preserving the continuation lifecycle.
+		// Ordinary warnings, including near-miss texts, stay untouched.
+		if ev.Kind == aipapi.EventWarning && ev.WarningMessage == siwcPreviewOmissionMarker {
+			if !s.omissionWarningLogged {
+				s.omissionWarningLogged = true
+				slog.Default().Warn(siwcPreviewOmissionLogMessage, "backend_instance_id", s.opt.InstanceID)
+			}
+			return nil
 		}
 		if backendplugin.PromptCacheNegotiated(s.opt.Negotiation) {
 			// The finish gate withholds response_finished until the terminal
