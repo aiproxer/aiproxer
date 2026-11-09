@@ -56,7 +56,7 @@ func (s *Service) Consume(ctx context.Context, job Job) (Outcome, error) {
 
 	collected, err := s.background.Await(ctx, job.ID)
 	if err != nil {
-		if isAwaitTimeout(err) {
+		if isAwaitTimeout(ctx, err) {
 			return Outcome{Status: StatusPending, State: state}, fmt.Errorf("%w: %v", ErrAwaitTimeout, err)
 		}
 		// The scheduler has reached a terminal failure; no useful raw result
@@ -176,8 +176,17 @@ func digestArray(value string) ([32]byte, error) {
 	return out, nil
 }
 
-func isAwaitTimeout(err error) bool {
-	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || errors.Is(err, ErrAwaitTimeout)
+// isAwaitTimeout reports whether a failed Await left the job alive for a later
+// turn. The caller's own bound is retryable: an expired barrier deadline or a
+// canceled request stops waiting without ending the detached job. A
+// cancellation the caller's context does not explain comes from the scheduler's
+// terminal shutdown instead, which also wraps context.Canceled so the cause
+// stays reachable; such a job can never complete and must be rejected.
+func isAwaitTimeout(ctx context.Context, err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrAwaitTimeout) {
+		return true
+	}
+	return errors.Is(err, context.Canceled) && ctx.Err() != nil
 }
 
 var _ BackgroundClient = auxiliary.BackgroundClient(nil)

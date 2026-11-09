@@ -21,15 +21,15 @@ func acquireFileLock(ctx context.Context, path string) (*fileLock, error) {
 	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		return nil, fmt.Errorf("%w: lock path is a symlink", aipcont.ErrStorageFailure)
 	} else if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("%w: lock stat: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: lock stat: %w", aipcont.ErrStorageFailure, err)
 	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return nil, fmt.Errorf("%w: lock open: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: lock open: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err := f.Chmod(0o600); err != nil {
 		_ = f.Close()
-		return nil, fmt.Errorf("%w: lock permissions: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: lock permissions: %w", aipcont.ErrStorageFailure, err)
 	}
 	for {
 		err = tryLockFile(f)
@@ -38,7 +38,7 @@ func acquireFileLock(ctx context.Context, path string) (*fileLock, error) {
 		}
 		if !isLockBusy(err) {
 			_ = f.Close()
-			return nil, fmt.Errorf("%w: lock acquire: %v", aipcont.ErrStorageFailure, err)
+			return nil, fmt.Errorf("%w: lock acquire: %w", aipcont.ErrStorageFailure, err)
 		}
 		timer := time.NewTimer(10 * time.Millisecond)
 		select {

@@ -248,6 +248,9 @@ func withGatewayCapability(capabilities json.RawMessage) (json.RawMessage, error
 	if err := json.Unmarshal(capabilities, &mapping); err != nil {
 		return nil, err
 	}
+	if mapping == nil {
+		return nil, errors.New("claudeagentacp: gateway capabilities must be a JSON object")
+	}
 	mapping["auth"] = map[string]any{"_meta": map[string]any{"gateway": true}}
 	merged, err := json.Marshal(mapping)
 	if err != nil {

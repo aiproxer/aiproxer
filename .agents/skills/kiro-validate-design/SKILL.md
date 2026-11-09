@@ -1,6 +1,6 @@
 ---
 name: kiro-validate-design
-description: Interactive technical design quality review and validation
+description: Interactive technical design quality review and validation. Use before implementing an approved design, and again when a spec's change touches canonical contracts, routing or A-leg overrides, B2BUA continuity, plugin registration, or billing attachment seams.
 metadata:
   shared-rules: "design-review.md"
 ---
@@ -18,6 +18,15 @@ metadata:
 </background_information>
 
 <instructions>
+## When to revalidate
+
+Re-run this review, plus the spec's integration tests, when a spec's change touches:
+- canonical request/event contracts (`pkg/aipapi`), including tool classification;
+- selector syntax, routing semantics, or A-leg routing overrides (`internal/core/routing`, `internal/core/routeoverride`);
+- B2BUA continuity or authority coordination (`internal/core/authoritycoord`);
+- plugin registration contracts (`pkg/aipsdk`, `internal/standardplugins`);
+- billing attachment ports, usage evidence, or the binding (`internal/core/billingport`, `internal/core/usageevidence`, `pkg/aipsdk/billing`, `internal/infra/billingbinding`), or the Enterprise money implementation and its composition (`enterprise/`).
+
 ## Core Task
 Interactive design quality review for feature **$1** based on approved requirements and design document.
 

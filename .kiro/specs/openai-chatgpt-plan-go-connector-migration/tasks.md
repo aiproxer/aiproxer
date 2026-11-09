@@ -110,14 +110,19 @@
   - _Depends: 4.1_
   - _Validation: go test ./internal/responses/..._
 
-- [x] 4.3 Implement the centralized SIWC preview request policy
-  - Force `store:false` and `stream:true`; reject or deliberately omit every documented unsupported field according to explicit canonical semantics.
-  - Reject unsupported hosted tools and HTTP `previous_response_id` before network execution.
-  - Observable completion: table tests cover every documented unsupported field/tool plus positive minimal/tool/multimodal requests.
-  - _Requirements: 4.3, 6.1, 6.2, 6.3, 6.4, 6.7, 6.8, 6.9_
-  - _Boundary: backend plugin / domain policy_
+- [x] 4.3 Implement the SIWC preview policy, hosted web-search declaration carriage, and fast-path guard
+  - Baseline completion remains valid: force `store:false` and `stream:true`; reject or deliberately omit every documented unsupported field; reject other hosted tools and HTTP `previous_response_id` before network execution.
+  - Preserve only the closed table `web_search`, `web_search_preview`, `web_search_2025_08_26`, `web_search_preview_2025_03_11` from the OpenAI Responses top-level `tools` array as at most `aipapi.MaxTools` type strings (carrier value ≤64 KiB) under the opaque extension key `openairesponses.web_search_declarations`; type strings only, no declaration attributes, filters, user location, bodies, or conversation content; function tools stay canonical, hosted declarations are not flattened into function tools, a function/custom tool named `web_search` is not carried, every other hosted type still fails decode, and unknown/new variants fail closed.
+  - Because this task changes the shared `parseTools`, implement the fast-path guard in the same slice: `openairesponses/profile.go` must detect hosted web-search types from raw `tools` bytes before calling `parseTools` and decline to canonical processing; never wire-execute a hosted shape, independent of selected backend or `WireBackend` availability.
+  - Make the carrier an exact extension requirement: a backend without `opaque_extensions` and the exact `call` extension type rejects before provider I/O. Only the SIWC connector applies omission; every other backend rejects at admission. Runtime `Resolve` capability advertisement is task 5.4.
+  - Consume the carrier in the SIWC policy before the generic protocol-extension loop: validate the bounded array, refuse empty/malformed/unknown/over-bound entries as unsupported capability (not invalid user context), remove the carrier from the clone, and omit one declaration per entry with a dedicated stable reason, carrier path with declared type in `Field` and the wire field `tools` in `Wire` in interoperable mode or refuse before network in strict mode. The wire-side guard still refuses a raw hosted declaration that bypasses the carrier.
+  - Never omit history: refuse an input carrying model-authored web-search history the connector cannot preserve exactly, and keep an upstream `web_search_call` an `unrepresentable_output_item` failure rather than a dropped or synthesized event.
+  - Do not classify by name or namespace: `namespace` remains outside the supported declaration set and is not treated as a web-search declaration.
+  - Observable completion: frontend/policy table tests cover the closed table, bounds, name non-classification, malformed carriers, history refusal, and unchanged other-hosted-tool refusal; wire-capable `frontendpipe`/`openaicompat` tests prove raw-before-`parseTools` decline and retain a positive ordinary-request wire control. Runtime `Resolve` advertisement is task 5.4.
+  - _Requirements: 4.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 6.9, 14.2, 14.3_
+  - _Boundary: frontend / backend plugin / domain policy / wire fast path / tests_
   - _Depends: 4.2_
-  - _Validation: go test ./internal/responses/..._
+  - _Validation: go test ./internal/plugins/frontends/openairesponses/... ./internal/plugins/frontends/frontendpipe/... ./internal/plugins/backends/openaicompat/... ./internal/infra/runtimebundle/... && go -C connectors/openaichatgptplan test ./internal/responses/..._
 
 ## 5. Implement public stream-only Responses execution
 
@@ -146,6 +151,14 @@
   - _Boundary: backend plugin / app orchestration_
   - _Depends: 5.2_
   - _Validation: go test ./... (new module) + targeted backendplugin host integration_
+
+- [x] 5.4 Implement runtime SIWC opaque-extension advertisement and end-to-end carriage
+  - Return `ResolvedProfile.Capabilities.OpaqueExtensions: true` and the exact `ResolvedProfile.DialectSupport.ExtensionTypes` entry from the SIWC connector; mirror `FactoryDescriptor.StaticCapabilities.OpaqueExtensions`. `Describe` remains non-authoritative for runtime admission.
+  - Prove the end-to-end behavior after 4.3: the real `Resolve` profile admits SIWC; interoperable omission is logged and absent upstream; strict refuses before projection/network; non-supporting backends reject before provider I/O; no history item is dropped or fabricated.
+  - _Requirements: 1.7, 6.4, 6.5, 14.2, 14.3, 14.12_
+  - _Boundary: backend plugin capability / host admission / e2e tests_
+  - _Depends: 4.3, 5.3_
+  - _Validation: go test ./internal/testkit/backendplugin/... ./internal/plugins/frontends/openairesponses/... && go -C connectors/openaichatgptplan test ./internal/service/..._
 
 ## 6. Implement SIWC error and usage semantics
 
@@ -462,6 +475,9 @@ Tasks 13.4 and 13.5 are historical handoff to #1633, not closeout blockers or au
 - Task 4.3: FORCE/REFUSE/OMIT is a triage, not a dial. `store:false`/`stream:true` are forced constants read by both projector and guard; continuations without history, hosted tools and wire `previous_response_id` are refused with zero Admission before network; generation options, cache hints and protocol extensions are only OMITTED, and every omission is returned in `Admission.Omissions` (default posture) or refused (strict posture). A silent drop is never an omission.
 - Task 4.3: round-trip metadata is not a protocol requirement. The policy mirrors the canonical frontend-metadata key set locally (the authority stays unexported in core); the parity test pins every NAMED form, and an additive authority change needs a manual mirror update — it is not auto-discovered.
 - Task 4.3: policy wraps projection, it does not rewrite it. `AdmitCall` clones and changes only continuation/cache carriers before invoking `ProjectCall`; inherited projector refusals propagate unchanged (no PolicyError wrapper for uniformity).
+- Task 4.3 amendment (2026-11-06, owner-directed requirement reconciliation and carriage): the checkbox is reopened for the carrier/policy delta; the original 4.3 completion remains the baseline for unsupported fields, other hosted tools, `previous_response_id`, and positive requests. Because this task changes the shared `parseTools`, it also owns the raw-`tools`-before-`parseTools` fast-path guard and its `frontendpipe`/`openaicompat` validation; otherwise a hosted shape could be raw-forwarded before policy. The delta also includes the frontend carrier, exact extension requirement, SIWC policy consumption, and their unit/frontend tests. Runtime `Resolve` advertisement and end-to-end proof are task 5.4. Task 4.3 depends only on 4.2; task 5.4 depends on 4.3 and 5.3, giving the required DAG 4.3 → 5.3 → 5.4. The owner authorized the task ceiling 39→40 for task 5.4. `namespace`/`additional_tools` carriage is not included and remains rejected; default Codex requests that send them are not claimed.
+- Task 5.4 (owner-authorized +1 leaf, 2026-11-06): substantive implementation, not a standalone certification task. It owns the SIWC runtime `ResolvedProfile` opaque-extension/exact-extension advertisement (and static descriptor mirror) and the end-to-end admission/omission/strict/non-supporting/history proof after 4.3. The fast-path guard is in 4.3 because it changes the shared `parseTools`. History behavior remains refusal of unrepresentable model-authored search items; no item is dropped or fabricated.
+- Task 4.3 amendment learning: the frontend carrier literal and the connector consumer literal are private duplicates pinned by the staged proof in 5.4. The fast-path guard treats any raw tool type with the `web_search` prefix (including unknown/new variants) as a hosted shape and declines to canonical decode before `parseTools`; the shared parser is therefore never the wire-safety boundary for hosted declarations.
 
 - Task 5.1: a transport error is not a diagnostic string. Generic body-read failures are flattened to the constant `ErrStreamUnreadable` (EOF, cancellation, closed-stream and size sentinels keep identity); the raw cause is neither wrapped nor retained, because `net/http` propagates provider-controlled text (e.g. a malformed trailer echoing the bearer) through that path.
 - Task 5.1: the raw seam dispatches on field PRESENCE, not payload. A `data` field contributes its newline even when empty; a colon-less line is a field with an empty value. Frame-local state AND per-frame accounting reset at every blank separator; the whole-stream cap is independent.
@@ -491,3 +507,6 @@ Tasks 13.4 and 13.5 are historical handoff to #1633, not closeout blockers or au
 - Task 6.3: the charge is the PROVIDER's correlation, not the diagnostic. Accounting keys use the full redacted identity (`RequestIdentity`, before the 128-rune display bound); the display form stays truncated. Encodings are namespaced by source (`req:` provider, `attempt:` fallback, `hash:` digest-of-namespaced-segment), so literal spellings of another encoding cannot collide; redelivery keeps a stable key under the 256-byte bound.
 - Task 6.3: one completed stream, one record. Emission requires `ResponseStatus == "completed"` with counter presence; usage accumulates additively (last-nonzero total, unioned presence). The identity_source marker is an operator log (never key material); identification is not delivery (the buffer owns acceptance). No money logic anywhere: counts only.
 - Task 6.3 (post-approval, applied directly): F1 — the emission log claimed "emitted"; reworded to "identified" with the buffer-acceptance caveat (gating would need an SDK API change, out of scope). F2 — committed a beyond-display-bound secret case for the full identity; a no-redaction mutant fails it with `bearer_leaked=true`. Redaction is redact-before-bound; sanitization (controls/whitespace) also applies.
+
+- Task 5.4: runtime admission is the RESOLVED profile, not the descriptor. `Resolve` advertises `opaque_extensions` plus the exact `call`/`openairesponses.web_search_declarations` extension; `Describe` only mirrors the generic bit, and the staged proof shows a static-capability-only candidate is rejected for the missing exact extension. The connector literal is exported only across packages inside the connector's `internal` tree so the advertisement and the policy consumer cannot drift. Coexistence with the namespace projection is pinned on the rebased tree: namespace members stay flat function tools, only the closed hosted table enters the carrier, and a combined raw namespace + hosted web-search request declines to canonical/wire execution.
+

@@ -151,6 +151,8 @@ func TestCompactionContinuityShutdownCertification_QueueCloseAndLateCompletion(t
 	}
 	if _, err := s.Await(context.Background(), second); !errors.Is(err, auxreq.ErrSchedulerClosed) {
 		t.Fatalf("queued canceled job Await=%v want ErrSchedulerClosed", err)
+	} else if !errors.Is(err, context.Canceled) {
+		t.Fatalf("queued canceled job Await=%v want context.Canceled cause", err)
 	}
 }
 

@@ -108,7 +108,7 @@ Before choosing a package or changing dependency direction, read `.kiro/steering
 
 - Specs are opt-in: `/kiro:*`, an explicit `.kiro/specs/...` path, or an explicit spec-driven request. Direct code is the default.
 - Use a spec for public contract changes (`pkg/aipapi`, `pkg/aipsdk`), routing/B2BUA semantics, billing, or genuinely unclear requirements.
-- If an active spec covers the work, do not code before its `requirements.md` and `design.md` are approved. Spec flow, budgets, and archiving: `.kiro/AGENTS.md`.
+- If an active spec covers the work, do not code before its `requirements.md` and `design.md` are approved. Spec layout and where the workflow lives: `.kiro/AGENTS.md`; budgets: `.kiro/steering/delivery.md`.
 
 ## Verification
 

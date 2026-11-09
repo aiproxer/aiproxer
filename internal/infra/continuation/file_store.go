@@ -69,7 +69,7 @@ func NewFileStore(path string, limits aipcont.StorageLimits) (*FileStore, error)
 	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		return nil, fmt.Errorf("%w: store path is a symlink", aipcont.ErrStorageFailure)
 	} else if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("%w: stat: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: stat: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err := rejectSymlinkParents(filepath.Dir(path)); err != nil {
 		return nil, err
@@ -90,14 +90,14 @@ func NewFileStore(path string, limits aipcont.StorageLimits) (*FileStore, error)
 		return s, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%w: read: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: read: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err := json.Unmarshal(data, &s.state); err != nil {
-		return nil, fmt.Errorf("%w: decode: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: decode: %w", aipcont.ErrStorageFailure, err)
 	}
 	normalizeReservations(s.state.Reserved, s.now())
 	if err := os.Chmod(path, 0o600); err != nil {
-		return nil, fmt.Errorf("%w: permissions: %v", aipcont.ErrStorageFailure, err)
+		return nil, fmt.Errorf("%w: permissions: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err := validateState(s.state, s.limits); err != nil {
 		return nil, err
@@ -325,11 +325,11 @@ func (s *FileStore) persistLocked(ctx context.Context, state fileState) error {
 	}
 	data, err := json.Marshal(state)
 	if err != nil {
-		return fmt.Errorf("%w: encode: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: encode: %w", aipcont.ErrStorageFailure, err)
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(s.path), ".continuation-*")
 	if err != nil {
-		return fmt.Errorf("%w: create temp: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: create temp: %w", aipcont.ErrStorageFailure, err)
 	}
 	tmpName := tmp.Name()
 	defer func() { _ = os.Remove(tmpName) }()
@@ -339,11 +339,11 @@ func (s *FileStore) persistLocked(ctx context.Context, state fileState) error {
 	}
 	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("%w: temp permissions: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: temp permissions: %w", aipcont.ErrStorageFailure, err)
 	}
 	if _, err = tmp.Write(data); err != nil {
 		_ = tmp.Close()
-		return fmt.Errorf("%w: write: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: write: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err == nil {
 		err = ctx.Err()
@@ -355,13 +355,13 @@ func (s *FileStore) persistLocked(ctx context.Context, state fileState) error {
 		err = closeErr
 	}
 	if err != nil {
-		return fmt.Errorf("%w: write: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: write: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err := replaceFile(tmpName, s.path); err != nil {
-		return fmt.Errorf("%w: rename: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: rename: %w", aipcont.ErrStorageFailure, err)
 	}
 	if err := syncDirectory(filepath.Dir(s.path)); err != nil {
-		return fmt.Errorf("%w: directory sync: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: directory sync: %w", aipcont.ErrStorageFailure, err)
 	}
 	return nil
 }
@@ -369,11 +369,11 @@ func (s *FileStore) persistLocked(ctx context.Context, state fileState) error {
 func (s *FileStore) reloadLocked() error {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
-		return fmt.Errorf("%w: read: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: read: %w", aipcont.ErrStorageFailure, err)
 	}
 	var state fileState
 	if err := json.Unmarshal(data, &state); err != nil {
-		return fmt.Errorf("%w: decode: %v", aipcont.ErrStorageFailure, err)
+		return fmt.Errorf("%w: decode: %w", aipcont.ErrStorageFailure, err)
 	}
 	normalizeReservations(state.Reserved, s.now())
 	if err := validateState(state, s.limits); err != nil {
@@ -389,7 +389,7 @@ func newID(ctx context.Context) (aipcont.ResponseID, error) {
 	}
 	var raw [aipcont.MinResponseIDEntropyBytes]byte
 	if _, err := rand.Read(raw[:]); err != nil {
-		return "", fmt.Errorf("%w: entropy: %v", aipcont.ErrStorageFailure, err)
+		return "", fmt.Errorf("%w: entropy: %w", aipcont.ErrStorageFailure, err)
 	}
 	return aipcont.ResponseID(aipcont.ResponseIDPrefix + base64.RawURLEncoding.EncodeToString(raw[:])), nil
 }
@@ -528,7 +528,7 @@ func rejectSymlinkParents(path string) error {
 			return fmt.Errorf("%w: parent path is a symlink", aipcont.ErrStorageFailure)
 		}
 		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("%w: parent stat: %v", aipcont.ErrStorageFailure, err)
+			return fmt.Errorf("%w: parent stat: %w", aipcont.ErrStorageFailure, err)
 		}
 		next := filepath.Dir(current)
 		if next == current {

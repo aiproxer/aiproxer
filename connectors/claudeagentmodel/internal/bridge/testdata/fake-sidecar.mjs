@@ -36,6 +36,15 @@ if (mode === 'no_read') {
   )
 }
 
+if (mode === 'burst_exit') {
+  // Final frames written immediately before a clean exit. Pipe writes are
+  // synchronous on POSIX, so every frame is in the pipe when the leader exits.
+  for (let i = 0; i < 64; i++) {
+    send({ kind: 'burst', text: String(i) })
+  }
+  process.exit(0)
+}
+
 if (mode === 'descendant' || mode === 'descendant_crash') {
   // An SDK-shaped descendant in the sidecar's process group. It ignores stdio
   // and outlives a graceful or crashing parent unless the owner retires the

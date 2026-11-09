@@ -31,6 +31,17 @@ Load skills before the corresponding implementation or review:
 
 For error/security/observability/database/CLI/gRPC/performance/dependencies/documentation/CI/troubleshooting, load the focused `golang-*` skill from `.agents/catalog.json`. Repository steering overrides generic skill defaults.
 
+### Rejected: small free models as reviewers
+
+In November 2026 we benchmarked `qwen/qwen3.8-27b-abliterated-cyber:free` on Infron as an automated reviewer. The test set had 16 bug-introducing commits, mined by blaming later `fix` commits, plus 10 clean commits. The baseline was DeepSeek v4.1 Flash running as an OpenCode agent.
+
+- **Fixed per-declaration pipeline** (call-graph context, repository skills, review lenses): Qwen caught 5–8 of the 16 bugs and raised 5–11 findings per clean commit. The same pipeline with DeepSeek caught 10 and raised about 5.
+- **Qwen as an OpenCode agent**: it ignored the tool-call budget, often ended without the required JSON answer, mangled file paths, and reached about 3 of the 13 bug commits it covered.
+- **DeepSeek as an OpenCode agent**: 10 of 16 bugs caught and 0.7 findings per clean commit.
+- **Quota:** Infron's free tier allows 1000 requests per day, shared across all `:free` models. An agent spends about 75 requests per commit.
+
+Do not add such a model to the review roster or as a pre-filter. Exploring the code agentically mattered more than the model's price.
+
 ## Exploration
 
 - Choose the tool by the question: use exact files and distinctive symbols for code relationships; use file/text tools for documents, configuration and logs.

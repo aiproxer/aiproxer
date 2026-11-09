@@ -171,7 +171,7 @@ func decodeSettingsBody(body []byte) (proxymemory.OwnerOverrides, error) {
 	if in == nil {
 		return proxymemory.OwnerOverrides{}, errors.New("proxymemoryhttp: the settings document must be an object")
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return proxymemory.OwnerOverrides{}, errors.New("proxymemoryhttp: the settings document must be one object")
 	}
 	return proxymemory.OwnerOverrides{

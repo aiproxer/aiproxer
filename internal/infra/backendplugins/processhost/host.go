@@ -13,7 +13,6 @@ import (
 
 	"github.com/aiproxer/aiproxer/internal/infra/backendplugins/trust"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk/backendplugin"
-	"golang.org/x/sync/singleflight"
 )
 
 // Config configures a process supervisor.
@@ -39,22 +38,54 @@ const (
 type Host struct {
 	cfg Config
 
-	mu         sync.Mutex
-	closing    bool
-	nextGen    uint64
-	slots      map[string]*generationSlot
-	retiring   map[uint64]*generationSlot // detached generations still undergoing physical teardown
-	instances  map[string]*instanceRec
-	launchSF   singleflight.Group
+	mu        sync.Mutex
+	closing   bool
+	nextGen   uint64
+	slots     map[string]*generationSlot
+	retiring  map[uint64]*generationSlot // detached generations still undergoing physical teardown
+	instances map[string]*instanceRec
+	// flights holds the in-flight shared launch for each ownership key. A flight
+	// outlives any single caller but is owned by the activations waiting on it:
+	// the last withdrawal cancels its construction lifetime.
+	flights    map[string]*launchFlight
 	launchNote func()
 	// breachNote observes a diagnostic-budget breach before the generation is
 	// invalidated. It is a diagnostic seam: production leaves it unset.
 	breachNote func()
 	// Admission and Add share mu with Close. A generation stays owned while
 	// launching or detached for cleanup, not just while present in slots.
-	generations sync.WaitGroup
-	shutdown    context.Context
-	cancel      context.CancelFunc
+	generations   sync.WaitGroup
+	flightWorkers sync.WaitGroup
+	shutdown      context.Context
+	cancel        context.CancelFunc
+}
+
+// launchFlight is one in-flight shared construction for an ownership key.
+//
+// A flight outlives any single activation: a caller that withdraws stops only
+// its own wait while surviving peers keep the launch alive. The construction
+// itself is owned by the activations interested in it, counted in waiters. The
+// cancellation in cancel therefore belongs to the flight, not to any request,
+// and bounds the launch while it has published no generation.
+//
+// Publication transfers ownership from the flight to the generation: the
+// published slot's release path owns the child from then on, so a later
+// withdrawal settles the slot instead of canceling the launch.
+type launchFlight struct {
+	key    string
+	cancel context.CancelFunc
+	done   chan struct{}
+
+	// The fields below are guarded by Host.mu. finished is set in the same
+	// critical section that publishes the slot (or in the finish publication
+	// for an outcome without a slot), so abandonment and publication cannot
+	// both win. slot and err are written before done is closed and read after
+	// receiving from it.
+	waiters   int
+	finished  bool
+	abandoned bool
+	slot      *generationSlot
+	err       error
 }
 
 type generationSlot struct {
@@ -84,6 +115,7 @@ type instanceRec struct {
 	generation uint64
 	state      instanceState
 	closing    bool
+	flight     *launchFlight
 	err        error
 	// terminalCause is the cause of the generation this activation owns. It
 	// is set when the generation is terminated by its diagnostic budget, so
@@ -113,6 +145,7 @@ func NewHost(cfg Config) *Host {
 		slots:     map[string]*generationSlot{},
 		retiring:  map[uint64]*generationSlot{},
 		instances: map[string]*instanceRec{},
+		flights:   map[string]*launchFlight{},
 		shutdown:  shutdown,
 		cancel:    cancel,
 	}
@@ -260,27 +293,67 @@ func (h *Host) Activate(ctx context.Context, req ActivateRequest) (ActivateResul
 		done:    make(chan struct{}),
 	}
 	h.instances[req.InstanceID] = inst
+	flight := h.flights[key]
+	if flight == nil {
+		flightCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		flight = &launchFlight{key: key, cancel: cancel, done: make(chan struct{})}
+		h.flights[key] = flight
+		f := flight
+		h.flightWorkers.Go(func() {
+			slot, err := h.ensureGeneration(flightCtx, key, req, f)
+			if err == nil {
+				h.settleUnownedSlot(key, slot)
+			}
+			h.mu.Lock()
+			f.finished = true
+			f.slot, f.err = slot, err
+			if h.flights[key] == f {
+				delete(h.flights, key)
+			}
+			close(f.done)
+			h.mu.Unlock()
+			if err != nil {
+				cancel()
+			}
+		})
+	}
+	flight.waiters++
+	inst.flight = flight
 	h.mu.Unlock()
 
-	res, err := h.activatePending(ctx, key, req, inst)
+	res, err := h.activatePending(ctx, key, req, inst, flight)
 	if err != nil {
 		h.failInstance(inst, err)
+		// This activation stopped waiting after the shared launch had already
+		// published its generation: with no other owner, the generation is
+		// unowned and must be settled here rather than left running.
+		h.settleUnownedSlot(key, nil)
 		return ActivateResult{}, err
 	}
 	return res, nil
 }
 
-func (h *Host) activatePending(ctx context.Context, key string, req ActivateRequest, inst *instanceRec) (ActivateResult, error) {
-	v, err, _ := h.launchSF.Do(key, func() (any, error) {
-		return h.ensureGeneration(ctx, key, req)
-	})
-	if err != nil {
-		return ActivateResult{}, err
+func (h *Host) activatePending(ctx context.Context, key string, req ActivateRequest, inst *instanceRec, flight *launchFlight) (ActivateResult, error) {
+	defer func() {
+		h.mu.Lock()
+		h.withdrawFlightLocked(inst)
+		h.mu.Unlock()
+	}()
+	select {
+	case <-ctx.Done():
+		return ActivateResult{}, ctx.Err()
+	case <-flight.done:
 	}
-	slot, ok := v.(*generationSlot)
-	if !ok {
-		return ActivateResult{}, fmt.Errorf("processhost: unexpected generation slot type %T", v)
+	h.mu.Lock()
+	instanceErr := inst.err
+	h.mu.Unlock()
+	if instanceErr != nil {
+		return ActivateResult{}, instanceErr
 	}
+	if flight.err != nil {
+		return ActivateResult{}, flight.err
+	}
+	slot := flight.slot
 	// A pending owner may have been withdrawn while launch/singleflight was
 	// blocked. Keep its cleanup obligation until the slot exists; release only
 	// an exact slot with no remaining owners (including pending shared owners).
@@ -389,6 +462,32 @@ func (h *Host) activatePending(ctx context.Context, key string, req ActivateRequ
 	return res, nil
 }
 
+// settleUnownedSlot withdraws a generation an activation stopped waiting for.
+//
+// A shared launch keeps running after every caller's context ends, so the slot
+// it publishes can be left with no pending or configured owner. Such a
+// generation is unreachable until shutdown: keeping its child process,
+// listener, RPC connection and drain workers alive would leak them for as long
+// as the host runs. The published slot is preferred when known, so a withdrawal
+// is never charged to an unrelated replacement generation.
+func (h *Host) settleUnownedSlot(key string, published *generationSlot) {
+	slot := published
+	if slot == nil {
+		// No slot reached this activation: the launch publishes one later and
+		// settles it itself, or another generation now serves the key.
+		h.mu.Lock()
+		slot = h.slots[key]
+		h.mu.Unlock()
+		if slot == nil {
+			return
+		}
+	}
+	// reapUnownedSlot keeps a live slot that still has owners, so a concurrent
+	// claim preserves the generation: ownership is decided by the instance maps
+	// under the host lock, never by the caller that happened to withdraw.
+	h.reapUnownedSlot(slot)
+}
+
 func (h *Host) failInstance(inst *instanceRec, err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -400,13 +499,34 @@ func (h *Host) failInstance(inst *instanceRec, err error) {
 	close(inst.done)
 }
 
-func (h *Host) ensureGeneration(ctx context.Context, key string, req ActivateRequest) (*generationSlot, error) {
+func (h *Host) withdrawFlightLocked(inst *instanceRec) {
+	f := inst.flight
+	if f == nil {
+		return
+	}
+	inst.flight = nil
+	f.waiters--
+	if f.waiters == 0 && !f.finished {
+		f.abandoned = true
+		if h.flights[f.key] == f {
+			delete(h.flights, f.key)
+		}
+		f.cancel()
+	}
+}
+
+func (h *Host) ensureGeneration(ctx context.Context, key string, req ActivateRequest, flight *launchFlight) (*generationSlot, error) {
 	h.mu.Lock()
 	if h.closing {
 		h.mu.Unlock()
 		return nil, ReasonShuttingDown
 	}
+	if flight.abandoned || h.flights[key] != flight {
+		h.mu.Unlock()
+		return nil, ReasonGenerationInvalidated
+	}
 	if slot, ok := h.slots[key]; ok && !slot.failed && slot.proc != nil && slot.conn != nil {
+		flight.finished = true
 		h.mu.Unlock()
 		return slot, nil
 	}
@@ -538,14 +658,15 @@ func (h *Host) ensureGeneration(ctx context.Context, key string, req ActivateReq
 	// after that snapshot would escape the reaper and leak the child process,
 	// listener, and RPC connection, so admission and publication share Close's
 	// critical section and fail closed once shutdown starts.
-	if h.closing {
+	if h.closing || flight.abandoned || h.flights[key] != flight {
 		h.mu.Unlock()
 		_ = conn.Close()
 		_ = lis.Close()
 		stopLaunch(proc, drain)
-		return nil, ReasonShuttingDown
+		return nil, ReasonGenerationInvalidated
 	}
 	h.slots[key] = slot
+	flight.finished = true
 	published = true // physical cleanup now owns the generation admission
 	h.mu.Unlock()
 	if drain.exceeded() {
@@ -799,6 +920,7 @@ func (h *Host) closeInstance(id string, expected *instanceRec) error {
 	}
 	inst.closing = true
 	if inst.state == instancePending {
+		h.withdrawFlightLocked(inst)
 		inst.state = instanceFailed
 		inst.err = ReasonGenerationInvalidated
 		close(inst.done)
@@ -862,6 +984,7 @@ func (h *Host) Close() error {
 			first = err
 		}
 	}
+	h.flightWorkers.Wait()
 	h.generations.Wait()
 	return first
 }

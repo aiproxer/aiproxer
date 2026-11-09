@@ -366,6 +366,18 @@ func TestAuthEnv_RejectsGatewayMisconfiguration(t *testing.T) {
 
 // Requirement 2.2: an unusable owned-root parent must fail before spawning.
 // Mutants: fall back to a temporary parent or continue after MkdirTemp fails.
+// A JSON null capabilities document decodes into a nil map without an error;
+// merging the gateway marker must fail closed instead of panicking on
+// assignment into that nil map.
+func TestWithGatewayCapability_NullDocumentFailsClosed(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{`null`, " \t\nnull \n"} {
+		if _, err := withGatewayCapability(json.RawMessage(raw)); err == nil {
+			t.Fatalf("null capabilities %q must fail closed", raw)
+		}
+	}
+}
+
 func TestAuthEnv_InvalidStateRootNeverSpawns(t *testing.T) {
 	for _, source := range []string{"api_key", "subscription_token"} {
 		for _, kind := range []string{"empty", "missing", "file"} {

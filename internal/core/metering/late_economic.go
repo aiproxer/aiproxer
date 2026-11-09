@@ -432,11 +432,11 @@ func (a *LateEconomicAppender) validateSupersession(ctx context.Context, observa
 		}
 		prior, err := a.resolver.GetObservation(ctx, ref.ObservationID, ref.Revision)
 		if err != nil {
-			return fmt.Errorf("%w: resolve %s/%d: %v", ErrLateEconomicLineageMismatch, ref.ObservationID, ref.Revision, err)
+			return fmt.Errorf("%w: resolve %s/%d: %w", ErrLateEconomicLineageMismatch, ref.ObservationID, ref.Revision, err)
 		}
 		canonicalPrior, err := prior.Canonical()
 		if err != nil {
-			return fmt.Errorf("%w: superseded observation invalid: %v", ErrLateEconomicLineageMismatch, err)
+			return fmt.Errorf("%w: superseded observation invalid: %w", ErrLateEconomicLineageMismatch, err)
 		}
 		if canonicalPrior.Subject.StoreID != ref.StoreID {
 			return fmt.Errorf("%w: superseded observation store", ErrLateEconomicStoreMismatch)
@@ -453,7 +453,7 @@ func (a *LateEconomicAppender) validateSupersession(ctx context.Context, observa
 	}
 	known = append(known, observation)
 	if err := sdkmetering.ValidateSupersessionGraph(known); err != nil {
-		return fmt.Errorf("%w: %v", ErrLateEconomicLineageMismatch, err)
+		return fmt.Errorf("%w: %w", ErrLateEconomicLineageMismatch, err)
 	}
 	return nil
 }

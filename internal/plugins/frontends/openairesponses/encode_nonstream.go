@@ -59,7 +59,7 @@ func wireWriteNonStreamJSONWithOptions(ctx context.Context, w http.ResponseWrite
 	if ts == 0 {
 		ts = time.Now().Unix()
 	}
-	resp, err := buildWireResponseInternal(ctx, es, model, rid, mid, ts, opts.ExposeAipUsageExtensions)
+	resp, err := buildWireResponseInternal(ctx, es, model, rid, mid, ts, opts.ExposeAipUsageExtensions, nil)
 	if err != nil {
 		return err
 	}
@@ -75,10 +75,10 @@ func buildWireResponse(ctx context.Context, call *aipapi.Call, es aipapi.EventSt
 		model = "gpt-4o-mini"
 	}
 	opts = defaultEncodeOptions(call, opts)
-	return buildWireResponseInternal(ctx, es, model, opts.ResponseID, opts.MessageID, opts.CreatedAt, opts.ExposeAipUsageExtensions)
+	return buildWireResponseInternal(ctx, es, model, opts.ResponseID, opts.MessageID, opts.CreatedAt, opts.ExposeAipUsageExtensions, opts.namespaceTools)
 }
 
-func buildWireResponseInternal(ctx context.Context, es aipapi.EventStream, model, rid, mid string, ts int64, exposeExt bool) (wireResponse, error) {
+func buildWireResponseInternal(ctx context.Context, es aipapi.EventStream, model, rid, mid string, ts int64, exposeExt bool, namespaceTools *namespaceToolMapping) (wireResponse, error) {
 	order := &nonstreamOutputOrder{}
 	tee := openaiwire.TeeTerminal(es)
 	col, err := aipapi.Collect(ctx, &orderTeeStream{inner: tee, order: order})
@@ -125,14 +125,7 @@ func buildWireResponseInternal(ctx context.Context, es aipapi.EventStream, model
 				if !ok {
 					continue
 				}
-				out = append(out, map[string]any{
-					"type":      "function_call",
-					"id":        fcItemID(tc.ID),
-					"call_id":   tc.ID,
-					"name":      tc.Name,
-					"arguments": tc.Arguments,
-					"status":    "completed",
-				})
+				out = append(out, functionCallWireObject(tc, namespaceTools))
 			}
 		}
 	} else {
@@ -148,14 +141,7 @@ func buildWireResponseInternal(ctx context.Context, es aipapi.EventStream, model
 			out = append(out, msgOut)
 		}
 		for _, tc := range col.OrderedToolCalls() {
-			out = append(out, map[string]any{
-				"type":      "function_call",
-				"id":        fcItemID(tc.ID),
-				"call_id":   tc.ID,
-				"name":      tc.Name,
-				"arguments": tc.Arguments,
-				"status":    "completed",
-			})
+			out = append(out, functionCallWireObject(tc, namespaceTools))
 		}
 	}
 	resp := wireResponse{
@@ -175,4 +161,23 @@ func buildWireResponseInternal(ctx context.Context, es aipapi.EventStream, model
 	}
 	resp.Usage = wireResponsesUsage(col, exposeExt)
 	return resp, nil
+}
+
+// functionCallWireObject emits one completed function_call item. A projected
+// namespace member is restored to the client's original bare name plus its
+// namespace; ordinary and unknown names pass through unchanged.
+func functionCallWireObject(tc aipapi.ToolCallSummary, namespaceTools *namespaceToolMapping) map[string]any {
+	name, namespace := restoreNamespaceToolName(namespaceTools, tc.Name)
+	item := map[string]any{
+		"type":      "function_call",
+		"id":        fcItemID(tc.ID),
+		"call_id":   tc.ID,
+		"name":      name,
+		"arguments": tc.Arguments,
+		"status":    "completed",
+	}
+	if namespace != "" {
+		item["namespace"] = namespace
+	}
+	return item
 }

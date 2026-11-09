@@ -80,6 +80,20 @@ func projectTerminalDecisionEvidence(request requestTerminalFacts, attempt *atte
 		ExplicitCompletionExpected: expectedCompletion,
 	}
 
+	evidence.Lineage = terminalDecisionLineage(request, attempt)
+
+	actions := terminalDecisionActions(items, p, attempt)
+	evidence.ActionCount = uint8(len(actions))
+	copy(evidence.Actions[:], actions)
+	return evidence
+}
+
+// terminalDecisionLineage derives the cheap continuation lineage (trajectory,
+// progress, and attempt number) without projecting the history trajectory.
+// It is the only evidence the provider-less evaluator input retains, so that
+// input keeps identical identity, observation, and flight-key fields while
+// skipping the NormalizedItems projection and text scans.
+func terminalDecisionLineage(request requestTerminalFacts, attempt *attemptSession) terminaldecision.EvidenceLineage {
 	trajectoryRef := strings.TrimSpace(request.continuationIntent.trajectoryRef)
 	progressRef := strings.TrimSpace(request.continuationIntent.controlRef)
 	attemptNumber := request.continuationIntent.attempt
@@ -89,17 +103,12 @@ func projectTerminalDecisionEvidence(request requestTerminalFacts, attempt *atte
 		progressRef = strings.TrimSpace(derived.controlRef)
 		attemptNumber = derived.attempt
 	}
-	evidence.Lineage = terminaldecision.EvidenceLineage{
+	return terminaldecision.EvidenceLineage{
 		TrajectoryRef: boundedTerminalDecisionIdentifier(trajectoryRef),
 		ParentRef:     boundedTerminalDecisionIdentifier(request.call.PreviousResponseID),
 		ProgressRef:   boundedTerminalDecisionIdentifier(progressRef),
 		Attempt:       attemptNumber,
 	}
-
-	actions := terminalDecisionActions(items, p, attempt)
-	evidence.ActionCount = uint8(len(actions))
-	copy(evidence.Actions[:], actions)
-	return evidence
 }
 
 func terminalDecisionObjective(items []aipapi.Item) string {

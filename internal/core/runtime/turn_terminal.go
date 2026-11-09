@@ -636,7 +636,7 @@ func (t *turnTerminal) settleOrReleaseRequestAuthority(ctx context.Context, p *r
 }
 
 func (t *turnTerminal) terminalizeTurn(ctx context.Context, cmd sdkterminal.Command, intent attemptTerminalIntent, request requestTerminalFacts, attempt *attemptSession, p *responsePipeline, evidence attemptEvidence, snapshot coreterm.AccumulatorSnapshot) bool {
-	input := t.terminalDecisionInput(cmd, request, attempt, p, snapshot)
+	input := t.terminalDecisionEvalInput(cmd, request, attempt, p, snapshot)
 	_, published := t.terminalizeTurnDecisionWithPublication(ctx, t.terminalDecisionProvider, input, cmd, intent, request, attempt, p, evidence, snapshot)
 	return published
 }
@@ -745,6 +745,31 @@ func (t *turnTerminal) terminalizeTurnAfterDecision(ctx context.Context, decisio
 }
 
 func (t *turnTerminal) terminalDecisionInput(cmd sdkterminal.Command, request requestTerminalFacts, attempt *attemptSession, p *responsePipeline, snapshot coreterm.AccumulatorSnapshot) terminaldecision.Input {
+	evidence := projectTerminalDecisionEvidence(request, attempt, p)
+	return terminalDecisionAssembledInput(t, cmd, request, attempt, snapshot, evidence)
+}
+
+// terminalDecisionEvalInput builds the evaluator input for the production
+// finish paths, skipping the history-trajectory evidence projection when no
+// provider is installed. With no provider the evaluator returns allow-stop
+// without inspecting the input and the observation records only cause, kind,
+// reason, and commitment, so the NormalizedItems projection and the bounded
+// text scans are pure work (about a third of allocated objects on a
+// large-history turn). The retained lineage keeps every consumed field -
+// identity, observation, and flight key - identical to the projected input;
+// only evidence no consumer reads stays empty. The provider slot is fixed at
+// stream assembly, so the gate cannot diverge mid-turn.
+func (t *turnTerminal) terminalDecisionEvalInput(cmd sdkterminal.Command, request requestTerminalFacts, attempt *attemptSession, p *responsePipeline, snapshot coreterm.AccumulatorSnapshot) terminaldecision.Input {
+	if t != nil && t.terminalDecisionProvider != nil {
+		return t.terminalDecisionInput(cmd, request, attempt, p, snapshot)
+	}
+	return terminalDecisionAssembledInput(t, cmd, request, attempt, snapshot,
+		terminaldecision.Evidence{Lineage: terminalDecisionLineage(request, attempt)})
+}
+
+// terminalDecisionAssembledInput assembles the evaluator input from already
+// projected evidence. It carries no policy; callers choose the evidence.
+func terminalDecisionAssembledInput(t *turnTerminal, cmd sdkterminal.Command, request requestTerminalFacts, attempt *attemptSession, snapshot coreterm.AccumulatorSnapshot, evidence terminaldecision.Evidence) terminaldecision.Input {
 	var bLegID string
 	if attempt != nil {
 		bLegID = attempt.bleg.BLegID
@@ -767,7 +792,6 @@ func (t *turnTerminal) terminalDecisionInput(cmd sdkterminal.Command, request re
 	if strings.TrimSpace(policy.Revision) == "" {
 		policy.Revision = "0"
 	}
-	evidence := projectTerminalDecisionEvidence(request, attempt, p)
 	return terminaldecision.Input{
 		Candidate: terminaldecision.CanonicalTerminalCandidate{
 			Cause:           decisionCandidateCause(cmd),
@@ -895,7 +919,7 @@ func (t *turnTerminal) closeClose(ctx context.Context, request requestTerminalFa
 	ev.RecordReason = "client closed"
 	ev.BillingReason = "client closed"
 	ev.CancelCause = &aipapi.CancelCause{Kind: aipapi.CancelClientGone, Detail: "client closed"}
-	decision := t.sharedTerminalDecision(ctx, t.terminalDecisionProvider, t.terminalDecisionInput(sdkterminal.CommandClose, request, attempt, p, snapshot))
+	decision := t.sharedTerminalDecision(ctx, t.terminalDecisionProvider, t.terminalDecisionEvalInput(sdkterminal.CommandClose, request, attempt, p, snapshot))
 	if decision.Decision.Kind == terminaldecision.DecisionContinue {
 		return
 	}
@@ -997,7 +1021,7 @@ func (t *turnTerminal) terminalizeGateReplacement(ctx context.Context, request r
 	ev.RecordOutcome = aipapi.AttemptSurfacedFailure
 	ev.RecordReason = gateErr.Reason
 	ev.Err = gateErr
-	decision := t.sharedTerminalDecision(ctx, t.terminalDecisionProvider, t.terminalDecisionInput(sdkterminal.CommandGateReplacement, request, attempt, p, snapshot))
+	decision := t.sharedTerminalDecision(ctx, t.terminalDecisionProvider, t.terminalDecisionEvalInput(sdkterminal.CommandGateReplacement, request, attempt, p, snapshot))
 	if decision.Decision.Kind == terminaldecision.DecisionContinue {
 		return nil
 	}

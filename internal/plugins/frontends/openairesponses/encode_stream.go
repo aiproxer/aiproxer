@@ -24,7 +24,7 @@ func WriteStreamSSE(ctx context.Context, w http.ResponseWriter, call *aipapi.Cal
 		model = "gpt-4o-mini"
 	}
 	opts = defaultEncodeOptions(call, opts)
-	return writeStreamSSECore(ctx, w, model, opts.ResponseID, opts.MessageID, opts.CreatedAt, opts.ExposeAipUsageExtensions, func(w http.ResponseWriter) {
+	return writeStreamSSECore(ctx, w, model, opts.ResponseID, opts.MessageID, opts.CreatedAt, opts.ExposeAipUsageExtensions, opts.namespaceTools, func(w http.ResponseWriter) {
 		sessionwire.WriteResponseCarriers(w, call)
 	}, es, true)
 }
@@ -64,12 +64,12 @@ func wireWriteStreamSSEWithOptions(ctx context.Context, w http.ResponseWriter, r
 	if ts == 0 {
 		ts = time.Now().Unix()
 	}
-	return writeStreamSSECore(ctx, w, model, rid, mid, ts, opts.ExposeAipUsageExtensions, func(w http.ResponseWriter) {
+	return writeStreamSSECore(ctx, w, model, rid, mid, ts, opts.ExposeAipUsageExtensions, opts.namespaceTools, func(w http.ResponseWriter) {
 		rc.WriteSessionHeaders(w)
 	}, es, false)
 }
 
-func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, mid string, ts int64, exposeExt bool, writeCarriers func(w http.ResponseWriter), es aipapi.EventStream, closeBeforePump bool) error {
+func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, mid string, ts int64, exposeExt bool, namespaceTools *namespaceToolMapping, writeCarriers func(w http.ResponseWriter), es aipapi.EventStream, closeBeforePump bool) error {
 	// Canonical encoding owns pre-pump cleanup; wire replay retains its caller's
 	// raw-stream fallback close. Neither path adds a close after PumpSSE takes over.
 	defer func() {
@@ -101,6 +101,7 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 		ItemID      string
 		OutputIndex int64
 		Name        string
+		Namespace   string
 		Args        strings.Builder
 	}
 	toolByCallID := make(map[string]*toolStream)
@@ -129,6 +130,7 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 				ID:        st.ItemID,
 				CallID:    st.CallID,
 				Name:      st.Name,
+				Namespace: st.Namespace,
 				Arguments: "",
 				Status:    "in_progress",
 			},
@@ -430,9 +432,11 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 			if err := closeReasoningItem(); err != nil {
 				return false, err
 			}
+			name, namespace := restoreNamespaceToolName(namespaceTools, ev.ToolName)
 			if st, ok := toolByCallID[ev.ToolCallID]; ok {
 				if ev.ToolName != "" {
-					st.Name = ev.ToolName
+					st.Name = name
+					st.Namespace = namespace
 				}
 				break
 			}
@@ -440,7 +444,8 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 				CallID:      ev.ToolCallID,
 				ItemID:      fcItemID(ev.ToolCallID),
 				OutputIndex: nextOutIdx,
-				Name:        ev.ToolName,
+				Name:        name,
+				Namespace:   namespace,
 			}
 			nextOutIdx++
 			toolByCallID[ev.ToolCallID] = st
@@ -454,6 +459,7 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 					ID:        st.ItemID,
 					CallID:    st.CallID,
 					Name:      st.Name,
+					Namespace: st.Namespace,
 					Arguments: "",
 					Status:    "in_progress",
 				},
@@ -506,6 +512,7 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 				SequenceNumber: nextSeq(),
 				ItemID:         st.ItemID,
 				Name:           st.Name,
+				Namespace:      st.Namespace,
 				Arguments:      args,
 				OutputIndex:    st.OutputIndex,
 			}); err != nil {
@@ -520,6 +527,7 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 					ID:        st.ItemID,
 					CallID:    st.CallID,
 					Name:      st.Name,
+					Namespace: st.Namespace,
 					Arguments: args,
 					Status:    "completed",
 				},
@@ -567,6 +575,7 @@ func writeStreamSSECore(ctx context.Context, w http.ResponseWriter, model, rid, 
 					ID:        st.ItemID,
 					CallID:    st.CallID,
 					Name:      st.Name,
+					Namespace: st.Namespace,
 					Arguments: st.Args.String(),
 					Status:    "completed",
 				}

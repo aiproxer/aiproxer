@@ -1426,7 +1426,7 @@ func addDecimal(a, b metering.Decimal) (metering.Decimal, error) {
 	leftInt.Add(leftInt, rightInt)
 	result, err := (metering.Decimal{Coefficient: leftInt.String(), Scale: scale}).Normalize()
 	if err != nil {
-		return metering.Decimal{}, fmt.Errorf("%w: %v", ErrOverflow, err)
+		return metering.Decimal{}, fmt.Errorf("%w: %w", ErrOverflow, err)
 	}
 	return result, nil
 }

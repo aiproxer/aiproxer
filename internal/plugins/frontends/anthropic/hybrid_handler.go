@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -245,7 +246,7 @@ func hybridModelFromJSON(body []byte) (string, bool) {
 	if _, err = d.Token(); err != nil {
 		return "", false
 	}
-	if _, err = d.Token(); err != io.EOF {
+	if _, err = d.Token(); !errors.Is(err, io.EOF) {
 		return "", false
 	}
 	return model, model != ""

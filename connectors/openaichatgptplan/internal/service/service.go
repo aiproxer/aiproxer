@@ -91,13 +91,23 @@ func (s *Service) Describe(context.Context) (backendplugin.PluginDescriptor, err
 		// The cancellation handshake is implemented by the shared backend-plugin
 		// execute helper this connector runs. The accounting evidence sideband
 		// is implemented by the managed stream: the completed answer's usage is
-		// bridged once through the existing V1 host-only record. Ordered items
-		// and proxy-owned session authority are not part of this connector's
-		// declared surface; advertising them would promise content handling
-		// this build cannot honor.
+		// bridged once through the existing V1 host-only record.
+		//
+		// semantic_extensions_v1 is the bounded residual carrier the preview
+		// policy consumes: a client prompt-cache hint reaches the policy as one
+		// carrier, so interoperable posture can omit it explicitly (or strict
+		// posture can refuse it) instead of the ABI rejecting the attempt
+		// before policy. Only the recognized prompt-cache alias is omitted;
+		// every other residual semantic remains a projector refusal.
+		//
+		// exact_openresponses_fields is deliberately NOT advertised: the SIWC
+		// preview route does not accept exact Responses fields, so claiming
+		// that feature would promise semantics this build cannot honor. Ordered
+		// items and proxy-owned session authority are likewise not advertised.
 		Features: []backendplugin.Feature{
 			{Name: backendplugin.FeatureCancellationHandshake},
 			{Name: backendplugin.FeatureAccountingEvidence},
+			{Name: backendplugin.FeatureSemanticExtensions},
 		},
 		Factories: []backendplugin.FactoryDescriptor{{
 			Kind:        FactoryKind,
@@ -113,6 +123,10 @@ func (s *Service) Describe(context.Context) (backendplugin.PluginDescriptor, err
 			StaticCapabilities: backendplugin.CapabilitySummary{
 				Streaming: true,
 				Tools:     true,
+				// The static descriptor MIRRORS the runtime capability; it is not
+				// admission authority. Runtime admission reads the resolved
+				// profile below, including the exact call extension.
+				OpaqueExtensions: true,
 			},
 			TransportCapabilities: backendplugin.TransportCapabilitySummary{
 				Cancellation:        true,
@@ -187,11 +201,28 @@ type instance struct {
 }
 
 // Resolve reports the capability profile of the configured instance.
+//
+// The resolved profile is the runtime admission authority: generic core admits
+// a call only when the profile declares both opaque-extension capability and
+// the EXACT call extension that carries the preserved hosted web-search
+// declaration. The static FactoryDescriptor mirrors the capability bit, but a
+// descriptor alone cannot admit the carrier because it carries no exact
+// extension identity.
 func (i *instance) Resolve(context.Context, *string) (backendplugin.ResolvedProfile, error) {
 	return backendplugin.ResolvedProfile{
 		Capabilities: backendplugin.CapabilitySummary{
 			Streaming: true,
 			Tools:     true,
+			// The connector consumes the preserved hosted-declaration carrier
+			// deliberately (omit in interoperable posture, refuse in strict
+			// posture), so it supports the generic opaque-extension seam.
+			OpaqueExtensions: true,
+		},
+		DialectSupport: backendplugin.DialectSupport{
+			ExtensionTypes: []backendplugin.ExtensionRequirementDTO{{
+				Namespace: "call",
+				Type:      responses.WebSearchDeclarationsExtensionKey,
+			}},
 		},
 		TransportCapabilities: backendplugin.TransportCapabilitySummary{
 			Cancellation:        true,

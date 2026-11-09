@@ -255,7 +255,7 @@ func (s *BackgroundScheduler) drainCanceled() {
 		select {
 		case job := <-s.queue:
 			if job != nil {
-				s.finish(job, nil, execctx.ExecutionReceipt{}, fmt.Errorf("%w: %v", ErrSchedulerClosed, s.root.Err()))
+				s.finish(job, nil, execctx.ExecutionReceipt{}, fmt.Errorf("%w: %w", ErrSchedulerClosed, s.root.Err()))
 			}
 		default:
 			return
@@ -265,7 +265,7 @@ func (s *BackgroundScheduler) drainCanceled() {
 
 func (s *BackgroundScheduler) run(job *backgroundJob) {
 	if err := s.root.Err(); err != nil {
-		s.finish(job, nil, execctx.ExecutionReceipt{}, fmt.Errorf("%w: %v", ErrSchedulerClosed, err))
+		s.finish(job, nil, execctx.ExecutionReceipt{}, fmt.Errorf("%w: %w", ErrSchedulerClosed, err))
 		return
 	}
 	ctx, cancel := context.WithTimeout(s.root, job.timeout)

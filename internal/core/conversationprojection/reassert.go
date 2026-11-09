@@ -279,17 +279,31 @@ func failClosedOnAmbiguousSameSliceCollisionLegacy(instr, msgs []aipapi.Message,
 		provCount[p.InjectedIdentity]++
 	}
 	filteredCount := make(map[MessageIdentity]int)
-	combinedFiltered := append(append([]aipapi.Message(nil), filtered.Instructions...), filtered.Messages...)
-	for _, m := range combinedFiltered {
+	// Count without a transient combined slice: concatenating Instructions and
+	// Messages would allocate O(len) messages on every reassertion.
+	for _, m := range filtered.Instructions {
 		if id, err := MessageIdentityOf(m); err == nil {
 			if _, ok := provSet[id]; ok {
 				filteredCount[id]++
 			}
 		}
 	}
-	combinedLate := append(append([]aipapi.Message(nil), instr...), msgs...)
+	for _, m := range filtered.Messages {
+		if id, err := MessageIdentityOf(m); err == nil {
+			if _, ok := provSet[id]; ok {
+				filteredCount[id]++
+			}
+		}
+	}
 	lateCount := make(map[MessageIdentity]int)
-	for _, m := range combinedLate {
+	for _, m := range instr {
+		if id, err := MessageIdentityOf(m); err == nil {
+			if _, ok := provSet[id]; ok {
+				lateCount[id]++
+			}
+		}
+	}
+	for _, m := range msgs {
 		if id, err := MessageIdentityOf(m); err == nil {
 			if _, ok := provSet[id]; ok {
 				lateCount[id]++
@@ -440,8 +454,15 @@ func reassertRemoveProvenanceLegacy(instr, msgs []aipapi.Message, provenance []O
 	}
 	filteredCount := make(map[MessageIdentity]int)
 	if hasFiltered {
-		combinedFiltered := append(append([]aipapi.Message(nil), filtered.Instructions...), filtered.Messages...)
-		for _, m := range combinedFiltered {
+		// Count without a transient combined slice.
+		for _, m := range filtered.Instructions {
+			if id, err := MessageIdentityOf(m); err == nil {
+				if _, ok := provSet[id]; ok {
+					filteredCount[id]++
+				}
+			}
+		}
+		for _, m := range filtered.Messages {
 			if id, err := MessageIdentityOf(m); err == nil {
 				if _, ok := provSet[id]; ok {
 					filteredCount[id]++
@@ -714,17 +735,29 @@ func checkRemainingProvIdentitiesLegacy(instr, msgs []aipapi.Message, provenance
 		provSet[p.InjectedIdentity] = struct{}{}
 	}
 	filteredCount := make(map[MessageIdentity]int)
-	combinedFiltered := append(append([]aipapi.Message(nil), filtered.Instructions...), filtered.Messages...)
-	for _, m := range combinedFiltered {
+	for _, m := range filtered.Instructions {
 		if id, err := MessageIdentityOf(m); err == nil {
 			if _, ok := provSet[id]; ok {
 				filteredCount[id]++
 			}
 		}
 	}
-	combined := append(append([]aipapi.Message(nil), instr...), msgs...)
+	for _, m := range filtered.Messages {
+		if id, err := MessageIdentityOf(m); err == nil {
+			if _, ok := provSet[id]; ok {
+				filteredCount[id]++
+			}
+		}
+	}
 	remainingCount := make(map[MessageIdentity]int)
-	for _, m := range combined {
+	for _, m := range instr {
+		if id, err := MessageIdentityOf(m); err == nil {
+			if _, ok := provSet[id]; ok {
+				remainingCount[id]++
+			}
+		}
+	}
+	for _, m := range msgs {
 		if id, err := MessageIdentityOf(m); err == nil {
 			if _, ok := provSet[id]; ok {
 				remainingCount[id]++
@@ -746,8 +779,14 @@ func removeExtraProvIdentitiesLegacy(instr, msgs []aipapi.Message, provenance []
 		provSet[p.InjectedIdentity] = struct{}{}
 	}
 	filteredCount := make(map[MessageIdentity]int)
-	combinedFiltered := append(append([]aipapi.Message(nil), filtered.Instructions...), filtered.Messages...)
-	for _, m := range combinedFiltered {
+	for _, m := range filtered.Instructions {
+		if id, err := MessageIdentityOf(m); err == nil {
+			if _, ok := provSet[id]; ok {
+				filteredCount[id]++
+			}
+		}
+	}
+	for _, m := range filtered.Messages {
 		if id, err := MessageIdentityOf(m); err == nil {
 			if _, ok := provSet[id]; ok {
 				filteredCount[id]++

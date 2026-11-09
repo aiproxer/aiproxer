@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,6 +109,44 @@ func TestProcess_OversizeFrameIsRejected(t *testing.T) {
 	_, err = proc.Recv(ctx)
 	if err == nil || !strings.Contains(err.Error(), "frame exceeds bound") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+// TestProcess_FramesWrittenBeforeExitAreDelivered proves the child's final
+// frames survive its exit: the reader drains the pipe to EOF before the exit is
+// reported, even when the consumer reads only after the child is gone.
+func TestProcess_FramesWrittenBeforeExitAreDelivered(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	proc, err := Start(ctx, testOptions(t, "fake-sidecar.mjs", "burst_exit"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = proc.Close() }()
+	if _, err := proc.AwaitHello(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-proc.exited:
+	case <-ctx.Done():
+		t.Fatal("burst_exit child did not exit")
+	}
+	for i := range 64 {
+		line, err := proc.Recv(ctx)
+		if err != nil {
+			t.Fatalf("frame %d: %v", i, err)
+		}
+		var frame struct {
+			Kind string `json:"kind"`
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(line, &frame); err != nil || frame.Kind != "burst" || frame.Text != strconv.Itoa(i) {
+			t.Fatalf("frame %d = %s (%v)", i, line, err)
+		}
+	}
+	if _, err := proc.Recv(ctx); !errors.Is(err, io.EOF) {
+		t.Fatalf("clean exit after the final frame: err=%v, want io.EOF", err)
 	}
 }
 

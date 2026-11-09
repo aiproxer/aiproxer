@@ -98,7 +98,7 @@ func TestPackage_ClaudeAgentModelArchiveDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 	pluginEnv := []string{"PATH=" + nodeDir + ":" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "TMPDIR=" + os.TempDir()}
-	conn, client, stop := launchPackagedPlugin(t, ctx, binary, pluginEnv)
+	conn, client, stop := launchPackagedPlugin(ctx, t, binary, pluginEnv)
 	defer stop()
 	defer func() { _ = conn.Close() }()
 
@@ -214,7 +214,7 @@ func TestPackage_ClaudeAgentModelArchiveDeployment(t *testing.T) {
 	if acpManifest.PluginID != "com.aiproxer.backend.claudeagentacp" {
 		t.Fatalf("ACP manifest identity after rollback: %+v", acpManifest)
 	}
-	acpConn, acpClient, acpStop := launchPackagedPlugin(t, ctx, acpBinary, pluginEnv)
+	acpConn, acpClient, acpStop := launchPackagedPlugin(ctx, t, acpBinary, pluginEnv)
 	defer acpStop()
 	defer func() { _ = acpConn.Close() }()
 	acpNeg, err := acpClient.Negotiate(ctx, &backendpluginv1.NegotiateRequest{HostMajor: 1, DisableTransportRetries: true})
@@ -227,7 +227,7 @@ func TestPackage_ClaudeAgentModelArchiveDeployment(t *testing.T) {
 	}
 }
 
-func launchPackagedPlugin(t *testing.T, ctx context.Context, binary string, env []string) (*grpc.ClientConn, backendpluginv1.BackendPluginClient, func()) {
+func launchPackagedPlugin(ctx context.Context, t *testing.T, binary string, env []string) (*grpc.ClientConn, backendpluginv1.BackendPluginClient, func()) {
 	t.Helper()
 	cmd := exec.CommandContext(ctx, binary)
 	cmd.Env = env
