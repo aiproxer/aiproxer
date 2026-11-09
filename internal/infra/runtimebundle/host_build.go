@@ -373,7 +373,7 @@ func joinInitialFailureCleanup(ctx context.Context, primary error, genRollback, 
 }
 
 func omitSoleAlreadyClosed(err error) error {
-	if err == nil || err == runtimehost.ErrAlreadyClosed {
+	if err == nil {
 		return nil
 	}
 	if !errors.Is(err, runtimehost.ErrAlreadyClosed) {

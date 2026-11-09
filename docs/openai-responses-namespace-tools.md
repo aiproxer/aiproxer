@@ -56,6 +56,10 @@ The frontend refuses rather than guesses when:
 - a replayed `function_call` carries a namespace/member pair whose projected
   name collides with a declared or already mapped name, or a namespace/member
   name is empty;
+- a replayed ordinary (namespace-less) `function_call` name is already the
+  projection of a declared or replayed namespace member, in either history
+  order: a flat `a__run` and a namespaced `a`/`run` are distinct client tools
+  and must not collapse onto one backend function name;
 - a namespace description plus a member description exceeds the canonical
   description bound, or the projected name exceeds the canonical tool-name
   bound;

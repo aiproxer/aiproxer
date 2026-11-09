@@ -301,28 +301,25 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           PUSHED_REF: ${{ github.ref }}
         run: |
-          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
-            # The final PR tree is authoritative; the manifest may be completed
-            # by a later commit than the files it approves.
-            commits=""
-          elif [[ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
-            commits=$(git rev-list --reverse "$BEFORE_SHA..HEAD")
-          else
-            # For a new branch, exclude commits reachable from other tracking
-            # refs on origin, but not the just-created destination ref itself.
-            exclusions=()
-            while read -r tracking_ref; do
-              [[ "$tracking_ref" == "refs/remotes/origin/${PUSHED_REF#refs/heads/}" ]] && continue
-              exclusions+=("$tracking_ref")
-            done < <(git for-each-ref --format='%(refname)' refs/remotes/origin)
-            commits=$(git rev-list --reverse HEAD --not "${exclusions[@]}")
-          fi
+          # Schedule and manual runs validate the checked-out tree only; the
+          # pushed range or new-branch history comes from ci-manifest-refs.sh,
+          # which also documents why immutable history is never scanned. HEAD
+          # is always verified below.
+          commits=$(bash scripts/ci-manifest-refs.sh)
 
           while read -r commit; do
             [[ -n "$commit" ]] && bash scripts/check-release-clean.sh --ref "$commit"
           done <<< "$commits"
 
           bash scripts/check-release-clean.sh --ref HEAD
+
+      # The range selector is the only part of this gate that reasons about
+      # history: its self-test builds throwaway repositories and needs no
+      # network and no Go toolchain.
+      - name: Validate manifest range selection
+        if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: bash scripts/test-ci-manifest-refs.sh
 
       - name: Report unrelated PR bypass
         if: needs.changes.result == 'success' && needs.changes.outputs.code != 'true'

@@ -351,24 +351,29 @@ func pendingCompletionLifecycleState(base []aipapi.Event) (messageIndex int, hav
 	return messageIndex, haveResponse, haveMessage
 }
 
-// pendingHeldAssistantText concatenates the post-hook assistant text already
-// inside the gate buffer. Whitespace, reasoning, tool, and media output are not
-// assistant answers and never suppress the result.
-func pendingHeldAssistantText(base []aipapi.Event) string {
-	var b strings.Builder
-	for _, ev := range base {
-		if ev.Kind == aipapi.EventTextDelta {
-			b.WriteString(ev.Delta)
-		}
-	}
-	return b.String()
-}
-
 // pendingPriorAssistantText reports whether the logical response already has a
 // meaningful client-visible assistant answer, from released content or from the
-// post-hook content still inside the completion-gate buffer.
+// post-hook content still inside the completion-gate buffer. Whitespace,
+// reasoning, tool, and media output are not assistant answers and never suppress
+// the result.
+//
+// The held buffer is scanned delta-by-delta without concatenating it: a
+// concatenated string is whitespace-only exactly when every text delta is
+// whitespace-only, so building the full string only to test emptiness would
+// allocate O(total held bytes) on every pending-preparation check.
 func pendingPriorAssistantText(released string, base []aipapi.Event) bool {
-	return strings.TrimSpace(released) != "" || strings.TrimSpace(pendingHeldAssistantText(base)) != ""
+	if strings.TrimSpace(released) != "" {
+		return true
+	}
+	for _, ev := range base {
+		if ev.Kind != aipapi.EventTextDelta {
+			continue
+		}
+		if strings.TrimSpace(ev.Delta) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *responsePipeline) pendingCompletionGateInput(ctx context.Context, facts recvTurnFacts, attempt *attemptSession, committed bool) responseGateInput {

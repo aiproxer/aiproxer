@@ -67,3 +67,15 @@ func TestProfile_PlainFunctionToolsStillTakeWirePath(t *testing.T) {
 		t.Fatalf("ordinary function tools must keep the wire path: %v", err)
 	}
 }
+
+// TestProfile_PlainDoubleUnderscoreHistoryStillTakesWirePath is the positive
+// control for the flat-identity fix: an ordinary function_call whose name merely
+// contains the namespace separator carries no namespace declaration or
+// namespaced history item, so it must not be forced onto canonical decode.
+func TestProfile_PlainDoubleUnderscoreHistoryStillTakesWirePath(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"model":"gpt-4o","stream":true,"input":[{"type":"function_call","call_id":"c1","name":"a__run","arguments":"{}"},{"type":"function_call_output","call_id":"c1","output":"ok"}]}`)
+	if _, err := openairesponses.NewProfile().CompileProof(t.Context(), defaultProofInput(body, "stub:gpt-4o", nil)); err != nil {
+		t.Fatalf("plain flat history must keep the wire path: %v", err)
+	}
+}

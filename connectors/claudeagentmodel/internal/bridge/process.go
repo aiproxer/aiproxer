@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -23,6 +24,12 @@ const MaxFrameBytes = 8 << 20
 // only a bounded byte-count status is retained.
 const StderrLimit = 4 << 10
 
+// exitDrainGrace bounds how long the reader may keep draining stdout after the
+// leader exits. Frames the child wrote before exiting are still in the pipe and
+// must reach the consumer; only a descendant that inherited the pipe can keep it
+// open past this bound, and then the read end is closed to end the stream.
+const exitDrainGrace = time.Second
+
 // Options describes one private sidecar child. Every value is connector-owned;
 // nothing here comes from client request data.
 type Options struct {
@@ -38,10 +45,15 @@ type Options struct {
 // one ordered writer goroutine serialize the NDJSON pipe; the child is never
 // shared between conversations in V1.
 type Process struct {
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	lines   chan lineResult
+	cmd   *exec.Cmd
+	stdin io.WriteCloser
+	lines chan lineResult
+	// exited closes once the leader is reaped and waitErr is final. done closes
+	// later, after the stdout and stderr readers have drained their pipes.
+	exited  chan struct{}
 	done    chan struct{}
+	stop    chan struct{}
+	stopMu  sync.Once
 	waitErr error
 	waitMu  sync.Mutex
 
@@ -87,46 +99,90 @@ func Start(ctx context.Context, opts Options) (*Process, error) {
 	cmd.Env = append([]string(nil), opts.Env...)
 	cmd.Dir = opts.Dir
 	configureProcessGroup(cmd)
-	stdout, err := cmd.StdoutPipe()
+	// The output pipes are owned here rather than by cmd.StdoutPipe: Wait closes
+	// pipes it created as soon as the leader exits, which would discard frames
+	// the child wrote just before exiting. These read ends close only after the
+	// readers drain them (or exitDrainGrace expires).
+	stdout, stdoutW, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	stderr, err := cmd.StderrPipe()
+	stderr, stderrW, err := os.Pipe()
 	if err != nil {
+		closeAll(stdout, stdoutW)
 		return nil, err
 	}
+	cmd.Stdout = stdoutW
+	cmd.Stderr = stderrW
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
+		closeAll(stdout, stdoutW, stderr, stderrW)
 		return nil, err
 	}
 	if err := ctx.Err(); err != nil {
+		closeAll(stdout, stdoutW, stderr, stderrW, stdin)
 		return nil, err
 	}
 	if err := cmd.Start(); err != nil {
+		closeAll(stdout, stdoutW, stderr, stderrW, stdin)
 		return nil, fmt.Errorf("claudeagentmodel: sidecar start unavailable")
 	}
+	// The child holds its own copies of the write ends; ours must close so the
+	// readers see EOF when the child does.
+	closeAll(stdoutW, stderrW)
 	p := &Process{
 		cmd:         cmd,
 		stdin:       stdin,
 		lines:       make(chan lineResult, 8),
+		exited:      make(chan struct{}),
 		done:        make(chan struct{}),
+		stop:        make(chan struct{}),
 		sends:       make(chan sendRequest),
 		writerDone:  make(chan struct{}),
 		secrets:     append([]string(nil), opts.Secrets...),
 		stderr:      newStderrBuffer(StderrLimit),
 		shutdownDur: opts.ShutdownTimeout,
 	}
-	p.wg.Go(func() { p.readLines(stdout) })
-	p.wg.Go(func() { p.readStderr(stderr) })
+	var readers sync.WaitGroup
+	readers.Go(func() { p.readLines(stdout) })
+	readers.Go(func() { p.readStderr(stderr) })
+	readersDone := make(chan struct{})
+	p.wg.Go(func() {
+		readers.Wait()
+		close(readersDone)
+	})
 	p.wg.Go(p.writeLoop)
 	p.wg.Go(func() {
 		err := cmd.Wait()
 		p.waitMu.Lock()
 		p.waitErr = err
 		p.waitMu.Unlock()
+		close(p.exited)
+		timer := time.NewTimer(exitDrainGrace)
+		defer timer.Stop()
+		select {
+		case <-readersDone:
+		case <-timer.C:
+			// A descendant inherited the pipes and keeps them open: end the
+			// streams so the exit is still reported.
+			closeAll(stdout, stderr)
+			<-readersDone
+		}
 		close(p.done)
 	})
 	return p, nil
+}
+
+func closeAll(closers ...io.Closer) {
+	for _, c := range closers {
+		_ = c.Close()
+	}
+}
+
+// stopReading releases a reader blocked on handing a frame to a consumer that
+// is gone. The reader keeps draining, and discarding, the pipe until EOF.
+func (p *Process) stopReading() {
+	p.stopMu.Do(func() { close(p.stop) })
 }
 
 // AwaitHello consumes the mandatory protocol greeting and proves the child is
@@ -182,7 +238,7 @@ func (p *Process) SendContext(ctx context.Context, value any) error {
 	case p.sends <- req:
 	case <-p.writerDone:
 		return errors.New("claudeagentmodel: sidecar pipe unavailable")
-	case <-p.done:
+	case <-p.exited:
 		return p.exitError()
 	case <-ctx.Done():
 		return ctx.Err()
@@ -195,7 +251,7 @@ func (p *Process) SendContext(ctx context.Context, value any) error {
 		return nil
 	case <-p.writerDone:
 		return errors.New("claudeagentmodel: sidecar pipe unavailable")
-	case <-p.done:
+	case <-p.exited:
 		return p.exitError()
 	case <-ctx.Done():
 		return ctx.Err()
@@ -211,7 +267,7 @@ func (p *Process) writeLoop() {
 			_, err := p.stdin.Write(req.data)
 			p.writeMu.Unlock()
 			req.result <- err
-		case <-p.done:
+		case <-p.exited:
 			return
 		}
 	}
@@ -226,6 +282,13 @@ func (p *Process) recv(ctx context.Context) ([]byte, error) {
 	select {
 	case result, ok := <-p.lines:
 		if !ok {
+			// The reader reaches EOF before the leader is reaped; the exit
+			// status is final only once it is.
+			select {
+			case <-p.exited:
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
 			return nil, p.exitError()
 		}
 		if result.err != nil {
@@ -257,6 +320,8 @@ func (p *Process) Sanitize(value string) string {
 // so a child that stops reading stdin can never pin shutdown.
 func (p *Process) Close() error {
 	p.closeOnce.Do(func() {
+		// The owner is retiring the child: nobody consumes frames any more.
+		p.stopReading()
 		deadline := time.Now().Add(p.shutdownDur)
 		p.sendWithin(map[string]any{"kind": "shutdown"}, deadline)
 		// Closing our end unblocks a writer stuck in Write even when the child
@@ -265,12 +330,12 @@ func (p *Process) Close() error {
 		timer := time.NewTimer(max(0, time.Until(deadline)))
 		defer timer.Stop()
 		select {
-		case <-p.done:
+		case <-p.exited:
 		case <-timer.C:
 			if err := killProcessGroup(p.cmd); err != nil {
 				p.closeErr = fmt.Errorf("claudeagentmodel: sidecar did not exit: %w", err)
 			}
-			<-p.done
+			<-p.exited
 		}
 		// The leader is gone, but SDK descendants it spawned can still be alive
 		// in the owned group. Retire the group after a clean leader exit too,
@@ -279,6 +344,7 @@ func (p *Process) Close() error {
 			p.closeErr = fmt.Errorf("claudeagentmodel: sidecar group cleanup failed: %w", err)
 		}
 		waitProcessGroupGone(p.cmd, 2*time.Second)
+		<-p.done
 		p.wg.Wait()
 	})
 	return p.closeErr
@@ -304,14 +370,14 @@ func (p *Process) sendWithin(value any, deadline time.Time) {
 		return
 	case <-p.writerDone:
 		return
-	case <-p.done:
+	case <-p.exited:
 		return
 	}
 	select {
 	case <-req.result:
 	case <-timer.C:
 	case <-p.writerDone:
-	case <-p.done:
+	case <-p.exited:
 	}
 }
 
@@ -354,21 +420,24 @@ func (p *Process) readLines(r io.ReadCloser) {
 	defer close(p.lines)
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64<<10), MaxFrameBytes)
+	stopped := false
 	for scanner.Scan() {
 		line := append([]byte(nil), scanner.Bytes()...)
-		if len(line) == 0 {
+		if len(line) == 0 || stopped {
+			// After stopReading, keep draining so the child never blocks on a
+			// full pipe during shutdown.
 			continue
 		}
 		select {
 		case p.lines <- lineResult{line: line}:
-		case <-p.done:
-			return
+		case <-p.stop:
+			stopped = true
 		}
 	}
-	if err := scanner.Err(); err != nil {
+	if err := scanner.Err(); err != nil && !stopped && !errors.Is(err, os.ErrClosed) {
 		select {
 		case p.lines <- lineResult{err: errors.New("claudeagentmodel: sidecar frame exceeds bound or is unreadable")}:
-		case <-p.done:
+		case <-p.stop:
 		}
 	}
 }

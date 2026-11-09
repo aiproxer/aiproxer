@@ -469,6 +469,13 @@ func parseFunctionCallInputItem(raw json.RawMessage, namespaceTools *namespaceTo
 			return aipapi.Message{}, fmt.Errorf("openairesponses: namespaced function_call: %w", err)
 		}
 		name = projected
+	} else if name != "" {
+		// An ordinary flat history name is not projected, but it must still
+		// register its wire identity so a later namespaced history pair cannot
+		// collapse onto it (and vice versa).
+		if err := namespaceTools.mapFlatHistory(name); err != nil {
+			return aipapi.Message{}, fmt.Errorf("openairesponses: function_call: %w", err)
+		}
 	}
 	if name == "" {
 		return aipapi.Message{}, errSkipMalformedHistory

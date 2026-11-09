@@ -79,9 +79,9 @@ func ReduceProviderDebitObservations(observations []sdkmetering.Observation) (Pr
 	reduction, err := aggregate.ApplyObservations(canonical)
 	if err != nil {
 		if errors.Is(err, aggregate.ErrIdentityConflict) {
-			return ProviderDebitSnapshot{}, fmt.Errorf("%w: %v", ErrProviderDebitIdentityConflict, err)
+			return ProviderDebitSnapshot{}, fmt.Errorf("%w: %w", ErrProviderDebitIdentityConflict, err)
 		}
-		return ProviderDebitSnapshot{}, fmt.Errorf("%w: reduction: %v", ErrProviderDebitIncomplete, err)
+		return ProviderDebitSnapshot{}, fmt.Errorf("%w: reduction: %w", ErrProviderDebitIncomplete, err)
 	}
 	snapshot := ProviderDebitSnapshot{
 		Measures:     append([]aggregate.ReducedMeasure(nil), reduction.Measures...),

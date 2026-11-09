@@ -52,7 +52,6 @@ func TestVerifyProductSupervisorPropagatesExitCode(t *testing.T) {
 	}
 
 	for _, want := range []int{0, 7} {
-		want := want
 		t.Run(fmt.Sprintf("child_exit_%d", want), func(t *testing.T) {
 			t.Parallel()
 			cmd := exec.Command(shell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",

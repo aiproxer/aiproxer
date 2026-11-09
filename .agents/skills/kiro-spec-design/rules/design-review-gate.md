@@ -25,6 +25,11 @@ Run this first.
 - Build-vs-adopt decisions that materially affect architecture must be captured in `design.md`, with deeper investigation left in `research.md` when present.
 - Runtime prerequisites, migrations, rollout constraints, validation hooks, and failure modes must be surfaced when they materially affect implementation order or risk.
 
+## Architecture Guardrail Review
+
+- Check the draft against every rule in root `AGENTS.md` "Architecture Guardrails" and the ownership zones in `.kiro/steering/structure.md`: core vs plugin ownership, canonical model neutrality (`pkg/aipapi`), streaming first, no provider SDKs in core, and no transparent retry or failover after the first downstream content event.
+- A design that needs one of these relaxed names the VISION priority that justifies it, or stops for the owner.
+
 ## Boundary Readiness Review
 
 - The design must explicitly state what this spec owns.

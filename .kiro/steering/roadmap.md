@@ -4,7 +4,7 @@ Owner-ranked product goals. `VISION.md` overrides this file on any conflict; vis
 
 ## Ranked goals
 
-1. **Public open-source release.** Complete the billing split, rebranding, and necessary release validation. Existing release commitments stand (#398 with #348, #389, #394, #641); retain #394 capacity certification as measurement of the release candidate plus fixes for demonstrated blockers, not the full speculative hardening backlog.
+1. **Public open-source release.** The billing split and the AIProxer rebrand are complete; the remaining work is the necessary release validation. Existing release commitments stand (#398 with #348, #389, #394, #641); retain #394 capacity certification as measurement of the release candidate plus fixes for demonstrated blockers, not the full speculative hardening backlog.
 2. **Quota-aware key/account rotation.** Deliver a working end-to-end implementation, including actual OAuth-account switching.
 3. **Claude subscription model connector (#822).** Delivered: the owner-approved opt-in, local-only Claude Agent SDK model connector, through the completed and archived `claude-agent-model-bridge` spec. The release record in `docs/claude-agent-model.md` carries the narrow maintainer legal/policy sign-off and the documented final-head live-acceptance limitation. This frees the third active goal slot.
 

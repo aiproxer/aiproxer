@@ -168,6 +168,55 @@ func TestDecodeCreate_NamespaceHistoryCollisionRejected(t *testing.T) {
 	}
 }
 
+func TestDecodeCreate_NamespaceFlatHistoryCollisionRejected(t *testing.T) {
+	t.Parallel()
+	flat := `{"type":"function_call","call_id":"c1","name":"a__run","arguments":"{}"}`
+	namespaced := `{"type":"function_call","call_id":"c2","name":"run","namespace":"a","arguments":"{}"}`
+	namespaceTools := `[{"type":"namespace","name":"a","tools":[{"type":"function","name":"run","parameters":{"type":"object"}}]}]`
+	cases := []struct {
+		name, tools, input, wantErr string
+	}{
+		{"flat first", `[]`, `[` + flat + `,` + namespaced + `]`, "already used by an ordinary function call"},
+		{"namespace first", `[]`, `[` + namespaced + `,` + flat + `]`, "already used by a namespaced tool"},
+		{"declared member", namespaceTools, `[` + flat + `]`, "already declared"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := decodeNamespaceRequest(t, `{"model":"gpt-4o-mini","tools":`+tc.tools+`,"input":`+tc.input+`}`, openairesponses.DecodeOptions{})
+			if err == nil {
+				t.Fatal("flat and namespaced history identities sharing one canonical name must be refused")
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("refusal must name the conflict %q: %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
+// TestDecodeCreate_NamespaceFlatHistoryIdentityPreserved checks that repeated
+// flat histories and distinct bare and namespaced identities stay intact.
+func TestDecodeCreate_NamespaceFlatHistoryIdentityPreserved(t *testing.T) {
+	t.Parallel()
+	body := `{"model":"gpt-4o-mini","tools":[{"type":"namespace","name":"a","tools":[{"type":"function","name":"run","parameters":{"type":"object"}}]}],"input":[{"type":"function_call","call_id":"c1","name":"run","arguments":"{}"},{"type":"function_call","call_id":"c2","name":"run","arguments":"{}"},{"type":"function_call","call_id":"c3","name":"run","namespace":"a","arguments":"{}"}]}`
+	d, err := decodeNamespaceRequest(t, body, openairesponses.DecodeOptions{})
+	if err != nil {
+		t.Fatalf("distinct history identities must decode: %v", err)
+	}
+	want := []string{"run", "run", "a__run"}
+	if len(d.Call.Messages) != len(want) {
+		t.Fatalf("history messages = %d, want %d", len(d.Call.Messages), len(want))
+	}
+	for i, name := range want {
+		if got := d.Call.Messages[i].Parts[0].ToolName; got != name {
+			t.Fatalf("history call %d name = %q, want %q", i, got, name)
+		}
+	}
+	if err := d.Call.Validate(); err != nil {
+		t.Fatalf("the decoded call is not canonical: %v", err)
+	}
+}
+
 func TestDecodeCreate_NamespaceHistoryWithoutNamespaceStaysFlat(t *testing.T) {
 	t.Parallel()
 	body := `{

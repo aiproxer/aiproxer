@@ -3,6 +3,7 @@ package anthropic
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -81,7 +82,7 @@ func (h *hybridHandler) serveNative(w http.ResponseWriter, r *http.Request, body
 			}
 		}
 		if readErr != nil {
-			if readErr != io.EOF {
+			if !errors.Is(readErr, io.EOF) {
 				h.log.WarnContext(r.Context(), "claude_code_hybrid_native_stream_failed", "canonical_processing", false)
 			}
 			return

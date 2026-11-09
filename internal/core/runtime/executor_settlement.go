@@ -284,7 +284,7 @@ func (t *turnTerminal) finalizeResponseFinishedAuthority(ctx context.Context, ev
 		return aipapi.Event{}, false, nil
 	}
 	snapshot := p.accumulatorSnapshot()
-	decision := t.sharedTerminalDecision(ctx, t.terminalDecisionProvider, t.terminalDecisionInput(sdkterminal.CommandNormalFinish, request, attempt, p, snapshot))
+	decision := t.sharedTerminalDecision(ctx, t.terminalDecisionProvider, t.terminalDecisionEvalInput(sdkterminal.CommandNormalFinish, request, attempt, p, snapshot))
 	if decision.Decision.Kind == terminaldecision.DecisionContinue {
 		// A continuation retires this attempt's private candidate BEFORE the
 		// existing transaction runs, so the replacement B-leg can never publish the

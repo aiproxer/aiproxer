@@ -141,13 +141,46 @@ func (m *namespaceToolMapping) mapHistory(namespace, name string) (string, error
 	if len(projected) > aipapi.MaxToolNameBytes {
 		return "", fmt.Errorf("projected tool name has %d bytes; maximum is %d", len(projected), aipapi.MaxToolNameBytes)
 	}
-	if _, ok := m.byProjected[projected]; ok {
-		return "", errors.New("projected tool name is already declared")
+	if existing, ok := m.byProjected[projected]; ok {
+		_, declared := m.declared[projected]
+		switch {
+		case declared:
+			return "", errors.New("projected tool name is already declared")
+		case existing.Namespace != "":
+			return "", errors.New("projected tool name is already used by a namespaced function call")
+		default:
+			return "", errors.New("projected tool name is already used by an ordinary function call")
+		}
 	}
 	m.byProjected[projected] = origin
 	m.byOrigin[origin] = projected
 	m.historyMembers++
 	return projected, nil
+}
+
+// mapFlatHistory registers an ordinary, namespace-less function_call history
+// identity. Flat names are not projected, so they pass through unchanged, but
+// they still own one canonical name: a name that is already the projection of a
+// namespace member, declared or replayed, is refused. Otherwise the backend
+// would see one tool where the client authored two, and a later call to the
+// shared name would be restored under the wrong identity. A declared top-level
+// name and a repeated flat history name keep their authored identity, and a
+// flat name never becomes selectable through tool_choice.
+func (m *namespaceToolMapping) mapFlatHistory(name string) error {
+	if m == nil {
+		return nil
+	}
+	if existing, ok := m.byProjected[name]; ok {
+		if existing.Namespace == "" {
+			return nil
+		}
+		if _, declared := m.declared[name]; declared {
+			return errors.New("tool name is already declared")
+		}
+		return errors.New("tool name is already used by a namespaced tool")
+	}
+	m.byProjected[name] = namespaceToolOrigin{Name: name}
+	return nil
 }
 
 // resolveToolChoiceName maps a tool_choice function name onto the canonical

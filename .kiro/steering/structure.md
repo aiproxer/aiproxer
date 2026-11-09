@@ -35,7 +35,7 @@ Rules:
 - provider/protocol-specific behavior stays at adapter edges;
 - optional UX/policy does not live in core merely because the executor needs to call it;
 - money-port payloads and money-free usage evidence belong to `internal/core/billingport` and `internal/core/usageevidence`; quote, exposure, rating, and settlement decisions are not routing, continuity, or commitment semantics — they belong to the money implementation behind the attachment ports;
-- ownership target: the money implementation and the usage-authority implementation leave this tree for the Enterprise tree. That move is not finished — the legacy in-tree money composition packages are still in this tree and still back the stock composition, while the usage-authority implementation has been relocated to the Enterprise tree (task 6.1), so this tree keeps only the neutral usage-limit port and the unchanged provider quota window, and it backs no stock composition: usage limits are enforced only through an injected port. The attachment ports do not make their rules or their monetary algorithms disappear;
+- the money implementation and the usage-authority implementation live in the Enterprise tree (`enterprise/`); this tree keeps only the contracts and port payloads, the neutral usage-limit port with its no-op default, and the provider quota window. The stock composition composes no money implementation, and usage limits are enforced only through an injected port. The attachment ports do not make the rules or monetary algorithms disappear: an attached Enterprise implementation brings them;
 - new top-level core responsibilities must satisfy the repository's core-ownership admission rules and architecture tests.
 
 The current allowed core package set and justification are executable policy under `internal/archtest/`; do not duplicate that package list here.
@@ -103,10 +103,20 @@ Rules:
 - infrastructure implements interfaces/contracts owned by the consuming domain where practical;
 - driver handles and vendor types do not leak into core policy;
 - persistence behavior must preserve domain semantics across supported engines/topologies;
-- ownership target: money persistence, snapshots, and admission adapters belong to the Enterprise tree, and this tree keeps only the public binding adapter `internal/infra/billingbinding`, which translates one validated `pkg/aipsdk/billing.Binding` onto the runtime chokepoints and performs no rating, journal write, or provider-field parsing. That move is not finished: the legacy in-tree money persistence, snapshot, and admission adapters are still in this zone until the owning relocation tasks land;
+- money persistence, snapshots, and admission adapters live in the Enterprise tree; this tree keeps only the public binding adapter `internal/infra/billingbinding`, which translates one validated `pkg/aipsdk/billing.Binding` onto the runtime chokepoints and performs no rating, journal write, or provider-field parsing;
 - infrastructure is not a dumping ground for optional product policy.
 
-### 8. Test and certification surfaces
+### 8. Enterprise tree — `enterprise/`
+
+Closed-source Enterprise code: the money implementation (billing domain, economics SDK, persistence and admission adapters), the usage-authority implementation, their composition and the `aipstd-enterprise` command.
+
+Rules:
+
+- the open-source tree never imports `enterprise/`; `internal/archtest` enforces it, and `tools/ossexport` builds the public export without this directory and refuses exported files that import or link into it;
+- Enterprise code attaches through the public seams (`pkg/aipsdk/billing`, the runtime attachment ports, protected admin mounts) rather than through core branching;
+- new pricing, rating, settlement, exposure, or usage-limit rule logic goes here, never into the open-source tree.
+
+### 9. Test and certification surfaces
 
 Reference clients/backends, testkits, architecture guards, QA checks, and contract TCKs are test support rather than production architecture.
 
@@ -128,12 +138,14 @@ Prefer reusable family contracts and architecture ratchets over duplicated end-t
 | Generic host/generation lifecycle | `internal/infra/runtimebundle` |
 | SQL/driver/telemetry/client implementation | infrastructure adapter |
 | Operator/admin HTTP surface | `internal/stdhttp` plus owning domain/infra service |
+| Pricing, rating, settlement, exposure, usage-limit rules | Enterprise tree (`enterprise/`) behind the attachment ports |
 
 If the ownership decision is ambiguous, apply the kernel test: **would this behavior still be required with all optional features disabled, and is it provider/protocol neutral?** If not, it usually does not belong in core.
 
 ## Dependency-Direction Guardrails
 
 - Core and public contracts never import concrete plugins or provider SDKs.
+- The open-source tree never imports `enterprise/`.
 - Feature plugins do not import core implementations.
 - Frontends do not call provider SDKs.
 - Backends/connectors do not own frontend framing.

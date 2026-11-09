@@ -74,7 +74,7 @@ Routing/execution and the money implementation cooperate through narrow lifecycl
 - terminal ownership appends immutable per-attempt/call usage evidence;
 - customer settlement and provider cost posting happen after usage and are not stream-receive responsibilities.
 
-Those behaviours reach the runtime only through explicitly attached ports, and an unattached port keeps its no-op default. Ownership target: the money implementation moves to the Enterprise tree. That move is not finished: the legacy in-tree money composition still implements these behaviours today, while the usage-authority implementation has been relocated to the Enterprise tree (task 6.1) and this tree keeps only the neutral usage-limit port and the unchanged provider quota window, so it backs no stock composition, because usage limits are enforced only through an injected port. The attachment ports are the contract the move completes, not evidence that the rules are gone. Stream handlers must not rate prices, post journal entries, mutate balances/exposure, or use the legacy token ledger as monetary truth.
+Those behaviours reach the runtime only through explicitly attached ports, and an unattached port keeps its no-op default. The money implementation and the usage-authority implementation live in the Enterprise tree; this tree keeps only the neutral usage-limit port and the provider quota window, and the stock composition attaches neither, so usage limits are enforced only through an injected port. The attachment ports do not mean the rules are gone: an attached Enterprise implementation brings them. Stream handlers must not rate prices, post journal entries, mutate balances/exposure, or use the legacy token ledger as monetary truth.
 
 ## Continuity and Persistence
 
