@@ -894,7 +894,10 @@ jobs:
           AIP_REQUIRE_POSTGRES: '1'
           AIP_TEST_POSTGRES_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
           AIP_TEST_POSTGRES_ADMIN_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
-        run: go test -tags=integration -run '^TestProxyMemorySentinel_PostgresDirect
+        run: go test -tags=integration -run TestProxyMemorySentinel_PostgresDirect -count=1 -v ./internal/standardplugins/featurehost
+
+      - name: Stop native PostgreSQL
+        if: always() && needs.changes.outputs.test == 'true'
         shell: bash
         run: |
           if [[ -f "$PG_DATA/postmaster.pid" ]]; then
