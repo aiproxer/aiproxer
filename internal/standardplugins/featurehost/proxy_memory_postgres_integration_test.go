@@ -10,7 +10,6 @@ package featurehost
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -99,7 +98,7 @@ func postgresMemoryAcceptanceScopedDSN(t *testing.T, runtimeDSN, schema string) 
 		t.Fatal("PostgreSQL acceptance requires a non-empty test DSN")
 	}
 	if strings.Contains(trimmed, "://") {
-		t.Fatal(fmt.Sprintf("PostgreSQL acceptance requires postgres:// or postgresql:// DSN; got a different URL scheme"))
+		t.Fatal("PostgreSQL acceptance requires postgres:// or postgresql:// DSN; got a different URL scheme")
 	}
 	return trimmed + " search_path=" + schema
 }
