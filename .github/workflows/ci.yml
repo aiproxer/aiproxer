@@ -885,6 +885,91 @@ jobs:
           AIP_TEST_PARALLEL: '4'
         run: make test-db-parity
 
+      # This is a composed Proxy Memory test, deliberately separate from
+      # storage dialect parity. It exercises generation/capture/worker/HTTP
+      # surfaces against a real, isolated PostgreSQL direct topology.
+      - name: Proxy Memory V1 composed PostgreSQL acceptance (stub-backed)
+        if: needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        env:
+          AIP_REQUIRE_POSTGRES: '1'
+          AIP_TEST_POSTGRES_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
+          AIP_TEST_POSTGRES_ADMIN_DSN: postgres://aip:aip@127.0.0.1:5433/aip_test?sslmode=disable
+        run: go test -tags=integration -run '^TestProxyMemorySentinel_PostgresDirect
+        shell: bash
+        run: |
+          if [[ -f "$PG_DATA/postmaster.pid" ]]; then
+            "$PG_BIN/pg_ctl" -D "$PG_DATA" -m fast -w -t 60 stop
+          fi
+
+      - name: Save bounded ci-db Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.test == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: ci-db
+          phase: save
+
+      - name: Report unrelated PR bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.test != 'true'
+        shell: bash
+        run: |
+          echo "Database parity bypassed: documentation-only changes detected."
+
+  billing-schema:
+    name: Billing schema certification
+    needs: changes
+    if: (always() && !cancelled() && github.repository == 'aiproxer/aiproxer-enterprise') && (github.event_name != 'schedule' || (github.repository == 'aiproxer/aiproxer' && github.event.schedule == '17 3 * * *') || (github.repository == 'aiproxer/aiproxer-enterprise' && github.event.schedule == '19 3 * * 1'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Fail closed if scope detection failed
+        if: needs.changes.result != 'success'
+        run: exit 1
+
+      - name: Checkout
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Restore bounded billing-schema Go cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: billing-schema
+
+      - name: Discover complete certification population
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          selector='^(TestGeneratedSchema|TestSchemaModel(Structure|Commercial)Sweep|TestSchemaModelOrderInvariance|TestMetamorphic(PricingMetamorphism|StructuralVerdictAgreesWithModel)|TestSupportAgreementShadowPredicate|TestReplayDeepestPublishableChainTraversalIsBounded)'
+          go test -tags=integration -list "$selector" ./enterprise/internal/core/billing > "$RUNNER_TEMP/billing-schema-tests.txt"
+          count=$(grep -c '^Test' "$RUNNER_TEMP/billing-schema-tests.txt")
+          test "$count" -eq 12
+
+      - name: Run every exhaustive schema case and assertion
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        run: make test-billing-schema
+
+      - name: Save bounded billing-schema Go cache
+        if: success() && needs.changes.result == 'success' && needs.changes.outputs.billing_schema == 'true'
+        uses: ./.github/actions/go-cache
+        with:
+          lane: billing-schema
+          phase: save
+
+      - name: Report unrelated change bypass
+        if: needs.changes.result == 'success' && needs.changes.outputs.billing_schema != 'true'
+        run: echo "Billing schema certification bypassed; no billing, SDK, oracle or certification-policy changes."
+ -count=1 -v ./internal/standardplugins/featurehost
+
       - name: Stop native PostgreSQL
         if: always() && needs.changes.outputs.test == 'true'
         shell: bash
