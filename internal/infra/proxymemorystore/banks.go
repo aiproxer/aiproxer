@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/aiproxer/aiproxer/internal/plugins/features/proxymemory"
 	"github.com/uptrace/bun"
@@ -19,6 +20,10 @@ import (
 // then loads the claimed snapshot with the epoch and lease deadline. A bank that
 // left the candidate window between the SELECT and the UPDATE is skipped
 // exactly like a lost race instead of being leased with a stale candidacy.
+//
+// q.ExcludeBankOwners removes whole owner triples from candidacy. The worker
+// uses it to spend at most one phase 2 attempt per bank identity per tick;
+// empty exclusions leave the candidate query exactly as it was.
 func (s *Store) ClaimBanks(ctx context.Context, q proxymemory.ClaimQuery) ([]proxymemory.ClaimedBank, error) {
 	if q.Limit <= 0 {
 		return nil, nil
@@ -105,15 +110,31 @@ type bankKey struct {
 // bankCandidate runs design §12.3's bank candidate step: the dirtiest bank
 // whose retry time has passed and whose lease is free or expired. offset skips
 // the rows already lost to other instances in this call.
+//
+// q.ExcludeBankOwners removes whole owner triples from the candidate set. Each
+// exclusion is one parameterized AND NOT term appended before the ordering and
+// the LIMIT/OFFSET, so the deterministic order and the lost-race offset keep
+// their meaning. An empty exclusion list produces exactly the previous query.
 func (s *Store) bankCandidate(ctx context.Context, q proxymemory.ClaimQuery, offset int) (bankKey, bool, error) {
-	var key bankKey
-	err := s.db.NewRaw(`
+	var query strings.Builder
+	query.WriteString(`
 		SELECT tenant_id, principal_id, project_key FROM proxy_memory_banks
 		WHERE dirty_seq > consolidated_seq AND next_attempt_ms <= ?
-			AND (lease_owner = '' OR lease_until_ms < ?)
+			AND (lease_owner = '' OR lease_until_ms < ?)`)
+	args := make([]any, 0, 2+3*len(q.ExcludeBankOwners)+1)
+	args = append(args, q.NowMS, q.NowMS)
+	for _, excluded := range q.ExcludeBankOwners {
+		query.WriteString(`
+			AND NOT (tenant_id = ? AND principal_id = ? AND project_key = ?)`)
+		args = append(args, excluded.TenantID, excluded.PrincipalID, excluded.ProjectKey)
+	}
+	query.WriteString(`
 		ORDER BY (dirty_seq - consolidated_seq) DESC, tenant_id, principal_id, project_key
-		LIMIT 1 OFFSET ?
-	`, q.NowMS, q.NowMS, offset).Scan(ctx, &key.tenantID, &key.principalID, &key.projectKey)
+		LIMIT 1 OFFSET ?`)
+	args = append(args, offset)
+
+	var key bankKey
+	err := s.db.NewRaw(query.String(), args...).Scan(ctx, &key.tenantID, &key.principalID, &key.projectKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return bankKey{}, false, nil
 	}

@@ -95,6 +95,32 @@ func TestMergeSessionSystemPrompt_InvalidBaseFallsBack(t *testing.T) {
 	}
 }
 
+// A JSON null base is the document's explicit "no value": it decodes into a
+// nil map without an error, so merging the append text must fall back to the
+// minimal object instead of assigning into that nil map. Every spelling of
+// the null document behaves the same way.
+//
+// Mutants: decode directly into the initialized map (the assignment then
+// panics on a nil map), and treat null as a base to preserve (the agent
+// preset is silently dropped).
+func TestMergeSessionSystemPrompt_NullBaseFallsBack(t *testing.T) {
+	t.Parallel()
+	for _, base := range []string{`null`, " \t\nnull \n"} {
+		merged := mergeSessionSystemPrompt(json.RawMessage(base), "do the thing")
+		var decoded struct {
+			System struct {
+				Append string `json:"append"`
+			} `json:"systemPrompt"`
+		}
+		if err := json.Unmarshal(merged, &decoded); err != nil {
+			t.Fatalf("null base %q: %v", base, err)
+		}
+		if decoded.System.Append != "do the thing" {
+			t.Fatalf("null base %q: append = %q", base, decoded.System.Append)
+		}
+	}
+}
+
 func TestStripSystemInstructions_RemovesSystemContent(t *testing.T) {
 	t.Parallel()
 	call := instructionCall([]string{"op"}, []aipapi.Message{

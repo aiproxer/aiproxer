@@ -37,10 +37,13 @@ func TestValidateBudgets_MissingGrandfatheredSpecsOnlyAllowedInPublicTree(t *tes
 			if findings := strings.Join(ValidateBudgets(specs), "\n"); !strings.Contains(findings, "exceeds budget") {
 				t.Fatalf("private=%v accepted oversized exported spec: %s", private, findings)
 			}
-			writeSpec(t, specs, "billing-financial-safety-contracts", `{}`, map[string]string{
-				"design.md": strings.Repeat("line\n", 688),
+			ceiling := grandfathered["high-concurrency-performance-hardening"]
+			size := ceiling.Design + 1
+			writeSpec(t, specs, "high-concurrency-performance-hardening", `{}`, map[string]string{
+				"design.md": strings.Repeat("line\n", size),
 			})
-			if findings := strings.Join(ValidateBudgets(specs), "\n"); !strings.Contains(findings, "688 design.md lines exceeds budget 687") {
+			want := fmt.Sprintf("%d design.md lines exceeds budget %d", size, ceiling.Design)
+			if findings := strings.Join(ValidateBudgets(specs), "\n"); !strings.Contains(findings, want) {
 				t.Fatalf("private=%v accepted growth in a present grandfathered spec: %s", private, findings)
 			}
 		})

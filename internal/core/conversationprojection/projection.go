@@ -89,7 +89,10 @@ type ProjectionEvidence struct {
 // never carries a placement forward across an identity drift; only the final
 // reassertion seam may do that, and only through projectWithLineage.
 func Project(call aipapi.Call, snap Snapshot) (aipapi.Call, *ProjectionEvidence, error) {
-	return projectWithLineage(call, snap, nil)
+	// Derive every trajectory identity once for the whole projection. Exclusion,
+	// anchor resolution and the carried-anchor pass all consult the same
+	// trajectory, so one derivation per element serves the entire projection.
+	return projectWithLineage(call, identifyCall(call), snap, nil)
 }
 
 // projectWithLineage is Project with an optional request-local set of carried
@@ -97,11 +100,14 @@ func Project(call aipapi.Call, snap Snapshot) (aipapi.Call, *ProjectionEvidence,
 // stored anchor failed to resolve exactly, so exact identity-based resolution
 // stays the normal path and the anchor-missing policy stays authoritative
 // whenever lineage is unavailable or the carried anchor does not resolve either.
-func projectWithLineage(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipapi.Call, *ProjectionEvidence, error) {
-	if call.HasItemAuthority() {
-		return projectItems(call, snap, carried)
+func projectWithLineage(call aipapi.Call, in projectionInput, snap Snapshot, carried carriedAnchors) (aipapi.Call, *ProjectionEvidence, error) {
+	// in carries every trajectory identity the caller already derived, so the
+	// exclusion, anchor-resolution and carried-anchor passes below look them up
+	// instead of re-hashing the same trajectory three more times.
+	if in.itemAuthority {
+		return projectItems(call, in.items, snap, carried)
 	}
-	return projectLegacy(call, snap, carried)
+	return projectLegacy(call, in.legacy, snap, carried)
 }
 
 // ResolveAfterIngressTailAnchor resolves the terminal forwardable user message
@@ -130,7 +136,7 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 		terminal := call.Items[termIdx]
 		termID, err := ItemIdentityOf(terminal)
 		if err != nil {
-			return MessageAnchor{}, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+			return MessageAnchor{}, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 		}
 		if _, excluded := exclusion[termID]; excluded {
 			return MessageAnchor{}, fmt.Errorf("%w: terminal message is never_backend", ErrTerminalUserNotFound)
@@ -150,7 +156,7 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 			}
 			id, err := ItemIdentityOf(it)
 			if err != nil {
-				return MessageAnchor{}, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+				return MessageAnchor{}, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 			}
 			if _, excluded := exclusion[id]; excluded && it.ID != "" {
 				removedIDs[it.ID] = struct{}{}
@@ -162,7 +168,7 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 			if it.Kind == aipapi.ItemKindMessage {
 				id, err := ItemIdentityOf(it)
 				if err != nil {
-					return MessageAnchor{}, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+					return MessageAnchor{}, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 				}
 				if _, excluded := exclusion[id]; excluded {
 					continue
@@ -205,7 +211,7 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 	origLast := origCombined[len(origCombined)-1]
 	origID, err := MessageIdentityOf(origLast)
 	if err != nil {
-		return MessageAnchor{}, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+		return MessageAnchor{}, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 	}
 	if _, excluded := exclusion[origID]; excluded {
 		return MessageAnchor{}, fmt.Errorf("%w: terminal message is never_backend", ErrTerminalUserNotFound)
@@ -218,7 +224,7 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 	for _, m := range call.Instructions {
 		id, err := MessageIdentityOf(m)
 		if err != nil {
-			return MessageAnchor{}, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+			return MessageAnchor{}, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 		}
 		if _, excluded := exclusion[id]; excluded {
 			continue
@@ -228,7 +234,7 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 	for _, m := range call.Messages {
 		id, err := MessageIdentityOf(m)
 		if err != nil {
-			return MessageAnchor{}, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+			return MessageAnchor{}, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 		}
 		if _, excluded := exclusion[id]; excluded {
 			continue
@@ -277,45 +283,49 @@ func ResolveAfterIngressTailAnchor(call aipapi.Call, snap Snapshot) (MessageAnch
 // item authority projection
 // ---------------------------------------------------------------------------
 
-func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipapi.Call, *ProjectionEvidence, error) {
+func projectItems(call aipapi.Call, in itemTrajectory, snap Snapshot, carried carriedAnchors) (aipapi.Call, *ProjectionEvidence, error) {
 	exclusion := make(map[MessageIdentity]struct{}, len(snap.NeverBackend))
 	for _, t := range snap.NeverBackend {
 		exclusion[t.Identity] = struct{}{}
 	}
-	// Phase 1: exclusion of complete messages.
-	var removedIDs map[string]struct{}
+	// Phase 1: exclusion of complete messages. Identities come from the
+	// trajectory table derived once by the caller, so this and every later pass
+	// of the projection reuse one derivation per item instead of re-hashing it.
 	filteredCount := 0
-	var filtered []aipapi.Item
-	filtered = make([]aipapi.Item, 0, len(call.Items))
-	removedIDs = make(map[string]struct{})
-	for _, it := range call.Items {
-		if it.Kind == aipapi.ItemKindMessage {
-			id, err := ItemIdentityOf(it)
-			if err != nil {
-				return aipapi.Call{}, nil, fmt.Errorf("%w: invalid message item: %v", ErrProjectionFailed, err)
-			}
-			if _, excluded := exclusion[id]; excluded {
-				filteredCount++
-				if it.ID != "" {
-					removedIDs[it.ID] = struct{}{}
-				}
-				continue
-			}
+	removedIDs := make(map[string]struct{})
+	kept := make([]bool, in.len())
+	for i := range in.elems {
+		it := &in.elems[i]
+		if it.Kind != aipapi.ItemKindMessage {
+			kept[i] = true
+			continue
 		}
-		filtered = append(filtered, it)
+		id, err := in.identity(i)
+		if err != nil {
+			return aipapi.Call{}, nil, fmt.Errorf("%w: invalid message item: %w", ErrProjectionFailed, err)
+		}
+		if _, excluded := exclusion[id]; excluded {
+			filteredCount++
+			if it.ID != "" {
+				removedIDs[it.ID] = struct{}{}
+			}
+			continue
+		}
+		kept[i] = true
 	}
 	// Phase 2: dependency cleanup – drop item_reference targeting removed concrete IDs.
-	var afterRef []aipapi.Item
-	afterRef = make([]aipapi.Item, 0, len(filtered))
-	for _, it := range filtered {
+	filtered := in.retained(kept)
+	keptRef := make([]bool, filtered.len())
+	for i := range filtered.elems {
+		it := &filtered.elems[i]
+		keptRef[i] = true
 		if it.Kind == aipapi.ItemKindItemReference && it.Reference != nil {
 			if _, removed := removedIDs[it.Reference.ID]; removed {
-				continue
+				keptRef[i] = false
 			}
 		}
-		afterRef = append(afterRef, it)
 	}
-	filtered = afterRef
+	filtered = filtered.retained(keptRef)
 
 	// Phase 3: placements
 	var stable []Overlay
@@ -346,22 +356,26 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 	var resolvedAnchors []resolved
 	var fallbackOverlays []Overlay
 	var fallbacks []FallbackEvidence
+	// Anchors resolve by lookup against the identities derived above, so each
+	// overlay costs one map probe instead of a full re-derivation of the
+	// trajectory.
+	anchors := newItemAnchorIndex(filtered)
 	for _, ov := range after {
 		if ov.Placement.Anchor == nil {
 			return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s missing anchor", ErrProjectionFailed, ov.OverlayID)
 		}
-		idx, found, err := resolveAnchorInItems(filtered, *ov.Placement.Anchor)
+		idx, found, err := anchors.resolveItems(*ov.Placement.Anchor)
 		if err != nil {
-			return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %v", ErrProjectionFailed, ov.OverlayID, err)
+			return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %w", ErrProjectionFailed, ov.OverlayID, err)
 		}
 		effective := ov.Placement.Anchor
 		// A carried anchor already proves the distinguishable original boundary.
 		// A stored occurrence can still resolve at a different duplicate after a
 		// rewrite; prefer the proof only for that conflict or a missing exact match.
 		if carriedAnchor, ok := carried[ov.OverlayID]; ok {
-			carriedIdx, carriedFound, carriedErr := resolveAnchorInItems(filtered, carriedAnchor)
+			carriedIdx, carriedFound, carriedErr := anchors.resolveItems(carriedAnchor)
 			if carriedErr != nil {
-				return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %v", ErrProjectionFailed, ov.OverlayID, carriedErr)
+				return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %w", ErrProjectionFailed, ov.OverlayID, carriedErr)
 			}
 			if carriedFound && (!found || carriedIdx != idx) {
 				idx, found = carriedIdx, true
@@ -403,7 +417,7 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 		return resolvedAnchors[i].ov.SlotOrdinal < resolvedAnchors[j].ov.SlotOrdinal
 	})
 
-	leading := leadingInstructionItemCount(filtered)
+	leading := leadingInstructionItemCount(filtered.elems)
 	// Build map from idx to list of overlays (in order)
 	afterByIdx := make(map[int][]Overlay)
 	for _, r := range resolvedAnchors {
@@ -413,7 +427,7 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 	// without relying on synthetic ID string markers. Provenance indices are
 	// derived solely from placement logic (Snapshot + input) and are not
 	// part of the model-visible content identity.
-	finalCapacity, err := checkedCapacity(len(filtered), len(stable), len(resolvedAnchors))
+	finalCapacity, err := checkedCapacity(filtered.len(), len(stable), len(resolvedAnchors))
 	if err != nil {
 		return aipapi.Call{}, nil, fmt.Errorf("%w: projected item capacity overflow", err)
 	}
@@ -425,7 +439,7 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 	provIndex := make(map[string]int, provenanceCapacity)
 	// prefix region with interleaved after anchors that fall inside prefix
 	for i := range leading {
-		final = append(final, filtered[i])
+		final = append(final, filtered.elems[i])
 		if ovs, ok := afterByIdx[i]; ok {
 			for _, ov := range ovs {
 				provIndex[ov.OverlayID] = len(final)
@@ -439,8 +453,8 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 		final = append(final, overlayToItem(ov))
 	}
 	// history region with after injections
-	for i := leading; i < len(filtered); i++ {
-		final = append(final, filtered[i])
+	for i := leading; i < filtered.len(); i++ {
+		final = append(final, filtered.elems[i])
 		if ovs, ok := afterByIdx[i]; ok {
 			for _, ov := range ovs {
 				provIndex[ov.OverlayID] = len(final)
@@ -453,7 +467,7 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 	out.Items = final
 
 	if err := out.Validate(); err != nil {
-		return aipapi.Call{}, nil, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+		return aipapi.Call{}, nil, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 	}
 	// Deterministic provenance: derived solely from Snapshot + input, with exact injected positions.
 	provenance := make([]OverlayProvenance, 0, provenanceCapacity)
@@ -511,36 +525,40 @@ func projectItems(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipa
 // legacy authority projection
 // ---------------------------------------------------------------------------
 
-func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aipapi.Call, *ProjectionEvidence, error) {
+func projectLegacy(call aipapi.Call, in legacyTrajectory, snap Snapshot, carried carriedAnchors) (aipapi.Call, *ProjectionEvidence, error) {
 	exclusion := make(map[MessageIdentity]struct{}, len(snap.NeverBackend))
 	for _, t := range snap.NeverBackend {
 		exclusion[t.Identity] = struct{}{}
 	}
-	var filteredInstr []aipapi.Message
-	var filteredMsgs []aipapi.Message
+	// Exclusion reads the identities derived once by the caller, so the anchor
+	// resolution and carried-anchor passes below reuse the same derivation.
 	filteredCount := 0
-	for _, m := range call.Instructions {
-		id, err := MessageIdentityOf(m)
+	keptInstr := make([]bool, in.instr.len())
+	for i := range in.instr.elems {
+		id, err := in.instr.identity(i)
 		if err != nil {
-			return aipapi.Call{}, nil, fmt.Errorf("%w: invalid instruction message: %v", ErrProjectionFailed, err)
+			return aipapi.Call{}, nil, fmt.Errorf("%w: invalid instruction message: %w", ErrProjectionFailed, err)
 		}
 		if _, excluded := exclusion[id]; excluded {
 			filteredCount++
 			continue
 		}
-		filteredInstr = append(filteredInstr, m)
+		keptInstr[i] = true
 	}
-	for _, m := range call.Messages {
-		id, err := MessageIdentityOf(m)
+	keptMsgs := make([]bool, in.msgs.len())
+	for i := range in.msgs.elems {
+		id, err := in.msgs.identity(i)
 		if err != nil {
-			return aipapi.Call{}, nil, fmt.Errorf("%w: invalid message: %v", ErrProjectionFailed, err)
+			return aipapi.Call{}, nil, fmt.Errorf("%w: invalid message: %w", ErrProjectionFailed, err)
 		}
 		if _, excluded := exclusion[id]; excluded {
 			filteredCount++
 			continue
 		}
-		filteredMsgs = append(filteredMsgs, m)
+		keptMsgs[i] = true
 	}
+	filteredInstr := in.instr.retained(keptInstr)
+	filteredMsgs := in.msgs.retained(keptMsgs)
 
 	var stable []Overlay
 	var after []Overlay
@@ -571,22 +589,26 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 	var resolvedAnchors []resolved
 	var fallbackOverlays []Overlay
 	var fallbacks []FallbackEvidence
+	// Anchors resolve by lookup against the identities derived above. A legacy
+	// trajectory keeps instructions and messages as separate regions, so the
+	// index spans instructions first and answers with the region as well.
+	anchors := newLegacyAnchorIndex(filteredInstr, filteredMsgs)
 	for _, ov := range after {
 		if ov.Placement.Anchor == nil {
 			return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s missing anchor", ErrProjectionFailed, ov.OverlayID)
 		}
-		isInstr, idx, found, err := resolveAnchorLegacy(filteredInstr, filteredMsgs, *ov.Placement.Anchor)
+		isInstr, idx, found, err := anchors.resolveLegacy(filteredInstr.len(), *ov.Placement.Anchor)
 		if err != nil {
-			return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %v", ErrProjectionFailed, ov.OverlayID, err)
+			return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %w", ErrProjectionFailed, ov.OverlayID, err)
 		}
 		effective := ov.Placement.Anchor
 		// Compare the complete boundary, including the instruction/message region.
 		// Without proven carry-forward, exact resolution and missing-anchor policy
 		// remain authoritative; matching boundaries retain the stored evidence.
 		if carriedAnchor, ok := carried[ov.OverlayID]; ok {
-			carriedIsInstr, carriedIdx, carriedFound, carriedErr := resolveAnchorLegacy(filteredInstr, filteredMsgs, carriedAnchor)
+			carriedIsInstr, carriedIdx, carriedFound, carriedErr := anchors.resolveLegacy(filteredInstr.len(), carriedAnchor)
 			if carriedErr != nil {
-				return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %v", ErrProjectionFailed, ov.OverlayID, carriedErr)
+				return aipapi.Call{}, nil, fmt.Errorf("%w: overlay %s: %w", ErrProjectionFailed, ov.OverlayID, carriedErr)
 			}
 			if carriedFound && (!found || carriedIsInstr != isInstr || carriedIdx != idx) {
 				isInstr, idx, found = carriedIsInstr, carriedIdx, true
@@ -614,7 +636,7 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 				// answering those calls, never between a call and its result, which
 				// Chat-family, Anthropic-messages and strict-Responses upstreams
 				// reject. Only the overlay moves; client messages keep their order.
-				idx = afterMessageToolResultIndex(filteredMsgs, idx)
+				idx = afterMessageToolResultIndex(filteredMsgs.elems, idx)
 			}
 			resolvedAnchors = append(resolvedAnchors, resolved{ov: ov, isInstr: isInstr, idx: idx, anchor: effective})
 		}
@@ -651,7 +673,7 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 	}
 	provenanceLegacy := make([]OverlayProvenance, 0, provenanceCapacity)
 	// Build finalInstr with after injections and stable, recording provenance indices.
-	finalInstructionCapacity, err := checkedCapacity(len(filteredInstr), len(stable), len(resolvedAnchors))
+	finalInstructionCapacity, err := checkedCapacity(filteredInstr.len(), len(stable), len(resolvedAnchors))
 	if err != nil {
 		return aipapi.Call{}, nil, fmt.Errorf("%w: projected instruction capacity overflow", err)
 	}
@@ -662,7 +684,7 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 			afterInstrByIdx[r.idx] = append(afterInstrByIdx[r.idx], r.ov)
 		}
 	}
-	for i, m := range filteredInstr {
+	for i, m := range filteredInstr.elems {
 		finalInstr = append(finalInstr, m)
 		if ovs, ok := afterInstrByIdx[i]; ok {
 			for _, ov := range ovs {
@@ -708,7 +730,7 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 	}
 
 	// Assemble messages final with after injections.
-	finalMessageCapacity, err := checkedCapacity(len(filteredMsgs), len(resolvedAnchors))
+	finalMessageCapacity, err := checkedCapacity(filteredMsgs.len(), len(resolvedAnchors))
 	if err != nil {
 		return aipapi.Call{}, nil, fmt.Errorf("%w: projected message capacity overflow", err)
 	}
@@ -721,7 +743,7 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 	}
 	// We need base offset for trajectory index: instructions length.
 	instrLen := len(finalInstr)
-	for i, m := range filteredMsgs {
+	for i, m := range filteredMsgs.elems {
 		finalMsgs = append(finalMsgs, m)
 		if ovs, ok := afterMsgByIdx[i]; ok {
 			for _, ov := range ovs {
@@ -753,7 +775,7 @@ func projectLegacy(call aipapi.Call, snap Snapshot, carried carriedAnchors) (aip
 	out.Messages = finalMsgs
 
 	if err := out.Validate(); err != nil {
-		return aipapi.Call{}, nil, fmt.Errorf("%w: %v", ErrProjectionFailed, err)
+		return aipapi.Call{}, nil, fmt.Errorf("%w: %w", ErrProjectionFailed, err)
 	}
 	// Stable already in provenanceLegacy, but we added stable above; ensure all stable added.
 	// The above already added stable; no extra stable loop needed.

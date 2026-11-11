@@ -398,7 +398,6 @@ func TestDecodeCreate_NamespaceUnsupportedMemberRejected(t *testing.T) {
 		`{"type":"namespace","name":"a","tools":[{"type":"namespace","name":"nested","tools":[]}]}`,
 	}
 	for _, tools := range cases {
-		tools := tools
 		t.Run(tools, func(t *testing.T) {
 			t.Parallel()
 			_, err := decodeNamespaceRequest(t, `{"model":"gpt-4o-mini","input":"hi","tools":[`+tools+`]}`, openairesponses.DecodeOptions{})

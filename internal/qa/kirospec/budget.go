@@ -26,8 +26,7 @@ var SliceBudget = Budget{Areas: 5, Criteria: 25, Design: 300, Tasks: 12}
 // New specs are never added here without explicit owner approval: split the
 // slice instead. Only the owner may approve adding an entry or raising a ceiling.
 var grandfathered = map[string]Budget{
-	"billing-financial-safety-contracts":         {Areas: 24, Criteria: 156, Design: 687, Tasks: 113},
-	"high-concurrency-performance-hardening":     {Areas: 19, Criteria: 184, Design: 909, Tasks: 52},
+	"high-concurrency-performance-hardening":     {Areas: 5, Criteria: 22, Design: 166, Tasks: 6},
 	"openai-chatgpt-plan-go-connector-migration": {Areas: 14, Criteria: 129, Design: 511, Tasks: 40},
 }
 

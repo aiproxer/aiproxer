@@ -13,6 +13,7 @@
 // | max_tokens, sampling | Supported | decode_test.go |
 // | metadata          | Ignored (not mapped to Call) | decode_test.go |
 // | top_k             | Ignored (not mapped to Call) | decode_test.go |
+// | empty inline system message | Reduced under `empty_system_messages` (`serve` reports each unforwarded class, `reject` refuses); see anthropic-frontend.md | empty_system_message_test.go |
 // | anthropic-version header | Passed via [DecodeOptions] (not validated; wire compatibility) | integration_test.go |
 // | tool_use on response (stream + JSON) | Supported (encode) | encode_test.go, integration_test.go |
 // | thinking / extended blocks | Supported (encode, thinking + signature) | encode_test.go |

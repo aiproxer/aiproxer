@@ -44,6 +44,13 @@ func TestDeriveProject(t *testing.T) {
 	const (
 		instructionsAB = "Working directory: /a/b/"
 		envContextR    = "<environment_context>\n<cwd>/r</cwd>\n</environment_context>"
+		// claudeBlockOpen is the native Claude Code 2.1.322 non-bare preamble
+		// up to its first fact: header line, lead line, then the fact list.
+		claudeBlockOpen = "# Environment\nYou have been invoked in the following environment: \n"
+		// claudeBlockA is that preamble with one project fact.
+		claudeBlockA = claudeBlockOpen + " - Primary working directory: /a/b\n - Platform: linux"
+		// claudeBlockPlatform is a block whose facts name no project.
+		claudeBlockPlatform = claudeBlockOpen + " - Platform: linux"
 	)
 
 	cases := []struct {
@@ -151,6 +158,141 @@ func TestDeriveProject(t *testing.T) {
 			}}},
 			wantLabel: "/home/user/project",
 			wantOK:    true,
+		},
+		{
+			name: "an unanchored bulleted primary working directory line is not a project",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(
+				aipapi.RoleSystem, "- Primary working directory: /home/user/project")}},
+			// A bullet is presentation of Claude Code's anchored environment
+			// block, not a general line form: arbitrary prose must not name a
+			// project, or a same-principal request would select an unrelated
+			// bank.
+			wantOK: false,
+		},
+		{
+			name: "an unanchored bulleted line cannot outrank the Codex environment context",
+			call: &aipapi.Call{Messages: []aipapi.Message{
+				textMessage(aipapi.RoleSystem, "Notes:\n- Primary working directory: /other"),
+				textMessage(aipapi.RoleUser, envContextR),
+			}},
+			wantLabel: "/r",
+			wantOK:    true,
+		},
+		{
+			name: "an anchored environment fact run keeps its bulleted facts",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				claudeBlockOpen+" - Primary working directory: /real\n - Platform: linux"+
+					"\n\nQuoted transcript below:\n - Primary working directory: /quoted")}},
+			// The fact run is the list immediately under the lead line; prose
+			// below the blank line is model-directed text and cannot name a
+			// project with a bullet.
+			wantLabel: "/real",
+			wantOK:    true,
+		},
+		{
+			name: "a bulleted quoted line below the fact run is not a project",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				claudeBlockPlatform+"\n\n - Primary working directory: /quoted")}},
+			wantOK: false,
+		},
+		{
+			name: "a plain line below the fact run keeps its pre-existing trust",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				claudeBlockPlatform+"\n\nPrimary working directory: /below")}},
+			// Unchanged by this slice: a plain, unbulleted line is the design
+			// §3 source wherever it appears in instruction text, so this pins
+			// the pre-existing trust boundary instead of implying the anchor
+			// protects prose below the facts.
+			wantLabel: "/below",
+			wantOK:    true,
+		},
+		{
+			name: "a CRLF anchored environment block yields the working directory",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				"# Environment\r\nYou have been invoked in the following environment: \r\n"+
+					" - Primary working directory: C:\\work\\project\r\n - Platform: windows")}},
+			wantLabel: "C:/work/project",
+			wantOK:    true,
+		},
+		{
+			name: "a blank line directly after the lead line ends the fact run",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				"# Environment\nYou have been invoked in the following environment:\n\n"+
+					"Transcript:\n - Primary working directory: /other")}},
+			// The block has no facts, and the bulleted line below belongs to a
+			// transcript. Selecting it would contradict the documented rule that
+			// a blank line ends the environment fact run.
+			wantOK: false,
+		},
+		{
+			name: "prose that continues the lead line is not the anchor",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				"# Environment\nYou have been invoked in the following environment: Transcript:\n"+
+					" - Primary working directory: /other")}},
+			wantOK: false,
+		},
+		{
+			name: "a bulleted CWD line is not a project",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				claudeBlockOpen+" - CWD: /a/b")}},
+			// No harness was observed to bullet a "CWD:" line, so only the two
+			// environment facts accept a bullet inside the anchored block.
+			wantOK: false,
+		},
+		{
+			name: "a double-bulleted environment fact is not a project",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				claudeBlockOpen+" - - Primary working directory: /a/b")}},
+			wantOK: false,
+		},
+		{
+			name: "the environment header without its lead line is not an anchor",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				"# Environment\n - Primary working directory: /a/b")}},
+			wantOK: false,
+		},
+		{
+			name: "an environment block embedded in a rendered transcript is not live",
+			call: &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem,
+				"Transcript follows:\n"+claudeBlockA)}},
+			wantOK: false,
+		},
+		{
+			name: "the native Claude Code non-bare environment block yields the working directory",
+			call: &aipapi.Call{Messages: []aipapi.Message{
+				textMessage(aipapi.RoleUser, "probe"),
+				textMessage(aipapi.RoleSystem,
+					"# Environment\nYou have been invoked in the following environment: \n"+
+						" - Primary working directory: /home/user/project\n - Is a git repository: true"),
+			}},
+			wantLabel: "/home/user/project",
+			wantOK:    true,
+		},
+		{
+			name: "an anchored Claude environment block outranks the Codex environment context",
+			call: &aipapi.Call{Messages: []aipapi.Message{
+				textMessage(aipapi.RoleUser, envContextR),
+				textMessage(aipapi.RoleSystem, claudeBlockA),
+			}},
+			// The declared design §3 order is unchanged: an instruction line
+			// outranks the environment context. This pins the existing order; a
+			// request that carries two machine environment authors is an open
+			// decision, not something this slice silently reverses.
+			wantLabel: "/a/b",
+			wantKey:   projectKeyAB,
+			wantOK:    true,
+		},
+		{
+			name:      "items authority: an anchored Claude environment item yields the working directory",
+			call:      &aipapi.Call{Items: []aipapi.Item{textItem(aipapi.RoleSystem, claudeBlockA)}},
+			wantLabel: "/a/b",
+			wantKey:   projectKeyAB,
+			wantOK:    true,
+		},
+		{
+			name:   "a bulleted line without a recognized prefix is not a project",
+			call:   &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem, "- Build: run make")}},
+			wantOK: false,
 		},
 		{
 			name:      "a CWD line accepts rooted Windows syntax",
@@ -266,6 +408,11 @@ func TestDeriveProject(t *testing.T) {
 			}},
 			wantLabel: "/r",
 			wantOK:    true,
+		},
+		{
+			name:   "a double-bulleted line is not a project",
+			call:   &aipapi.Call{Messages: []aipapi.Message{textMessage(aipapi.RoleSystem, "- - Primary working directory: /two")}},
+			wantOK: false,
 		},
 		{
 			name: "no source gives ok=false",

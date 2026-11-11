@@ -143,7 +143,7 @@ func (s *ReferenceStore) DeleteALeg(ctx context.Context, aLegID string) error {
 func (s *ReferenceStore) getLeg(aLegID string) (*legView, error) {
 	trimmed := strings.TrimSpace(aLegID)
 	if err := validateALegID(trimmed); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrALegNotFound, err)
+		return nil, fmt.Errorf("%w: %w", ErrALegNotFound, err)
 	}
 	lv, ok := s.legs[trimmed]
 	if !ok {
@@ -202,14 +202,14 @@ func (s *ReferenceStore) TagNeverBackend(ctx context.Context, aLegID string, tag
 		return TagResult{}, err
 	}
 	if err := validateALegID(aLegID); err != nil {
-		return TagResult{}, fmt.Errorf("%w: %v", ErrALegNotFound, err)
+		return TagResult{}, fmt.Errorf("%w: %w", ErrALegNotFound, err)
 	}
 	// Validate batch first (no mutation).
 	seenInBatch := make(map[MessageIdentity]struct{}, len(tags))
 	newIdentities := make(map[MessageIdentity]TagRequest)
 	for i, req := range tags {
 		if err := req.Validate(); err != nil {
-			return TagResult{}, fmt.Errorf("%w: index %d: %v", ErrInvalidTagRequest, i, err)
+			return TagResult{}, fmt.Errorf("%w: index %d: %w", ErrInvalidTagRequest, i, err)
 		}
 		if _, dup := seenInBatch[req.Identity]; dup {
 			// Duplicate within batch - treat as idempotent de-dupe, not error; keep first.
@@ -279,7 +279,7 @@ func (s *ReferenceStore) PutSteering(ctx context.Context, aLegID string, req Put
 		return SteeringState{}, err
 	}
 	if err := validateALegID(aLegID); err != nil {
-		return SteeringState{}, fmt.Errorf("%w: %v", ErrALegNotFound, err)
+		return SteeringState{}, fmt.Errorf("%w: %w", ErrALegNotFound, err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -465,10 +465,10 @@ func (s *ReferenceStore) DeactivateSteering(ctx context.Context, aLegID string, 
 		return SteeringState{}, err
 	}
 	if err := ValidateOverlayID(overlayID); err != nil {
-		return SteeringState{}, fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return SteeringState{}, fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	if err := validateALegID(aLegID); err != nil {
-		return SteeringState{}, fmt.Errorf("%w: %v", ErrALegNotFound, err)
+		return SteeringState{}, fmt.Errorf("%w: %w", ErrALegNotFound, err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -238,8 +238,8 @@ func TestTwoTurnToolLoop_FunctionCallHistoryReachesOpenResponsesBackend(t *testi
 // event from the frontend SSE body.
 func completedOutput(t *testing.T, body []byte) []json.RawMessage {
 	t.Helper()
-	for _, frame := range strings.Split(string(body), "\n\n") {
-		for _, line := range strings.Split(frame, "\n") {
+	for frame := range strings.SplitSeq(string(body), "\n\n") {
+		for line := range strings.SplitSeq(frame, "\n") {
 			if !strings.HasPrefix(line, "data: ") {
 				continue
 			}

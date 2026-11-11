@@ -24,8 +24,7 @@ func TestFileStoreStorageFailureRetainsCause(t *testing.T) {
 	if !errors.Is(err, aipcont.ErrStorageFailure) {
 		t.Fatalf("corrupt constructor error=%v want ErrStorageFailure", err)
 	}
-	var syntaxErr *json.SyntaxError
-	if !errors.As(err, &syntaxErr) {
+	if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
 		t.Fatalf("storage failure dropped its decode cause: %v", err)
 	}
 }

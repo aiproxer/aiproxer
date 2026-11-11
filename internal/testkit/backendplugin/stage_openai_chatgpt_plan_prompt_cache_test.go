@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -94,9 +95,7 @@ func buildPlanHostBackend(
 	}
 
 	config := map[string]string{"profile_store_path": storePath}
-	for key, value := range extraConfig {
-		config[key] = value
-	}
+	maps.Copy(config, extraConfig)
 	instanceConfig, err := yaml.Marshal(config)
 	if err != nil {
 		t.Fatalf("marshal instance config: %v", err)
