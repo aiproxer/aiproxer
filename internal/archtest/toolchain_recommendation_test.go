@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// toolchainVersion matches a copied Go toolchain version such as go1.26.9.
+// toolchainVersion matches a copied Go toolchain version such as go1.26.11.
 var toolchainVersion = regexp.MustCompile(`go1\.[0-9]+\.[0-9]+`)
 
 // toolchainRecommendationFiles are the places that tell a developer, a doctor

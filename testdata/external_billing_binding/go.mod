@@ -2,7 +2,7 @@ module github.com/aiproxer/aiproxer/testdata/external_billing_binding
 
 go 1.26.6
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require github.com/aiproxer/aiproxer v0.0.0
 
