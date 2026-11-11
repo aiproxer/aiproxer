@@ -83,7 +83,6 @@ func requireNamespaceWireItem(t *testing.T, item map[string]any, wantArguments b
 func TestIntegration_NamespaceToolsRoundTrip(t *testing.T) {
 	t.Parallel()
 	for _, stream := range []bool{false, true} {
-		stream := stream
 		name := "nonstream"
 		if stream {
 			name = "stream"

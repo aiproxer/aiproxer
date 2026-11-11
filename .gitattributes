@@ -77,3 +77,21 @@ docs/dogfood-local.md whitespace=cr-at-eol
 .kiro/specs/billing-financial-safety-contracts/revision-3-architecture.md export-ignore
 .kiro/specs/billing-financial-safety-contracts/spec.json export-ignore
 .kiro/specs/billing-financial-safety-contracts/tasks.md export-ignore
+
+# Enterprise-only bounded financial-safety specs (active and eventual archive).
+.kiro/specs/billing-fs1-recovery/** export-ignore
+.kiro/specs/archive/billing-fs1-recovery/** export-ignore
+.kiro/specs/billing-fs1-quotation/** export-ignore
+.kiro/specs/archive/billing-fs1-quotation/** export-ignore
+.kiro/specs/billing-fs1-funding/** export-ignore
+.kiro/specs/archive/billing-fs1-funding/** export-ignore
+.kiro/specs/billing-fs1-dispatch/** export-ignore
+.kiro/specs/archive/billing-fs1-dispatch/** export-ignore
+.kiro/specs/billing-fs1-settlement/** export-ignore
+.kiro/specs/archive/billing-fs1-settlement/** export-ignore
+.kiro/specs/billing-fs1-control/** export-ignore
+.kiro/specs/archive/billing-fs1-control/** export-ignore
+.kiro/specs/billing-fs1-durability/** export-ignore
+.kiro/specs/archive/billing-fs1-durability/** export-ignore
+.kiro/specs/billing-fs1-delivery/** export-ignore
+.kiro/specs/archive/billing-fs1-delivery/** export-ignore

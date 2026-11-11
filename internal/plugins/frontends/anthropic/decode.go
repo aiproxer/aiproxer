@@ -19,6 +19,23 @@ import (
 // Extension keys for round-trip metadata on the canonical call.
 const (
 	extModelJSONKey = "anthropic.model"
+	// emptyContentBlocksMessage is the wire refusal text for a content array
+	// that carries no blocks at all.
+	emptyContentBlocksMessage = "anthropic: content blocks are empty"
+	// messageOutputConfigKey is the per-message `output_config` key on an inline
+	// system message. The request-level field is never read: this frontend does
+	// not forward generation controls from either position, and decoding an
+	// unrelated request field would newly reject bodies the baseline served.
+	messageOutputConfigKey = "output_config"
+)
+
+var (
+	// errEmptyContentBlocks is the refusal for a content array with no blocks.
+	errEmptyContentBlocks = errors.New(emptyContentBlocksMessage)
+	// errEmptySystemCarrier carries the same wire text but a distinct identity,
+	// so the decoder can apply the empty_system_messages policy without changing
+	// the refusal text operators already know.
+	errEmptySystemCarrier = errors.New(emptyContentBlocksMessage)
 )
 
 // DecodeOptions configures decoding of a Messages API request.
@@ -30,6 +47,9 @@ type DecodeOptions struct {
 	Headers          http.Header
 	// HTTPHeaders carries configured header aliases; zero value uses defaults.
 	HTTPHeaders aipsdk.HTTPHeaders
+	// EmptySystemMessages is the operator policy for an inline `role: system`
+	// message whose content array is empty. Empty means [EmptySystemMessagesServe].
+	EmptySystemMessages string
 }
 
 // DecodedMessage is the result of decoding POST /v1/messages JSON.
@@ -37,6 +57,9 @@ type DecodedMessage struct {
 	Call   *aipapi.Call
 	Stream bool
 	Model  string
+	// EmptySystemCarrier records how contentless inline system carriers were
+	// handled, including every semantic the canonical call could not carry.
+	EmptySystemCarrier EmptySystemCarrierReduction
 }
 
 type wireCreate struct {
@@ -82,7 +105,11 @@ func DecodeMessageRequest(body []byte, opts DecodeOptions) (*DecodedMessage, err
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: system: %w", err)
 	}
-	msgs, err := parseAnthropicMessages(w.Messages)
+	emptyPolicy, err := normalizeEmptySystemMessagesPolicy(opts.EmptySystemMessages)
+	if err != nil {
+		return nil, err
+	}
+	msgs, reduction, err := parseAnthropicMessages(w.Messages, emptyPolicy == EmptySystemMessagesServe)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: messages: %w", err)
 	}
@@ -139,7 +166,7 @@ func DecodeMessageRequest(body []byte, opts DecodeOptions) (*DecodedMessage, err
 		return nil, fmt.Errorf("anthropic: %w", err)
 	}
 	_ = w.TopK
-	return &DecodedMessage{Call: call, Stream: w.Stream, Model: model}, nil
+	return &DecodedMessage{Call: call, Stream: w.Stream, Model: model, EmptySystemCarrier: reduction}, nil
 }
 
 func parseSystem(raw json.RawMessage) ([]aipapi.Message, error) {
@@ -176,35 +203,125 @@ func parseSystem(raw json.RawMessage) ([]aipapi.Message, error) {
 	return []aipapi.Message{{Role: aipapi.RoleSystem, Parts: parts}}, nil
 }
 
-func parseAnthropicMessages(raw []json.RawMessage) ([]aipapi.Message, error) {
+func parseAnthropicMessages(raw []json.RawMessage, serveEmptySystem bool) ([]aipapi.Message, EmptySystemCarrierReduction, error) {
 	out := make([]aipapi.Message, 0, len(raw))
+	var reduction EmptySystemCarrierReduction
+	firstCarrier := 0
 	for i, it := range raw {
-		m, err := parseAnthropicMessage(it)
+		m, facts, err := parseAnthropicMessage(it)
 		if err != nil {
-			return nil, fmt.Errorf("anthropic: messages[%d]: %w", i, err)
+			if errors.Is(err, errEmptySystemCarrier) && serveEmptySystem {
+				// Serving the turn requires removing the carrier. The message
+				// holds no instruction text, but any per-turn control it declares
+				// is real semantics this frontend does not forward, so each class
+				// is counted instead of being called loss-free.
+				if reduction.EmptyContent == 0 {
+					firstCarrier = i
+				}
+				reduction.EmptyContent++
+				if facts.perTurnEffort {
+					reduction.PerTurnEffort++
+				}
+				if facts.otherFields {
+					reduction.MessageFields++
+				}
+				continue
+			}
+			return nil, EmptySystemCarrierReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", i, err)
 		}
 		out = append(out, m)
 	}
-	return out, nil
+	if len(out) == 0 {
+		// Removing contentless carriers cannot leave a request with no
+		// content-bearing turn; keep the historical refusal for that
+		// pathological body instead of inventing a turn.
+		return nil, EmptySystemCarrierReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", firstCarrier, errEmptyContentBlocks)
+	}
+	return out, reduction, nil
 }
 
-func parseAnthropicMessage(raw json.RawMessage) (aipapi.Message, error) {
+func parseAnthropicMessage(raw json.RawMessage) (aipapi.Message, emptySystemCarrierFacts, error) {
 	var probe struct {
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
-		return aipapi.Message{}, err
+		return aipapi.Message{}, emptySystemCarrierFacts{}, err
 	}
 	role, err := mapAnthropicRole(probe.Role)
 	if err != nil {
-		return aipapi.Message{}, err
+		return aipapi.Message{}, emptySystemCarrierFacts{}, err
 	}
 	parts, err := parseMessageContent(probe.Content)
 	if err != nil {
-		return aipapi.Message{}, err
+		if role == aipapi.RoleSystem && errors.Is(err, errEmptyContentBlocks) {
+			// The role is the only fact that distinguishes a contentless
+			// instruction carrier from an empty conversation turn. Only the
+			// former has a defined reduction, and the facts it declares are
+			// what make that reduction explicit instead of silent.
+			facts, ferr := emptySystemCarrierDeclaredFacts(raw)
+			if ferr != nil {
+				return aipapi.Message{}, emptySystemCarrierFacts{}, ferr
+			}
+			return aipapi.Message{}, facts, errEmptySystemCarrier
+		}
+		return aipapi.Message{}, emptySystemCarrierFacts{}, err
 	}
-	return aipapi.Message{Role: role, Parts: parts}, nil
+	return aipapi.Message{Role: role, Parts: parts}, emptySystemCarrierFacts{}, nil
+}
+
+// emptySystemCarrierDeclaredFacts reports which per-message controls a
+// contentless inline system message declares. Only presence is retained: no
+// effort value, no other field value, and no client text leaves this function.
+func emptySystemCarrierDeclaredFacts(raw json.RawMessage) (emptySystemCarrierFacts, error) {
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return emptySystemCarrierFacts{}, err
+	}
+	var facts emptySystemCarrierFacts
+	for key := range probe {
+		switch key {
+		case fieldRole, fieldContent, messageOutputConfigKey:
+		default:
+			// `clear_at` lands here too: a per-message rendering lifetime this
+			// frontend does not model, so it is reported as an unforwarded field.
+			facts.otherFields = true
+		}
+	}
+	rawOutputConfig, ok := probe[messageOutputConfigKey]
+	if !ok || jsonpresence.IsAbsentOrJSONNull(rawOutputConfig) {
+		return facts, nil
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(rawOutputConfig, &fields); err != nil {
+		return emptySystemCarrierFacts{}, fmt.Errorf("anthropic: output_config: %w", err)
+	}
+	for key := range fields {
+		switch key {
+		case perTurnEffortFieldKey:
+		default:
+			// `format` is top-level only per the vendor schema, so any sibling
+			// field is outside what this frontend models.
+			facts.otherFields = true
+		}
+	}
+	if raw, ok := fields[perTurnEffortFieldKey]; ok && !jsonpresence.IsAbsentOrJSONNull(raw) {
+		// Presence is all that is kept, and a malformed value is reported as an
+		// unforwarded field rather than parsed. Reading the value would add a
+		// refusal the baseline did not have for a field this frontend drops.
+		if !jsonValidString(raw) {
+			facts.otherFields = true
+			return facts, nil
+		}
+		facts.perTurnEffort = true
+	}
+	return facts, nil
+}
+
+// jsonValidString reports whether raw is a JSON string literal.
+func jsonValidString(raw json.RawMessage) bool {
+	var value string
+	return json.Unmarshal(raw, &value) == nil
 }
 
 func mapAnthropicRole(r string) (aipapi.Role, error) {
@@ -251,7 +368,7 @@ func parseMessageContent(raw json.RawMessage) ([]aipapi.Part, error) {
 		out = append(out, p)
 	}
 	if len(out) == 0 {
-		return nil, errors.New("anthropic: content blocks are empty")
+		return nil, errEmptyContentBlocks
 	}
 	return out, nil
 }

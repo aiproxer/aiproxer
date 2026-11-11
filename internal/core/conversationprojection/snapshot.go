@@ -84,7 +84,7 @@ func (p Placement) Validate() error {
 			return fmt.Errorf("%w: after_message placement requires anchor", ErrInvalidPlacement)
 		}
 		if err := p.Anchor.Validate(); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidPlacement, err)
+			return fmt.Errorf("%w: %w", ErrInvalidPlacement, err)
 		}
 	} else {
 		if p.Anchor != nil {

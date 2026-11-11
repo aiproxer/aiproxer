@@ -8,7 +8,7 @@ replace github.com/aiproxer/aiproxer => ../..
 
 require (
 	github.com/aiproxer/aiproxer v0.0.0-00010101000000-000000000000
-	github.com/oracle/oci-go-sdk/v65 v65.128.0
+	github.com/oracle/oci-go-sdk/v65 v65.129.0
 	google.golang.org/grpc v1.85.0
 	gopkg.in/yaml.v3 v3.0.1
 )

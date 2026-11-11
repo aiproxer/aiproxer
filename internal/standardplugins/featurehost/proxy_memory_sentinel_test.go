@@ -496,19 +496,27 @@ func TestProxyMemoryStalledFirstTurnWriterDoesNotBlockBackendProgress(t *testing
 // extraction/consolidation cycle, a cross-harness overlay assertion, an HTTP
 // isolation assertion and an end-to-end forget.
 func TestProxyMemorySentinel_CrossPrincipalIsolationAndForget(t *testing.T) {
+	continuityDB := certificationOpenSQLite(t,
+		certificationSQLiteDSN(filepath.Join(t.TempDir(), "proxy-memory-sentinel.db")))
+	// The memory store lives in its own database, as the production
+	// composition does: a memory transaction on the continuity file would
+	// contend with the foreground continuity writes. SQLite names that
+	// isolation by file; PostgreSQL by a separate pool.
+	memoryDB := certificationOpenSQLite(t,
+		certificationSQLiteDSN(filepath.Join(t.TempDir(), "proxy-memory-sentinel-memory.db")))
+	runProxyMemorySentinelCrossPrincipalIsolationAndForget(t, continuityDB, memoryDB)
+}
+
+// runProxyMemorySentinelCrossPrincipalIsolationAndForget is the shared
+// SQLite/PostgreSQL composed-acceptance body. Each test owns two distinct
+// durable Bun pools. PostgreSQL may use one logical database for both pools.
+func runProxyMemorySentinelCrossPrincipalIsolationAndForget(t *testing.T, continuityDB, memoryDB *bun.DB) {
+	t.Helper()
 	ctx := context.Background()
 	clock := newSentinelClock()
 	aux := &sentinelAuxClient{}
 	backend := &sentinelBackend{}
 	registry := prometheus.NewRegistry()
-
-	continuityDB := certificationOpenSQLite(t,
-		certificationSQLiteDSN(filepath.Join(t.TempDir(), "proxy-memory-sentinel.db")))
-	// The memory store lives in its own database, as the production
-	// composition does: a memory transaction on the continuity file would
-	// contend with the foreground continuity writes.
-	memoryDB := certificationOpenSQLite(t,
-		certificationSQLiteDSN(filepath.Join(t.TempDir(), "proxy-memory-sentinel-memory.db")))
 	require.NoError(t, proxymemorystore.EnsureSchema(ctx, memoryDB))
 	continuity, err := continuitybunstore.New(continuityDB)
 	require.NoError(t, err)
@@ -626,6 +634,18 @@ func TestProxyMemorySentinel_CrossPrincipalIsolationAndForget(t *testing.T) {
 		"the overlay must carry the opaque project scope identifier")
 	require.Equal(t, 1.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectMatched))
 
+	// Same-principal, same-project isolation must also hold across tenants.
+	otherTenant := sentinelScope(sentinelPrincipalA)
+	otherTenant.TenantID = scope.Known("tenant-two")
+	tenantBound := sentinelServe(t, ex, otherTenant, sentinelCodexTurn("sentinel-other-tenant"), backend)
+	require.False(t, sentinelCallCarries(tenantBound, sentinelSummary),
+		"another tenant must not receive A's published summary")
+	require.False(t, sentinelCallCarries(tenantBound, projectKey),
+		"another tenant must not receive A's opaque memory scope")
+	require.Empty(t, sentinelListBanks(t, out.HostProjections.ProxyMemoryHTTP, otherTenant))
+	require.Equal(t, http.StatusNotFound,
+		sentinelMemoryStatus(t, out.HostProjections.ProxyMemoryHTTP, otherTenant, projectKey))
+
 	// ---- step 4: principal B over the same path receives nothing ----
 	bBound := sentinelServe(t, ex, scopeB, sentinelCodexTurn("sentinel-b-codex"), backend)
 	require.False(t, sentinelCallCarries(bBound, sentinelSummary),
@@ -634,7 +654,7 @@ func TestProxyMemorySentinel_CrossPrincipalIsolationAndForget(t *testing.T) {
 		"another principal must never receive A's scope overlay")
 	require.Empty(t, sentinelListBanks(t, out.HostProjections.ProxyMemoryHTTP, scopeB),
 		"the projected handler must list nothing for B")
-	require.Equal(t, 2.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSummary),
+	require.Equal(t, 3.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSummary),
 		"B ran the request transform and committed its own no-match decision")
 	require.Equal(t, 0.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectIneligible))
 	require.Equal(t, 0.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSession))
@@ -662,7 +682,7 @@ func TestProxyMemorySentinel_CrossPrincipalIsolationAndForget(t *testing.T) {
 	require.Equal(t, http.StatusNotFound,
 		sentinelMemoryStatus(t, out.HostProjections.ProxyMemoryHTTP, scopeA, projectKey),
 		"a forgotten scope is not found to its owner either")
-	require.Equal(t, 3.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSummary))
+	require.Equal(t, 4.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSummary))
 
 	// B's isolation is untouched by A's forget: a further B turn still gets
 	// nothing and B's list stays empty.
@@ -671,7 +691,7 @@ func TestProxyMemorySentinel_CrossPrincipalIsolationAndForget(t *testing.T) {
 	require.False(t, sentinelCallCarries(bAfterForget, sentinelSummary),
 		"B must stay isolated after A's forget")
 	require.False(t, sentinelCallCarries(bAfterForget, projectKey))
-	require.Equal(t, 4.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSummary))
+	require.Equal(t, 5.0, proxyMemoryCounterValue(t, registry, proxymemory.EventInjectNoSummary))
 }
 
 // sentinelListBanks reads the GET /v1/aip/memory list for one principal

@@ -190,6 +190,23 @@ type workerStoreStub struct {
 	windowNames []string
 	notes       []Note
 
+	// bankPool, when set, models a real candidate set instead of the canned
+	// one-shot list: every eligible dirty bank is offered until the query
+	// excludes its complete owner identity, which is what a bank that a lost
+	// publication CAS left immediately re-claimable does. It takes precedence
+	// over banks.
+	bankPool []ClaimedBank
+	// ignoreBankExclusions makes ClaimBanks return the first pool candidate
+	// even when the query excluded it: the store contract violation the worker
+	// must survive without a second paid dispatch.
+	ignoreBankExclusions bool
+	// publishErrFor injects a per-bank publication outcome ahead of publishErr.
+	publishErrFor func(ClaimedBank) error
+	// onPublish, when set, observes a successful-shaped publication so a case
+	// can model the store's durable progress. It runs without the recorder
+	// mutex held.
+	onPublish func(ClaimedBank, Publication)
+
 	// Injected outcomes.
 	purgeDeleted    int
 	purgeErr        error
@@ -308,12 +325,26 @@ func (s *workerStoreStub) ClaimBanks(_ context.Context, q ClaimQuery) ([]Claimed
 	if s.claimBankErr != nil {
 		return nil, s.claimBankErr
 	}
+	if s.bankPool != nil {
+		for _, bank := range s.bankPool {
+			if s.ignoreBankExclusions || !bankOwnerExcluded(q.ExcludeBankOwners, bank.Owner) {
+				return []ClaimedBank{bank}, nil
+			}
+		}
+		return nil, nil
+	}
 	if len(s.banks) == 0 {
 		return nil, nil
 	}
 	claimed := s.banks[0]
 	s.banks = s.banks[1:]
 	return []ClaimedBank{claimed}, nil
+}
+
+// bankOwnerExcluded reports whether the query excluded the complete owner
+// identity of a candidate bank.
+func bankOwnerExcluded(exclusions []Owner, owner Owner) bool {
+	return slices.Contains(exclusions, owner)
 }
 
 func (s *workerStoreStub) ConsolidationInput(_ context.Context, bank ClaimedBank, sinceMS int64, limit int) (ConsolidationBatch, error) {
@@ -353,9 +384,23 @@ func (s *workerStoreStub) ConsolidationInput(_ context.Context, bank ClaimedBank
 func (s *workerStoreStub) PublishBank(_ context.Context, bank ClaimedBank, p Publication) error {
 	s.note("publish-bank")
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	publishErrFor := s.publishErrFor
+	onPublish := s.onPublish
+	publishErr := s.publishErr
 	s.publishes = append(s.publishes, workerPublishCall{bank: bank, publication: p})
-	return s.publishErr
+	s.mu.Unlock()
+	if publishErrFor != nil {
+		if err := publishErrFor(bank); err != nil {
+			return err
+		}
+	}
+	if publishErr != nil {
+		return publishErr
+	}
+	if onPublish != nil {
+		onPublish(bank, p)
+	}
+	return nil
 }
 
 func (s *workerStoreStub) FailBank(_ context.Context, bank ClaimedBank, retryAtMS int64) error {

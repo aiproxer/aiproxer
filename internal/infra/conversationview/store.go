@@ -50,7 +50,7 @@ type TagRequest struct {
 
 func (r TagRequest) Validate() error {
 	if err := r.Identity.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidMessageIdentity, err)
+		return fmt.Errorf("%w: %w", ErrInvalidMessageIdentity, err)
 	}
 	return ValidateReasonCode(r.Reason)
 }
@@ -153,7 +153,7 @@ func (sp StoredPlacement) Validate() error {
 			return fmt.Errorf("%w: after_message placement requires anchor", ErrInvalidPlacement)
 		}
 		if err := sp.Anchor.Validate(); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidPlacement, err)
+			return fmt.Errorf("%w: %w", ErrInvalidPlacement, err)
 		}
 	} else {
 		if sp.Anchor != nil {
@@ -272,19 +272,19 @@ type PutSteeringRequest struct {
 
 func (r PutSteeringRequest) Validate() error {
 	if err := ValidateOverlayID(r.OverlayID); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	if err := r.Message.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	if err := r.Placement.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	if err := r.AnchorMissingPolicy.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	if err := ValidateReasonCode(r.Reason); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	return nil
 }

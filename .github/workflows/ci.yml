@@ -744,7 +744,12 @@ jobs:
         run: |
           set -euo pipefail
           archive="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz"
-          curl -sSfLo "$RUNNER_TEMP/$archive" "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/$archive"
+          # The release asset host answers 5xx under load: a single GET without
+          # --retry failed this required gate with "curl: (22) ... error: 504"
+          # on 2026-11-08 (run 42470767443) before any analyzer ran. Retry only
+          # the transfer; the pinned sha256 below still rejects a truncated or
+          # substituted archive, and node-independence.yml uses the same policy.
+          curl --retry 3 -sSfLo "$RUNNER_TEMP/$archive" "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/$archive"
           echo "$GOLANGCI_LINT_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64" >> "$GITHUB_PATH"

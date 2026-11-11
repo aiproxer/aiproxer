@@ -2085,6 +2085,214 @@ func runLeaseContract(
 		assert.Equal(t, int64(1), mustBank(t, db, f.alice).Attempts)
 	})
 
+	t.Run("bank candidate exclusions match the complete owner and keep the ordering", func(t *testing.T) {
+		f := newContractFixture("bank_exclusions", runID)
+		db, st := openFixture(t, f)
+		ctx := context.Background()
+		// Four banks of three owners. O2 and O3 deliberately SHARE the fixture's
+		// project key: the exclusion must key on the complete owner triple, never
+		// on a project key alone. Outstanding work is strictly decreasing, so the
+		// candidate order is fully determined. Each delta exceeds bankDirty so
+		// residue of an earlier run can never outrank this case's own banks.
+		o2 := f.owner("bob", f.projectP)
+		o3 := proxymemory.Owner{TenantID: "tenant-b", PrincipalID: f.alice.PrincipalID, ProjectKey: f.projectP}
+		o4 := f.owner(f.alice.PrincipalID, f.projectQ)
+		seedBankRow(t, db, f.alice, bankSeed{
+			ProjectLabel: "/work/one", Version: 1, DirtySeq: bankDirty + 4, ConsolidatedSeq: 0,
+			NextAttemptMS: band(0),
+		})
+		seedBankRow(t, db, o2, bankSeed{
+			ProjectLabel: "/work/one", Version: 1, DirtySeq: bankDirty + 3, ConsolidatedSeq: 0,
+			NextAttemptMS: band(0),
+		})
+		seedBankRow(t, db, o3, bankSeed{
+			ProjectLabel: "/work/one", Version: 1, DirtySeq: bankDirty + 2, ConsolidatedSeq: 0,
+			NextAttemptMS: band(0),
+		})
+		seedBankRow(t, db, o4, bankSeed{
+			ProjectLabel: "/work/two", Version: 1, DirtySeq: bankDirty + 1, ConsolidatedSeq: 0,
+			NextAttemptMS: band(0),
+		})
+		cleanupFixtureOwner(t, db, o2)
+		cleanupFixtureOwner(t, db, o3)
+		// Claiming a bank creates its owner erasure epoch row; remove the rows
+		// this case's foreign owners create so the shared database keeps no
+		// residue from them.
+		t.Cleanup(func() {
+			for _, owner := range []proxymemory.Owner{o2, o3} {
+				if _, err := db.NewRaw(`DELETE FROM proxy_memory_erasure_epochs
+					WHERE tenant_id = ? AND principal_id = ? AND project_key = ?`,
+					owner.TenantID, owner.PrincipalID, owner.ProjectKey).Exec(context.Background()); err != nil {
+					t.Errorf("fixture cleanup erasure epoch of %+v: %v", owner, err)
+				}
+			}
+		})
+		claim := func(exclude ...proxymemory.Owner) []proxymemory.ClaimedBank {
+			t.Helper()
+			claimed, err := st.ClaimBanks(ctx, proxymemory.ClaimQuery{
+				NowMS: band(0), LeaseUntilMS: band(4_000), LeaseOwner: "bank-exclusions", Limit: 1,
+				ExcludeBankOwners: exclude,
+			})
+			require.NoError(t, err)
+			return claimed
+		}
+
+		// An empty exclusion list is exactly the previous candidate query: the
+		// dirtiest bank wins.
+		first := claim()
+		require.Len(t, first, 1)
+		assert.Equal(t, f.alice, first[0].Owner)
+
+		// Excluding the winner returns the owner that shares its project key but
+		// has a different principal; lower-ranked exclusions change nothing else.
+		second := claim(f.alice, o3, o4)
+		require.Len(t, second, 1)
+		assert.Equal(t, o2, second[0].Owner,
+			"a same-key owner with a different principal must stay claimable")
+
+		// A same-key owner under another tenant was excluded, and the owner's
+		// OTHER project is never suppressed by a project-key-only match.
+		third := claim(f.alice, o2, o3)
+		require.Len(t, third, 1, "the owner's second project must stay claimable")
+		assert.Equal(t, o4, third[0].Owner)
+
+		// Excluding a same-key project of another tenant must not suppress it.
+		fourth := claim(f.alice, o2, o4)
+		require.Len(t, fourth, 1)
+		assert.Equal(t, o3, fourth[0].Owner,
+			"a same-key project of another tenant must not be excluded by someone else's triple")
+
+		// Excluding every owner of this case leaves none of them candidate.
+		all := claim(f.alice, o2, o3, o4)
+		for _, bank := range all {
+			assert.NotContains(t, []proxymemory.Owner{f.alice, o2, o3, o4}, bank.Owner,
+				"an excluded owner must never be returned (residue of other runs may still be claimable)")
+		}
+	})
+
+	t.Run("bank exclusions compose with the lost-candidate path", func(t *testing.T) {
+		f := newContractFixture("bank_exclusion_offset", runID)
+		db, st := openFixture(t, f)
+		ctx := context.Background()
+		// The dirtiest bank carries an expired lease of a previous generation and
+		// LOSES its candidacy inside the claim: the competing failure commits in
+		// the SELECT/UPDATE gap. The exclusion-aware query must behave exactly
+		// like the previous one on that path — no excluded owner comes back and
+		// the stale candidate's own retry gate survives.
+		excluded := proxymemory.Owner{TenantID: "tenant-none", PrincipalID: "none", ProjectKey: f.projectP}
+		seedBankRow(t, db, f.alice, bankSeed{
+			ProjectLabel: "/work/one", Version: 1, DirtySeq: bankDirty + 3, ConsolidatedSeq: 0,
+			LeaseOwner: "owner-b", LeaseUntilMS: band(-1), NextAttemptMS: band(0),
+		})
+
+		barrier := &bankClaimGapBarrier{
+			marker:  raceMarkerBankClaim,
+			reached: make(chan struct{}),
+			release: make(chan struct{}),
+		}
+		db.AddQueryHook(barrier)
+		release := sync.OnceFunc(func() { close(barrier.release) })
+
+		claimCtx, cancelClaim := context.WithTimeout(ctx, bankClaimGapDeadline)
+		defer cancelClaim()
+		type claimOutcome struct {
+			claimed []proxymemory.ClaimedBank
+			err     error
+		}
+		outcomes := make(chan claimOutcome, 1)
+		finished := make(chan struct{})
+		go func() {
+			defer close(finished)
+			claimed, err := st.ClaimBanks(
+				context.WithValue(claimCtx, raceMarkerKey{}, raceMarkerBankClaim),
+				proxymemory.ClaimQuery{
+					NowMS: band(0), LeaseUntilMS: band(4_000), LeaseOwner: "owner-a", Limit: 1,
+					ExcludeBankOwners: []proxymemory.Owner{excluded},
+				},
+			)
+			outcomes <- claimOutcome{claimed: claimed, err: err}
+		}()
+		t.Cleanup(func() {
+			release()
+			select {
+			case <-finished:
+			case <-time.After(bankClaimGapDeadline):
+				t.Error("the parked bank claim did not finish")
+			}
+		})
+
+		select {
+		case <-barrier.reached:
+		case <-time.After(bankClaimGapDeadline):
+			t.Fatal("the bank claim never reached BEGIN after candidate selection")
+		}
+		require.True(t, barrier.selected, "the candidate SELECT must have executed before the BEGIN barrier")
+
+		// The previous generation's late failure releases the lease and schedules
+		// the next attempt in the future, so the selected candidate loses its
+		// candidacy before the claim transaction revalidates it.
+		require.NoError(t, st.FailBank(ctx, proxymemory.ClaimedBank{
+			Owner: f.alice, LeaseOwner: "owner-b",
+		}, band(2_000)))
+
+		release()
+
+		outcome := <-outcomes
+		require.NoError(t, outcome.err)
+		assert.Empty(t, outcome.claimed,
+			"a stale claim must not take a bank whose retry gate was scheduled in the gap")
+		for _, bank := range outcome.claimed {
+			assert.NotEqual(t, excluded, bank.Owner, "an excluded owner must never be claimed")
+		}
+		row := mustBank(t, db, f.alice)
+		assert.Equal(t, band(2_000), row.NextAttemptMS, "the scheduled retry gate must survive the stale claim")
+		assert.Equal(t, int64(0), row.Attempts, "a refused claim must not count an attempt")
+
+		// The stale bank is claimable again once its own retry time has passed,
+		// and it is still claimable while the unrelated exclusion is present.
+		due, err := st.ClaimBanks(ctx, proxymemory.ClaimQuery{
+			NowMS: band(2_000), LeaseUntilMS: band(6_000), LeaseOwner: "owner-c", Limit: 1,
+			ExcludeBankOwners: []proxymemory.Owner{excluded},
+		})
+		require.NoError(t, err)
+		require.Len(t, due, 1)
+		assert.Equal(t, f.alice, due[0].Owner)
+		assert.Equal(t, "owner-c", due[0].LeaseOwner)
+	})
+
+	t.Run("bank candidate exclusions stay within the SQLite bind budget", func(t *testing.T) {
+		f := newContractFixture("bank_exclusions_budget", runID)
+		db, st := openFixture(t, f)
+		ctx := context.Background()
+		seedBankRow(t, db, f.alice, bankSeed{
+			ProjectLabel: "/work/one", Version: 1, DirtySeq: bankDirty, ConsolidatedSeq: 0, NextAttemptMS: band(0),
+		})
+		// The worker caps one tick at 256 distinct attempts, so no candidate
+		// query carries more than 255 excluded owners: 765 owner parameters plus
+		// the two scheduling times and the OFFSET, 768 in total, under the
+		// conservative SQLite limit of 999. This case executes exactly that
+		// bound on both engines.
+		exclusions := make([]proxymemory.Owner, 0, 255)
+		exclusions = append(exclusions, f.alice)
+		for i := 1; i < 255; i++ {
+			exclusions = append(exclusions, proxymemory.Owner{
+				TenantID:    "tenant-budget",
+				PrincipalID: "budget-" + strconv.Itoa(i),
+				ProjectKey:  f.projectP,
+			})
+		}
+		require.Len(t, exclusions, 255)
+		claimed, err := st.ClaimBanks(ctx, proxymemory.ClaimQuery{
+			NowMS: band(0), LeaseUntilMS: band(4_000), LeaseOwner: "bank-budget", Limit: 1,
+			ExcludeBankOwners: exclusions,
+		})
+		require.NoError(t, err, "a full tick's exclusion list must stay inside the bind-parameter budget")
+		for _, bank := range claimed {
+			assert.NotContains(t, exclusions, bank.Owner,
+				"an owner excluded by a full-length list must never be claimed (residue of other runs may still be claimable)")
+		}
+	})
+
 	t.Run("consolidation input is owner-scoped, ascending and limited", func(t *testing.T) {
 		f := newContractFixture("consolidation_input", runID)
 		db, st := openFixture(t, f)

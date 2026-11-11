@@ -9,7 +9,7 @@ replace github.com/aiproxer/aiproxer => ../..
 replace github.com/aiproxer/aiproxer/connector-support/openaicompat => ../../connector-support/openaicompat
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.24.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.15.0
 	github.com/aiproxer/aiproxer v0.0.0
 	github.com/aiproxer/aiproxer/connector-support/openaicompat v0.0.0-00010101000000-000000000000

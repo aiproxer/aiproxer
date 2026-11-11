@@ -103,7 +103,7 @@ func TestOpenResponsesJSComplianceToolIsolated(t *testing.T) {
 	if err := json.Unmarshal([]byte(pkgJSON), &pkg); err != nil {
 		t.Fatalf("parse package.json: %v", err)
 	}
-	pinned := map[string]string{"zod": "4.6.7", "esbuild": "0.28.2", "ws": "8.22.0"}
+	pinned := map[string]string{"zod": "4.6.7", "esbuild": "0.28.2", "ws": "8.22.1"}
 	for name, wantVersion := range pinned {
 		got, ok := pkg.Dependencies[name]
 		if !ok {

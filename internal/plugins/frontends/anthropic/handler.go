@@ -18,6 +18,10 @@ import (
 const (
 	HeaderRouteSelector    = routeselect.HeaderRouteSelector
 	HeaderAnthropicVersion = "anthropic-version"
+	// carrierNoticeScope names the exact observation window of the per-class
+	// carrier-reduction notice so an operator does not read one line as a
+	// totals counter.
+	carrierNoticeScope = "first_request_with_this_class_in_this_handler_generation"
 )
 
 // Handler wires HTTP POST /v1/messages to decode → executor → encode.
@@ -42,6 +46,10 @@ type Handler struct {
 	// pipeOnce serializes the first spec() build; handlers serve concurrent requests.
 	pipeOnce sync.Once
 	pipe     frontendpipe.Spec[EncodeOptions]
+	// emptySystemNoticeMu guards the per-class notice set below; the notice
+	// reports one line per class per handler generation.
+	emptySystemNoticeMu     sync.Mutex
+	emptySystemClassNoticed map[string]bool
 }
 
 func (h *Handler) spec() *frontendpipe.Spec[EncodeOptions] {
@@ -76,14 +84,16 @@ func (h *Handler) buildPipe() {
 		},
 		Decode: func(dctx frontendpipe.DecodeContext) (*frontendpipe.Decoded, error) {
 			decoded, err := DecodeMessageRequest(dctx.Body, DecodeOptions{
-				RouteSelector:    dctx.RouteSelector,
-				AnthropicVersion: dctx.AnthropicVersion,
-				Headers:          dctx.Headers,
-				HTTPHeaders:      h.HTTPHeaders,
+				RouteSelector:       dctx.RouteSelector,
+				AnthropicVersion:    dctx.AnthropicVersion,
+				Headers:             dctx.Headers,
+				HTTPHeaders:         h.HTTPHeaders,
+				EmptySystemMessages: h.Config.EmptySystemMessages,
 			})
 			if err != nil {
 				return nil, err
 			}
+			h.warnEmptySystemCarrierReduced(decoded.EmptySystemCarrier)
 			if h.hybridExternal {
 				decoded.Call.Messages = hybridToolResultMessages(decoded.Call.Messages)
 				// Stock CLI carries the full worker history. Do not accept proxy
@@ -108,4 +118,33 @@ func (h *Handler) buildPipe() {
 // ServeHTTP implements Messages create on POST …/messages.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	frontendpipe.ServeHTTP(h.spec(), w, r)
+}
+
+// warnEmptySystemCarrierReduced reports each reduction class once per handler
+// generation. A class that first appears on a later request still gets its own
+// record, so a later degradation is never hidden by an earlier one. Class labels
+// come from a closed set; the counts are bounded by the message limit; and the
+// warning may not carry client content, so no field value can reach it.
+func (h *Handler) warnEmptySystemCarrierReduced(r EmptySystemCarrierReduction) {
+	if !r.Applied() {
+		return
+	}
+	for _, cc := range r.ClassCounts() {
+		h.emptySystemNoticeMu.Lock()
+		if h.emptySystemClassNoticed == nil {
+			h.emptySystemClassNoticed = make(map[string]bool, 3)
+		}
+		if h.emptySystemClassNoticed[cc.Class] {
+			h.emptySystemNoticeMu.Unlock()
+			continue
+		}
+		h.emptySystemClassNoticed[cc.Class] = true
+		h.emptySystemNoticeMu.Unlock()
+		diag.LoggerOrDefault(h.Log).Warn(
+			"anthropic: empty inline system carrier reduced (not loss-free); set empty_system_messages=reject to refuse",
+			"class", cc.Class,
+			"count", cc.Count,
+			"scope", carrierNoticeScope,
+		)
+	}
 }

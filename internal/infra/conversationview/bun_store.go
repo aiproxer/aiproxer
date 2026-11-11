@@ -100,7 +100,7 @@ func (m *BunStore) TagNeverBackend(ctx context.Context, aLegID string, tags []Ta
 	newIdentities := make(map[conversationprojection.MessageIdentity]TagRequest)
 	for i, req := range tags {
 		if err := req.Validate(); err != nil {
-			return TagResult{}, fmt.Errorf("%w: index %d: %v", ErrInvalidTagRequest, i, err)
+			return TagResult{}, fmt.Errorf("%w: index %d: %w", ErrInvalidTagRequest, i, err)
 		}
 		if _, dup := seenInBatch[req.Identity]; dup {
 			continue
@@ -405,7 +405,7 @@ func (m *BunStore) DeactivateSteering(ctx context.Context, aLegID string, overla
 		Reason:              "r",
 	}
 	if err := tmpReq.Validate(); err != nil {
-		return SteeringState{}, fmt.Errorf("%w: %v", ErrInvalidSteeringRequest, err)
+		return SteeringState{}, fmt.Errorf("%w: %w", ErrInvalidSteeringRequest, err)
 	}
 	aLegID = strings.TrimSpace(aLegID)
 	if aLegID == "" {

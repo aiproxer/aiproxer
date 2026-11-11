@@ -114,6 +114,13 @@ change the main model to the external alias, or globally replace Haiku/Sonnet.
   accepting body or header resume authority, preventing inherited routing
   overrides. Proxy-side cross-turn continuity is not provided for these workers
   in V1.
+- A `role: system` message whose `content` is an empty array is a per-turn carrier
+  emitted by Claude Code 2.1.322 `--bare`. Its `output_config.effort` is a
+  per-turn control this frontend does not forward, so serving it is a classified
+  reduction, not a loss-free drop. See
+  [Anthropic Messages frontend](anthropic-frontend.md) for the policy,
+  the reduction classes, and the bounded operator notice.
+  Empty `user`/`assistant` turns are always refused.
 - Native `claude-*` requests, main or subagent, go only to
   `https://api.anthropic.com/v1/messages`, with original JSON bytes, one original
   first-party credential, explicitly safe protocol headers, and opaque response

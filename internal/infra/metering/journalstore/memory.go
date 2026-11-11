@@ -32,7 +32,16 @@ type MemoryStore struct {
 	mu       sync.Mutex
 	seq      int64
 	bySource map[string]int // source_event_key -> index in facts
-	facts    []storedFact
+	// byIdentity maps a fact's trimmed (stream, fact) identity to the first
+	// stored index for it, so a collision check does not rescan the journal.
+	byIdentity map[factIdentity]int
+	facts      []storedFact
+}
+
+// factIdentity is the (stream, fact) pair the collision check compares.
+type factIdentity struct {
+	streamID string
+	factID   string
 }
 
 type storedFact struct {
@@ -67,6 +76,7 @@ func NewMemoryStore(cfg MemoryConfig) (*MemoryStore, error) {
 		maxPageSize:     maxPageSize,
 		now:             now,
 		bySource:        make(map[string]int),
+		byIdentity:      make(map[factIdentity]int),
 	}, nil
 }
 
@@ -128,29 +138,51 @@ func (s *MemoryStore) Append(ctx context.Context, fact metering.Fact) error {
 		if !ok {
 			continue
 		}
-		existing := s.facts[idx].fact
-		if metering.SameFactReplay(existing, cloned) {
-			return nil
-		}
-		return fmt.Errorf("%w: stream_id=%q fact_id=%q stored_seq=%d new_seq=%d",
-			ErrIdentityCollision, cloned.StreamID, cloned.FactID, existing.Sequence, cloned.Sequence)
+		return s.replayOrCollision(idx, cloned)
 	}
-	for _, row := range s.facts {
-		if strings.TrimSpace(row.fact.StreamID) != strings.TrimSpace(cloned.StreamID) ||
-			strings.TrimSpace(row.fact.FactID) != strings.TrimSpace(cloned.FactID) {
-			continue
-		}
-		if metering.SameFactReplay(row.fact, cloned) {
-			return nil
-		}
-		return fmt.Errorf("%w: stream_id=%q fact_id=%q stored_seq=%d new_seq=%d",
-			ErrIdentityCollision, cloned.StreamID, cloned.FactID, row.fact.Sequence, cloned.Sequence)
+	// A stored row is not always reachable through the incoming fact's own
+	// source keys: legacy/preload rows are seeded under an explicit key. The
+	// identity index keeps those rows reachable without rescanning the whole
+	// journal, so appending stays constant-time as the journal grows. It holds
+	// the earliest row for each identity, which is the row the former scan
+	// returned first.
+	if idx, ok := s.byIdentity[identityOf(cloned)]; ok {
+		return s.replayOrCollision(idx, cloned)
 	}
 
-	s.seq++
-	s.bySource[key] = len(s.facts)
-	s.facts = append(s.facts, storedFact{seq: s.seq, source: key, fact: cloned})
+	s.appendStored(key, cloned)
 	return nil
+}
+
+// replayOrCollision applies the idempotency rule to one stored row: a
+// content-equal replay is a no-op, any other reuse of the identity is a
+// collision.
+func (s *MemoryStore) replayOrCollision(idx int, cloned metering.Fact) error {
+	existing := s.facts[idx].fact
+	if metering.SameFactReplay(existing, cloned) {
+		return nil
+	}
+	return fmt.Errorf("%w: stream_id=%q fact_id=%q stored_seq=%d new_seq=%d",
+		ErrIdentityCollision, cloned.StreamID, cloned.FactID, existing.Sequence, cloned.Sequence)
+}
+
+// appendStored records one owned fact and indexes it by source key and by
+// trimmed identity. Both indexes keep the first row stored for a key.
+func (s *MemoryStore) appendStored(source string, fact metering.Fact) {
+	s.seq++
+	idx := len(s.facts)
+	s.bySource[source] = idx
+	identity := identityOf(fact)
+	if _, ok := s.byIdentity[identity]; !ok {
+		s.byIdentity[identity] = idx
+	}
+	s.facts = append(s.facts, storedFact{seq: s.seq, source: source, fact: fact})
+}
+
+// identityOf is the exact identity comparison the collision check uses:
+// trimmed stream and fact identifiers.
+func identityOf(fact metering.Fact) factIdentity {
+	return factIdentity{streamID: strings.TrimSpace(fact.StreamID), factID: strings.TrimSpace(fact.FactID)}
 }
 
 // SeedSourceKeyForTest indexes fact under an explicit source_event_key for
@@ -171,9 +203,7 @@ func (s *MemoryStore) SeedSourceKeyForTest(key string, fact metering.Fact) error
 	if _, ok := s.bySource[key]; ok {
 		return fmt.Errorf("metering/journalstore: seed source key already present")
 	}
-	s.seq++
-	s.bySource[key] = len(s.facts)
-	s.facts = append(s.facts, storedFact{seq: s.seq, source: key, fact: cloned})
+	s.appendStored(key, cloned)
 	return nil
 }
 

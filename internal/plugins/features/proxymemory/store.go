@@ -237,6 +237,13 @@ type Documents struct {
 // IdleBeforeMS/NotBeforeMS bound the session idle window, LeaseUntilMS is the
 // lease expiry a successful claim writes, LeaseOwner is the lease holder to
 // record, and Limit is the maximum number of rows claimed.
+//
+// ExcludeBankOwners is a bank-claim-only candidate filter, never persisted and
+// never applied to session claims: the bank candidate query must not offer any
+// owner triple listed here. Empty means exactly the previous candidate behavior.
+// The filter is the complete Owner identity (tenant, principal and opaque
+// project key), because two owners can carry the same project key and only the
+// triple names one bank.
 type ClaimQuery struct {
 	NowMS        int64
 	IdleBeforeMS int64
@@ -244,6 +251,8 @@ type ClaimQuery struct {
 	LeaseUntilMS int64
 	LeaseOwner   string
 	Limit        int
+
+	ExcludeBankOwners []Owner
 }
 
 // OwnerOverrides holds one owner's stored, unprojected per-phase overrides

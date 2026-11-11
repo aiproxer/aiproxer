@@ -45,17 +45,73 @@ type instructionPrefix struct {
 	prefix string
 	// absolute requires absolute-path syntax before the value is accepted.
 	absolute bool
+	// bulleted allows one leading list bullet inside a Claude environment
+	// block's fact run.
+	bulleted bool
 }
 
 // instructionPrefixes are the working-directory line prefixes. The first two
 // are the design §3 sources; claudeCWDPrefix adds the bare-mode Claude Code
 // context observed in native traffic. A CWD value must be absolute because the
 // line is machine-generated for a process working directory, so prose such as
-// "CWD: unknown" never names a project.
+// "CWD: unknown" never names a project. Only the two environment facts may be
+// bulleted, and only inside the anchored block that writes them that way; a
+// bulleted "CWD:" line is not a shape any harness was observed to send.
 var instructionPrefixes = []instructionPrefix{
-	{prefix: "Working directory:"},
-	{prefix: "Primary working directory:"},
+	{prefix: "Working directory:", bulleted: true},
+	{prefix: "Primary working directory:", bulleted: true},
 	{prefix: claudeCWDPrefix, absolute: true},
+}
+
+// claudeEnvironmentAnchor opens the environment preamble that Claude Code
+// 2.1.322 sends in its default (non-bare) mode. It renders each environment
+// fact as a Markdown list item (" - Primary working directory: …"), so the
+// bullet is presentation of the preamble, not a general line form. Only a
+// text part that begins with this exact anchor may have one bullet ignored;
+// arbitrary prose that happens to contain the same words stays prose. The
+// anchor mirrors the Codex environment-context rule for the same reason:
+// rendered transcripts are frequently embedded in a request and must not be
+// mistaken for the live environment.
+const claudeEnvironmentAnchor = "# Environment\nYou have been invoked in the following environment:"
+
+// listBulletPrefix is the one Markdown bullet marker the anchored Claude
+// environment block puts in front of every fact.
+const listBulletPrefix = "- "
+
+// claudeEnvironmentFacts returns the contiguous list-item run that follows the
+// anchor of a start-anchored Claude environment block, and reports whether the
+// part is such a block. The anchor must end its own line: only spaces or tabs
+// may follow the lead line's colon, then exactly one line break starts the fact
+// run. The run ends at the first blank line, so a blank line directly after the
+// lead line means the block has no facts — a transcript below it is prose, and
+// a bulleted line there never names a project.
+func claudeEnvironmentFacts(text string) (string, bool) {
+	trimmed := strings.TrimSpace(text)
+	// A Windows client writes CRLF; the anchor and its fact run are line
+	// structure, so line endings are normalized before matching.
+	if strings.Contains(trimmed, "\r\n") {
+		trimmed = strings.ReplaceAll(trimmed, "\r\n", "\n")
+	}
+	if !strings.HasPrefix(trimmed, claudeEnvironmentAnchor) {
+		return "", false
+	}
+	rest := trimmed[len(claudeEnvironmentAnchor):]
+	lineEnd := strings.TrimLeft(rest, " \t")
+	if !strings.HasPrefix(lineEnd, "\n") {
+		// The lead line continues with other text, so this is prose that
+		// mentions the preamble, not the machine block itself.
+		return "", false
+	}
+	after := lineEnd[1:]
+	var facts strings.Builder
+	for line := range strings.SplitSeq(after, "\n") {
+		if strings.TrimSpace(line) == "" {
+			break
+		}
+		facts.WriteString(line)
+		facts.WriteString("\n")
+	}
+	return facts.String(), true
 }
 
 // DeriveProject derives the project identity of one request per design §3:
@@ -167,15 +223,35 @@ func instructionLabelFromContent(content []aipapi.ContentPart) (string, bool) {
 }
 
 // instructionLabelFromText scans one text part line by line and returns the
-// first usable value after a working-directory prefix.
+// first usable value after a working-directory prefix. A leading list bullet
+// is ignored only inside the fact run of a start-anchored Claude environment
+// block, which renders its environment facts as list items. Everywhere else the
+// line must start with the prefix itself, so unanchored bulleted prose — which
+// any client or model can write — never names a project.
 func instructionLabelFromText(text string) (string, bool) {
+	if facts, anchored := claudeEnvironmentFacts(text); anchored {
+		if label, ok := scanInstructionLines(facts, true); ok {
+			return label, true
+		}
+	}
+	return scanInstructionLines(text, false)
+}
+
+// scanInstructionLines scans one line set for a working-directory prefix,
+// optionally accepting the one list bullet that the Claude environment block
+// renders its facts with. The plain, unbulleted form is always accepted, so the
+// pre-existing design §3 rule is unchanged everywhere.
+func scanInstructionLines(text string, allowBullet bool) (string, bool) {
 	for line := range strings.SplitSeq(text, "\n") {
 		trimmed := strings.TrimSpace(line)
 		for _, candidate := range instructionPrefixes {
-			if !strings.HasPrefix(trimmed, candidate.prefix) {
+			value, matched := cutInstructionPrefix(trimmed, candidate.prefix)
+			if !matched && allowBullet && candidate.bulleted {
+				value, matched = cutBulletedPrefix(trimmed, candidate.prefix)
+			}
+			if !matched {
 				continue
 			}
-			value := strings.TrimSpace(trimmed[len(candidate.prefix):])
 			if candidate.absolute && !isAbsolutePathSyntax(value) {
 				continue
 			}
@@ -185,6 +261,25 @@ func instructionLabelFromText(text string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// cutInstructionPrefix returns the value after the prefix when the trimmed line
+// starts with it.
+func cutInstructionPrefix(trimmed, prefix string) (string, bool) {
+	if !strings.HasPrefix(trimmed, prefix) {
+		return "", false
+	}
+	return strings.TrimSpace(trimmed[len(prefix):]), true
+}
+
+// cutBulletedPrefix returns the value after the prefix when the trimmed line is
+// exactly one list bullet followed by it. A double bullet, or a bullet before
+// an unrelated word, does not match.
+func cutBulletedPrefix(trimmed, prefix string) (string, bool) {
+	if !strings.HasPrefix(trimmed, listBulletPrefix) {
+		return "", false
+	}
+	return cutInstructionPrefix(strings.TrimSpace(trimmed[len(listBulletPrefix):]), prefix)
 }
 
 // isAbsolutePathSyntax accepts POSIX rooted paths, rooted drive paths and UNC

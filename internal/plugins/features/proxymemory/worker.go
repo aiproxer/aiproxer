@@ -26,6 +26,16 @@ const (
 	// claim one session or bank at a time, so a lease always covers the item
 	// its auxiliary attempt runs under).
 	workerClaimLimit = 1
+	// workerPhase2MaxDistinctBanksPerTick bounds one tick's distinct phase 2
+	// bank attempts. The tick excludes every identity it already attempted from
+	// the next candidate query, and each exclusion costs three bind parameters
+	// in that SQL. A tick of 256 attempts sends at most 255 complete owner
+	// triples — 765 parameters plus the two scheduling times and the OFFSET,
+	// 768 total — which stays below the conservative SQLite limit of 999.
+	// A configured Phase2Batch above this bound is capped here, never silently
+	// shortened inside the store: the store is always told every identity this
+	// tick already spent.
+	workerPhase2MaxDistinctBanksPerTick = 256
 )
 
 // workerPhase1CoalesceKey is the scheduler identity of one phase 1 collection
@@ -597,10 +607,31 @@ func (w *Worker) recordFailure(ctx context.Context, evidence FailureEvidence) (F
 // time and processing it before the next claim (design §10 step 3). A claim
 // failure is logged and counted as phase2_failed, the only bounded phase 2
 // failure event, and ends the phase for this tick.
+//
+// Each full bank identity gets at most one claim/process attempt per tick, so a
+// bank that a lost publication CAS leaves immediately re-claimable cannot buy
+// another paid consolidation in the same tick. The visited set is local to this
+// invocation: nothing survives a tick or a worker generation, so a later
+// eligible tick can still retry the bank. Every claim except the first carries
+// the identities already spent, and the store's candidate query honors them.
 func (w *Worker) phase2(ctx context.Context) {
-	for range w.cfg.Phase2Batch {
+	// seen holds the identities this tick already spent; excluded is the same
+	// set in the order they were spent, which is the store's candidate filter.
+	// Both start empty, so the first claim of a tick is exactly the historical
+	// candidate query.
+	seen := make(map[Owner]struct{})
+	excluded := make([]Owner, 0)
+
+	// workerPhase2MaxDistinctBanksPerTick keeps one tick's candidate query
+	// within the conservative SQLite bind-parameter budget. A larger configured
+	// batch is capped, never silently shortened: the store still receives every
+	// identity this tick already spent.
+	for range min(w.cfg.Phase2Batch, workerPhase2MaxDistinctBanksPerTick) {
 		now := w.now()
-		claimed, err := w.store.ClaimBanks(ctx, w.bankClaimQuery(now))
+		query := w.bankClaimQuery(now)
+		query.ExcludeBankOwners = excluded
+
+		claimed, err := w.store.ClaimBanks(ctx, query)
 		if err != nil {
 			w.metrics.Inc(EventPhase2Failed)
 			w.log.Warn("proxy-memory phase 2 claim failed", "event", EventPhase2Failed, "error_kind", workerErrorKind(err))
@@ -609,9 +640,32 @@ func (w *Worker) phase2(ctx context.Context) {
 		if len(claimed) == 0 {
 			return
 		}
-		w.processBank(ctx, claimed[0], w.claimDeadline(now))
+
+		bank := claimed[0]
+		if _, duplicate := seen[bank.Owner]; duplicate {
+			// The store contract violation this guard defends against: an
+			// excluded identity came back. Never dispatch another paid
+			// auxiliary call for it. The freshly returned claim is still
+			// released through the ordinary lease-owner-fenced failure path,
+			// so a successor's lease is never touched, and the phase ends for
+			// this tick.
+			w.failBank(ctx, bank, errDuplicatePhase2BankClaim)
+			return
+		}
+
+		// Mark before processBank: a success, an ordinary failure and a lost
+		// publication CAS all consume the bank's one attempt for this tick.
+		seen[bank.Owner] = struct{}{}
+		excluded = append(excluded, bank.Owner)
+
+		w.processBank(ctx, bank, w.claimDeadline(now))
 	}
 }
+
+// errDuplicatePhase2BankClaim marks a store claim that returned a bank owner
+// this tick had already excluded. It is content-free: it never carries an owner,
+// project key or memory text.
+var errDuplicatePhase2BankClaim = errors.New("proxy-memory: store returned an excluded phase 2 bank claim")
 
 var (
 	// errPhase2NoteBudget marks a phase 2 attempt whose pending notes the

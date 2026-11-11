@@ -91,35 +91,37 @@ func (l trajectoryLineage) proven() bool { return l.slots > 0 }
 // The comparison is deliberately all-or-nothing: a single incompatible slot
 // invalidates the whole proof, because a partial proof is exactly what would
 // degrade into relocating the remaining placements by ordinal.
-func proveTrajectoryLineage(frozen, cleaned aipapi.Call) (trajectoryLineage, bool) {
-	if frozen.HasItemAuthority() != cleaned.HasItemAuthority() {
+func proveTrajectoryLineage(frozenIn, cleanedIn projectionInput) (trajectoryLineage, bool) {
+	if frozenIn.itemAuthority != cleanedIn.itemAuthority {
 		return trajectoryLineage{}, false
 	}
-	if cleaned.HasItemAuthority() {
-		if len(frozen.Items) != len(cleaned.Items) {
+	if cleanedIn.itemAuthority {
+		frozen, cleaned := frozenIn.items, cleanedIn.items
+		if frozen.len() != cleaned.len() {
 			return trajectoryLineage{}, false
 		}
-		for i := range frozen.Items {
-			if !itemLineageCompatible(frozen.Items[i], cleaned.Items[i]) {
+		for i := range frozen.elems {
+			if !itemLineageCompatible(frozen.elems[i], cleaned.elems[i]) {
 				return trajectoryLineage{}, false
 			}
 		}
-		return trajectoryLineage{itemAuthority: true, slots: len(frozen.Items)}, true
+		return trajectoryLineage{itemAuthority: true, slots: frozen.len()}, true
 	}
-	if len(frozen.Instructions) != len(cleaned.Instructions) || len(frozen.Messages) != len(cleaned.Messages) {
+	frozen, cleaned := frozenIn.legacy, cleanedIn.legacy
+	if frozen.instr.len() != cleaned.instr.len() || frozen.msgs.len() != cleaned.msgs.len() {
 		return trajectoryLineage{}, false
 	}
-	for i := range frozen.Instructions {
-		if !messageLineageCompatible(frozen.Instructions[i], cleaned.Instructions[i]) {
+	for i := range frozen.instr.elems {
+		if !messageLineageCompatible(frozen.instr.elems[i], cleaned.instr.elems[i]) {
 			return trajectoryLineage{}, false
 		}
 	}
-	for i := range frozen.Messages {
-		if !messageLineageCompatible(frozen.Messages[i], cleaned.Messages[i]) {
+	for i := range frozen.msgs.elems {
+		if !messageLineageCompatible(frozen.msgs.elems[i], cleaned.msgs.elems[i]) {
 			return trajectoryLineage{}, false
 		}
 	}
-	return trajectoryLineage{slots: len(frozen.Instructions) + len(frozen.Messages)}, true
+	return trajectoryLineage{slots: frozen.instr.len() + frozen.msgs.len()}, true
 }
 
 // frozenSlot resolves a frozen after-message anchor to its slot in the frozen
@@ -128,26 +130,30 @@ func proveTrajectoryLineage(frozen, cleaned aipapi.Call) (trajectoryLineage, boo
 // slot the structural descriptors cannot single out (see
 // [trajectoryLineage.slotDistinguishable]), because a placement carried onto an
 // interchangeable slot is a relocation, not a lineage.
-func (l trajectoryLineage) frozenSlot(frozen aipapi.Call, anchor MessageAnchor) (int, bool) {
+func (l trajectoryLineage) frozenSlot(frozenIn projectionInput, anchor MessageAnchor) (int, bool) {
 	if l.itemAuthority {
-		idx, found, err := resolveAnchorInItems(frozen.Items, anchor)
+		frozen := frozenIn.items
+		slots := newItemAnchorIndex(frozen)
+		idx, found, err := slots.resolveItems(anchor)
 		if err != nil || !found {
 			return 0, false
 		}
-		if !l.slotDistinguishable(frozen, idx) {
+		if !l.slotDistinguishable(frozenIn, idx) {
 			return 0, false
 		}
 		return idx, true
 	}
-	isInstr, idx, found, err := resolveAnchorLegacy(frozen.Instructions, frozen.Messages, anchor)
+	frozen := frozenIn.legacy
+	slots := newLegacyAnchorIndex(frozen.instr, frozen.msgs)
+	isInstr, idx, found, err := slots.resolveLegacy(frozen.instr.len(), anchor)
 	if err != nil || !found {
 		return 0, false
 	}
 	slot := idx
 	if !isInstr {
-		slot = len(frozen.Instructions) + idx
+		slot = frozen.instr.len() + idx
 	}
-	if !l.slotDistinguishable(frozen, slot) {
+	if !l.slotDistinguishable(frozenIn, slot) {
 		return 0, false
 	}
 	return slot, true
@@ -185,13 +191,14 @@ func (l trajectoryLineage) frozenSlot(frozen aipapi.Call, anchor MessageAnchor) 
 // counterpart of an instruction. Items share one region. A nonempty unique item
 // ID distinguishes its descriptor, but IDs are optional: ID-less items must also
 // be compared using the same payload-free structural comparator as the proof.
-func (l trajectoryLineage) slotDistinguishable(frozen aipapi.Call, slot int) bool {
+func (l trajectoryLineage) slotDistinguishable(frozenIn projectionInput, slot int) bool {
 	if l.itemAuthority {
-		if slot < 0 || slot >= len(frozen.Items) {
+		frozen := frozenIn.items
+		if slot < 0 || slot >= frozen.len() {
 			return false
 		}
-		for j := range frozen.Items {
-			if j != slot && itemLineageCompatible(frozen.Items[slot], frozen.Items[j]) {
+		for j := range frozen.elems {
+			if j != slot && itemLineageCompatible(frozen.elems[slot], frozen.elems[j]) {
 				return false
 			}
 		}
@@ -200,20 +207,21 @@ func (l trajectoryLineage) slotDistinguishable(frozen aipapi.Call, slot int) boo
 	if slot < 0 {
 		return false
 	}
-	if slot < len(frozen.Instructions) {
-		for j := range frozen.Instructions {
-			if j != slot && messageLineageCompatible(frozen.Instructions[slot], frozen.Instructions[j]) {
+	frozen := frozenIn.legacy
+	if slot < frozen.instr.len() {
+		for j := range frozen.instr.elems {
+			if j != slot && messageLineageCompatible(frozen.instr.elems[slot], frozen.instr.elems[j]) {
 				return false
 			}
 		}
 		return true
 	}
-	msg := slot - len(frozen.Instructions)
-	if msg >= len(frozen.Messages) {
+	msg := slot - frozen.instr.len()
+	if msg >= frozen.msgs.len() {
 		return false
 	}
-	for j := range frozen.Messages {
-		if j != msg && messageLineageCompatible(frozen.Messages[msg], frozen.Messages[j]) {
+	for j := range frozen.msgs.elems {
+		if j != msg && messageLineageCompatible(frozen.msgs.elems[msg], frozen.msgs.elems[j]) {
 			return false
 		}
 	}
@@ -224,22 +232,23 @@ func (l trajectoryLineage) slotDistinguishable(frozen aipapi.Call, slot int) boo
 // occupying the same slot. Because the lineage is the identity on slot order, the
 // derived occurrence is the count of that message's own identity over the cleaned
 // prefix, which is precisely what exact resolution needs to land on the same
-// slot again.
-func (l trajectoryLineage) currentAnchorAt(cleaned aipapi.Call, slot int) (MessageAnchor, bool) {
+// slot again. The identities come from the table the caller already derived.
+func (l trajectoryLineage) currentAnchorAt(cleanedIn projectionInput, slot int) (MessageAnchor, bool) {
 	if l.itemAuthority {
-		if slot < 0 || slot >= len(cleaned.Items) {
+		cleaned := cleanedIn.items
+		if slot < 0 || slot >= cleaned.len() {
 			return MessageAnchor{}, false
 		}
-		id, err := ItemIdentityOf(cleaned.Items[slot])
+		id, err := cleaned.identity(slot)
 		if err != nil {
 			return MessageAnchor{}, false
 		}
 		occ := uint32(0)
 		for i := 0; i <= slot; i++ {
-			if cleaned.Items[i].Kind != aipapi.ItemKindMessage {
+			if cleaned.elems[i].Kind != aipapi.ItemKindMessage {
 				continue
 			}
-			cid, err := ItemIdentityOf(cleaned.Items[i])
+			cid, err := cleaned.identity(i)
 			if err != nil {
 				return MessageAnchor{}, false
 			}
@@ -249,23 +258,40 @@ func (l trajectoryLineage) currentAnchorAt(cleaned aipapi.Call, slot int) (Messa
 		}
 		return validatedAnchor(id, occ)
 	}
-	ordered := cleaned.Instructions
-	if slot >= len(cleaned.Instructions) {
-		ordered = append(append([]aipapi.Message(nil), cleaned.Instructions...), cleaned.Messages...)
-	}
-	if slot < 0 || slot >= len(ordered) {
+	cleaned := cleanedIn.legacy
+	slotCount := cleaned.instr.len() + cleaned.msgs.len()
+	if slot < 0 || slot >= slotCount {
 		return MessageAnchor{}, false
 	}
-	prefix := ordered[:slot+1]
-	id, err := MessageIdentityOf(prefix[len(prefix)-1])
-	if err != nil {
-		return MessageAnchor{}, false
-	}
-	occ := uint32(0)
-	for _, m := range prefix {
-		cid, err := MessageIdentityOf(m)
+	var id MessageIdentity
+	if slot < cleaned.instr.len() {
+		var err error
+		id, err = cleaned.instr.identity(slot)
 		if err != nil {
 			return MessageAnchor{}, false
+		}
+	} else {
+		var err error
+		id, err = cleaned.msgs.identity(slot - cleaned.instr.len())
+		if err != nil {
+			return MessageAnchor{}, false
+		}
+	}
+	occ := uint32(0)
+	for i := 0; i <= slot; i++ {
+		var cid MessageIdentity
+		if i < cleaned.instr.len() {
+			var err error
+			cid, err = cleaned.instr.identity(i)
+			if err != nil {
+				return MessageAnchor{}, false
+			}
+		} else {
+			var err error
+			cid, err = cleaned.msgs.identity(i - cleaned.instr.len())
+			if err != nil {
+				return MessageAnchor{}, false
+			}
 		}
 		if cid == id {
 			occ++
@@ -289,11 +315,11 @@ func validatedAnchor(id MessageIdentity, occ uint32) (MessageAnchor, bool) {
 // prove a placement - no frozen evidence, an anchor the baseline cannot resolve,
 // no structural bijection, an authority or partition change - yields nil for that
 // overlay so the existing exact-resolution / anchor-missing-policy outcome stands.
-func deriveCarriedAnchors(snap Snapshot, provenance []OverlayProvenance, frozen, cleaned aipapi.Call) carriedAnchors {
+func deriveCarriedAnchors(snap Snapshot, provenance []OverlayProvenance, frozenIn, cleanedIn projectionInput) carriedAnchors {
 	if len(provenance) == 0 {
 		return nil
 	}
-	lineage, ok := proveTrajectoryLineage(frozen, cleaned)
+	lineage, ok := proveTrajectoryLineage(frozenIn, cleanedIn)
 	if !ok || !lineage.proven() {
 		return nil
 	}
@@ -316,11 +342,11 @@ func deriveCarriedAnchors(snap Snapshot, provenance []OverlayProvenance, frozen,
 		if !ok || resolved != stored {
 			continue
 		}
-		slot, ok := lineage.frozenSlot(frozen, stored)
+		slot, ok := lineage.frozenSlot(frozenIn, stored)
 		if !ok {
 			continue
 		}
-		carried, ok := lineage.currentAnchorAt(cleaned, slot)
+		carried, ok := lineage.currentAnchorAt(cleanedIn, slot)
 		if !ok || carried == stored {
 			// A carried anchor identical to the stored one is already covered by
 			// exact resolution, which stays the normal path.

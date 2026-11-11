@@ -79,8 +79,13 @@ func validSessionSystemPrompt(text string) bool {
 func mergeSessionSystemPrompt(base json.RawMessage, appendText string) json.RawMessage {
 	meta := map[string]any{}
 	if len(base) > 0 {
-		if err := json.Unmarshal(base, &meta); err != nil {
-			meta = map[string]any{}
+		var decoded map[string]any
+		// JSON null decodes without error into a nil map. Decoding through a
+		// fresh variable keeps the initialized map as the decode target, so the
+		// assignment below writes into an owned map instead of panicking on a
+		// nil one. A corrupt object still falls back to the minimal object.
+		if err := json.Unmarshal(base, &decoded); err == nil && decoded != nil {
+			meta = decoded
 		}
 	}
 	meta["systemPrompt"] = map[string]any{"append": appendText}

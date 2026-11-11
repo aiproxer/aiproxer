@@ -46,14 +46,29 @@ jobs:
           gh api --paginate --slurp "repos/$GH_REPO/actions/caches?per_page=100" > "$RUNNER_TEMP/caches.json"
           gh api --paginate --slurp "repos/$GH_REPO/pulls?state=open&per_page=100" > "$RUNNER_TEMP/open-prs.json"
           python3 scripts/prune-go-caches.py --caches "$RUNNER_TEMP/caches.json" --open-prs "$RUNNER_TEMP/open-prs.json" > "$RUNNER_TEMP/obsolete.json"
+          # GitHub may evict an already-selected entry concurrently (404), and
+          # the cache service answers 500 Server Error for transient faults: the
+          # 2026-11-09 run failed this step on one DELETE with
+          # {"message":"Server Error"} (run 42660298691). A 5xx says nothing about
+          # the retention policy, and an unpruned cache only costs storage until
+          # the next run, so retry that transfer a bounded number of times. Any
+          # other error (a missing scope, a rejected request) still fails the lane.
           jq -r '.[]' "$RUNNER_TEMP/obsolete.json" | while IFS= read -r cache_id; do
-            if ! gh api --method DELETE "repos/$GH_REPO/actions/caches/$cache_id" 2> "$RUNNER_TEMP/cache-delete.err"; then
-              # GitHub may evict an already-selected entry concurrently.
-              if ! grep -q 'HTTP 404' "$RUNNER_TEMP/cache-delete.err"; then
-                cat "$RUNNER_TEMP/cache-delete.err" >&2
-                exit 1
+            delete_attempts=3
+            for attempt in $(seq 1 "$delete_attempts"); do
+              if gh api --method DELETE "repos/$GH_REPO/actions/caches/$cache_id" 2> "$RUNNER_TEMP/cache-delete.err"; then
+                break
               fi
-            fi
+              if grep -q 'HTTP 404' "$RUNNER_TEMP/cache-delete.err"; then
+                break
+              fi
+              if [[ $attempt -lt $delete_attempts ]] && grep -qE 'HTTP 5[0-9][0-9]' "$RUNNER_TEMP/cache-delete.err"; then
+                sleep $((attempt * 2))
+                continue
+              fi
+              cat "$RUNNER_TEMP/cache-delete.err" >&2
+              exit 1
+            done
           done
           echo "Retired $(jq length "$RUNNER_TEMP/obsolete.json") obsolete cache snapshots." >> "$GITHUB_STEP_SUMMARY"
           # Evictions are otherwise silent: a lane whose snapshot is gone just
