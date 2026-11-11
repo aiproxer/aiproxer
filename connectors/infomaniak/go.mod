@@ -2,7 +2,7 @@ module github.com/aiproxer/aiproxer/connectors/infomaniak
 
 go 1.26.6
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/aiproxer/aiproxer v0.0.0
