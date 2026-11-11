@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,6 +28,26 @@ const (
 )
 
 var installMu sync.Mutex
+
+// fileSync, dirSync and renameFile are the durability primitives the managed
+// install depends on: the verified executable bytes and their final mode are
+// flushed before the rename publishes them, and the directory entry that names
+// the published binary is flushed after. They are variables so package tests
+// can prove that ordering and its failure handling; production code always
+// uses the OS calls.
+var (
+	fileSync   = func(f *os.File) error { return f.Sync() }
+	dirSync    = syncDirectory
+	renameFile = os.Rename
+)
+
+// errPublishUnconfirmed marks an install whose binary reached the cache but
+// whose persistence could not be confirmed. It is terminal: the offline cache
+// fallback exists for a peer that could not be reached, not for hiding a
+// degradation of the file this call just published. A later call re-confirms
+// the directory entry instead of trusting the path, so an install that failed
+// here is never acknowledged by mere presence.
+var errPublishUnconfirmed = errors.New("wrapper install: published binary is not crash-durable")
 
 // defaultInstallTimeout bounds one managed install, including body reads. The
 // production call site supplies a background context and Options.Client is a
@@ -106,7 +127,16 @@ func Ensure(ctx context.Context, opts Options) (string, error) {
 	if err == nil {
 		return path, nil
 	}
+	if errors.Is(err, errPublishUnconfirmed) {
+		return "", err
+	}
 	if cached := newestCached(root); cached != "" {
+		// The fallback still has to prove the cached name is durable: a file
+		// left behind by an install whose directory flush failed must not be
+		// handed to the connector just because the peer is unreachable.
+		if err := confirmPublished(cached); err != nil {
+			return "", err
+		}
 		return cached, nil
 	}
 	return "", err
@@ -145,6 +175,12 @@ func ensureOnline(ctx context.Context, client *http.Client, root, url string) (s
 	}
 	target := filepath.Join(root, rel.TagName, name)
 	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		// Presence is not proof of durability: this file may be what a previous
+		// install published before its directory flush failed. Repeat the
+		// confirmation instead of acknowledging the path as-is.
+		if err := confirmPublished(target); err != nil {
+			return "", err
+		}
 		return target, nil
 	}
 	checksums, err := download(ctx, client, checksumAsset.URL)
@@ -164,7 +200,7 @@ func ensureOnline(ctx context.Context, client *http.Client, root, url string) (s
 		return "", fmt.Errorf("wrapper checksum mismatch for %s", archiveAsset.Name)
 	}
 	parent := filepath.Dir(target)
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	if err := mkdirAllDurable(root); err != nil {
 		return "", err
 	}
 	temp, err := os.MkdirTemp(root, ".installing-")
@@ -181,18 +217,108 @@ func ensureOnline(ctx context.Context, client *http.Client, root, url string) (s
 	if err != nil {
 		return "", err
 	}
-	if err := os.Chmod(extracted, 0o755); err != nil {
+	if err := mkdirAllDurable(parent); err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(parent, 0o755); err != nil {
+	if err := publishVerifiedBinary(extracted, target); err != nil {
 		return "", err
-	}
-	if err := os.Rename(extracted, target); err != nil {
-		if _, statErr := os.Stat(target); statErr != nil {
-			return "", err
-		}
 	}
 	return target, nil
+}
+
+// publishVerifiedBinary renames the already-flushed candidate over the final
+// name and confirms that the published name is durable.
+//
+// A rename that fails because a concurrent install published the same release
+// is tolerated - the peer's complete file is the same verified bytes - but its
+// directory entry is still confirmed, so no caller launches a binary whose
+// name a crash can take away. The candidate bytes reach this point only after
+// [writeFile] flushed them, which is what makes an interrupted install unable
+// to leave a truncated executable under a name later runs trust.
+func publishVerifiedBinary(extracted, target string) error {
+	if err := renameFile(extracted, target); err != nil {
+		if _, statErr := os.Stat(target); statErr != nil {
+			return fmt.Errorf("wrapper install: publish binary: %w", err)
+		}
+	}
+	return confirmPublished(target)
+}
+
+// confirmPublished flushes the directory entry that names target and the entry
+// that names that directory. It is the only acknowledgement an install may rest
+// on: a rename alone can be lost by a crash, and a path that merely exists may
+// be the residue of an install whose confirmation already failed. Every path
+// that returns a binary - a fresh publish, an online cache hit and the offline
+// fallback - runs it.
+//
+// The second flush covers a release directory left behind by an attempt that
+// crashed (or failed) between creating it and confirming it: the directory then
+// looks pre-existing, so re-flushing its parent is the only way to make its
+// entry durable. Ancestors above that are assumed durable, because this process
+// did not create them.
+func confirmPublished(target string) error {
+	dir := filepath.Dir(target)
+	for _, flush := range []string{dir, filepath.Dir(dir)} {
+		if err := dirSync(flush); err != nil {
+			return fmt.Errorf("%w: flush directory entry for %s: %w", errPublishUnconfirmed, target, err)
+		}
+	}
+	return nil
+}
+
+// mkdirAllDurable creates path and every missing ancestor, then flushes each
+// new directory and the parent that now names it.
+//
+// Flushing the directory that holds the binary confirms only the binary's entry
+// inside it; a crash can still lose the version directory itself, and with it
+// the whole install. The same holds for every ancestor this call created, so
+// the guarantee has to extend up the hierarchy the install introduced.
+//
+// A failure here is an ordinary error, not errPublishUnconfirmed: nothing has
+// been published yet, so the offline cache may still serve an older release
+// whose own entry can be confirmed.
+func mkdirAllDurable(path string) error {
+	missing, err := missingDirs(path)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return err
+	}
+	// missing is deepest first; walk back up so each parent is flushed after
+	// its own entry has been made durable.
+	for i := len(missing) - 1; i >= 0; i-- {
+		dir := missing[i]
+		if err := dirSync(dir); err != nil {
+			return fmt.Errorf("wrapper install: flush new directory %s: %w", dir, err)
+		}
+		if err := dirSync(filepath.Dir(dir)); err != nil {
+			return fmt.Errorf("wrapper install: flush parent of new directory %s: %w", dir, err)
+		}
+	}
+	return nil
+}
+
+// missingDirs returns the directories below the first existing ancestor that
+// path would create, deepest first.
+func missingDirs(path string) ([]string, error) {
+	var missing []string
+	for dir := filepath.Clean(path); ; dir = filepath.Dir(dir) {
+		info, err := os.Stat(dir)
+		if err == nil {
+			if !info.IsDir() {
+				return nil, fmt.Errorf("wrapper install: %s is not a directory", dir)
+			}
+			return missing, nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+		missing = append(missing, dir)
+		if parent := filepath.Dir(dir); parent == dir {
+			return nil, err
+		}
+	}
 }
 
 func validTag(tag string) bool {
@@ -298,12 +424,26 @@ func writeFile(path string, source io.Reader) error {
 	if err != nil {
 		return err
 	}
-	_, copyErr := io.Copy(target, source)
-	closeErr := target.Close()
-	if copyErr != nil {
-		return copyErr
+	// The process umask may have removed the execute bits from the creation
+	// mode. Setting the final mode on this descriptor keeps the bytes and the
+	// metadata that make the file launchable in one flush.
+	if err := target.Chmod(0o755); err != nil {
+		_ = target.Close()
+		return err
 	}
-	return closeErr
+	if _, err := io.Copy(target, source); err != nil {
+		_ = target.Close()
+		return err
+	}
+	// Flush the verified bytes before the caller's rename publishes them: a
+	// crash after renaming unflushed bytes leaves a truncated executable under
+	// the cache's final name, and every later run trusts that name instead of
+	// re-verifying the release.
+	if err := fileSync(target); err != nil {
+		_ = target.Close()
+		return fmt.Errorf("wrapper install: flush binary: %w", err)
+	}
+	return target.Close()
 }
 
 func newestCached(root string) string {

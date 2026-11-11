@@ -56,10 +56,11 @@ var credentialFileReadAllowlist = map[string]string{
 	"connector-support/acp/process_identity_unix.go":                 "agent process /proc identity",
 	"connector-support/acp/workspace.go":                             "agent workspace I/O",
 	// Local CLIs and catalog/agent plumbing (no static credentials).
-	"connectors/codex/cmd/fake-codex-cli/main.go":                     "fake CLI pid files",
-	"connectors/codex/internal/catalog/fallback.go":                   "catalog fallback data",
-	"connectors/codex/internal/codex/durable_sync_unix.go":            "sync directory listing",
-	"connectors/agycliacp/internal/product/wrapperinstall/install.go": "wrapper binary install",
+	"connectors/codex/cmd/fake-codex-cli/main.go":                       "fake CLI pid files",
+	"connectors/codex/internal/catalog/fallback.go":                     "catalog fallback data",
+	"connectors/codex/internal/codex/durable_sync_unix.go":              "sync directory listing",
+	"connectors/agycliacp/internal/product/wrapperinstall/install.go":   "wrapper binary install",
+	"connectors/agycliacp/internal/product/wrapperinstall/sync_unix.go": "sync the wrapper cache directory entry after publishing the binary",
 }
 
 // credentialSourceException reports whether rel is an explicitly classified
