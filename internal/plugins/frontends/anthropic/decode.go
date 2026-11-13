@@ -23,9 +23,9 @@ const (
 	// that carries no blocks at all.
 	emptyContentBlocksMessage = "anthropic: content blocks are empty"
 	// messageOutputConfigKey is the per-message `output_config` key on an inline
-	// system message. The request-level field is never read: this frontend does
-	// not forward generation controls from either position, and decoding an
-	// unrelated request field would newly reject bodies the baseline served.
+	// system message. The request-level field is decoded separately: its `effort`
+	// maps onto canonical generation options, and its other fields are reported
+	// rather than silently dropped.
 	messageOutputConfigKey = "output_config"
 )
 
@@ -36,6 +36,9 @@ var (
 	// so the decoder can apply the empty_system_messages policy without changing
 	// the refusal text operators already know.
 	errEmptySystemCarrier = errors.New(emptyContentBlocksMessage)
+	// errPerMessageControls refuses an inline system message that declares a
+	// per-message control this frontend cannot forward, under the reject policy.
+	errPerMessageControls = errors.New("anthropic: inline system message declares controls this frontend cannot forward")
 )
 
 // DecodeOptions configures decoding of a Messages API request.
@@ -50,6 +53,10 @@ type DecodeOptions struct {
 	// EmptySystemMessages is the operator policy for an inline `role: system`
 	// message whose content array is empty. Empty means [EmptySystemMessagesServe].
 	EmptySystemMessages string
+	// PerMessageControls is the operator policy for an inline `role: system`
+	// message that declares a per-message control this frontend cannot forward.
+	// Empty means [PerMessageControlsServe].
+	PerMessageControls string
 }
 
 // DecodedMessage is the result of decoding POST /v1/messages JSON.
@@ -60,20 +67,26 @@ type DecodedMessage struct {
 	// EmptySystemCarrier records how contentless inline system carriers were
 	// handled, including every semantic the canonical call could not carry.
 	EmptySystemCarrier EmptySystemCarrierReduction
+	// RequestControls records request-level controls that could not be carried.
+	RequestControls RequestControlReduction
+	// ContentSystemControls records per-message controls dropped from served
+	// content-bearing inline system messages.
+	ContentSystemControls ContentSystemControlReduction
 }
 
 type wireCreate struct {
-	Model       string            `json:"model"`
-	MaxTokens   int               `json:"max_tokens"`
-	Messages    []json.RawMessage `json:"messages"`
-	Stream      bool              `json:"stream"`
-	System      json.RawMessage   `json:"system"`
-	Metadata    json.RawMessage   `json:"metadata"`
-	Temperature *float64          `json:"temperature"`
-	TopP        *float64          `json:"top_p"`
-	TopK        *int              `json:"top_k"`
-	Tools       json.RawMessage   `json:"tools"`
-	ToolChoice  json.RawMessage   `json:"tool_choice"`
+	Model        string            `json:"model"`
+	MaxTokens    int               `json:"max_tokens"`
+	Messages     []json.RawMessage `json:"messages"`
+	Stream       bool              `json:"stream"`
+	System       json.RawMessage   `json:"system"`
+	Metadata     json.RawMessage   `json:"metadata"`
+	Temperature  *float64          `json:"temperature"`
+	TopP         *float64          `json:"top_p"`
+	TopK         *int              `json:"top_k"`
+	Tools        json.RawMessage   `json:"tools"`
+	ToolChoice   json.RawMessage   `json:"tool_choice"`
+	OutputConfig json.RawMessage   `json:"output_config"`
 }
 
 // DecodeMessageRequest maps Anthropic Messages JSON into a canonical call.
@@ -109,7 +122,11 @@ func DecodeMessageRequest(body []byte, opts DecodeOptions) (*DecodedMessage, err
 	if err != nil {
 		return nil, err
 	}
-	msgs, reduction, err := parseAnthropicMessages(w.Messages, emptyPolicy == EmptySystemMessagesServe)
+	perMessagePolicy, err := normalizePerMessageControlsPolicy(opts.PerMessageControls)
+	if err != nil {
+		return nil, err
+	}
+	msgs, reduction, contentControls, err := parseAnthropicMessages(w.Messages, emptyPolicy == EmptySystemMessagesServe, perMessagePolicy == PerMessageControlsReject)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: messages: %w", err)
 	}
@@ -146,6 +163,7 @@ func DecodeMessageRequest(body []byte, opts DecodeOptions) (*DecodedMessage, err
 			MaxOutputTokens: &maxOut,
 		},
 	}
+	requestControls := applyRequestOutputConfig(w.OutputConfig, &call.Options)
 	if jsonpresence.IsPresentNonNullJSON(w.Metadata) {
 		var meta map[string]string
 		if jerr := json.Unmarshal(w.Metadata, &meta); jerr == nil && len(meta) > 0 {
@@ -166,7 +184,14 @@ func DecodeMessageRequest(body []byte, opts DecodeOptions) (*DecodedMessage, err
 		return nil, fmt.Errorf("anthropic: %w", err)
 	}
 	_ = w.TopK
-	return &DecodedMessage{Call: call, Stream: w.Stream, Model: model, EmptySystemCarrier: reduction}, nil
+	return &DecodedMessage{
+		Call:                  call,
+		Stream:                w.Stream,
+		Model:                 model,
+		EmptySystemCarrier:    reduction,
+		RequestControls:       requestControls,
+		ContentSystemControls: contentControls,
+	}, nil
 }
 
 func parseSystem(raw json.RawMessage) ([]aipapi.Message, error) {
@@ -203,9 +228,10 @@ func parseSystem(raw json.RawMessage) ([]aipapi.Message, error) {
 	return []aipapi.Message{{Role: aipapi.RoleSystem, Parts: parts}}, nil
 }
 
-func parseAnthropicMessages(raw []json.RawMessage, serveEmptySystem bool) ([]aipapi.Message, EmptySystemCarrierReduction, error) {
+func parseAnthropicMessages(raw []json.RawMessage, serveEmptySystem, rejectControls bool) ([]aipapi.Message, EmptySystemCarrierReduction, ContentSystemControlReduction, error) {
 	out := make([]aipapi.Message, 0, len(raw))
 	var reduction EmptySystemCarrierReduction
+	var contentControls ContentSystemControlReduction
 	firstCarrier := 0
 	for i, it := range raw {
 		m, facts, err := parseAnthropicMessage(it)
@@ -215,6 +241,9 @@ func parseAnthropicMessages(raw []json.RawMessage, serveEmptySystem bool) ([]aip
 				// holds no instruction text, but any per-turn control it declares
 				// is real semantics this frontend does not forward, so each class
 				// is counted instead of being called loss-free.
+				if rejectControls && facts.declaresAny() {
+					return nil, EmptySystemCarrierReduction{}, ContentSystemControlReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", i, errPerMessageControls)
+				}
 				if reduction.EmptyContent == 0 {
 					firstCarrier = i
 				}
@@ -227,7 +256,18 @@ func parseAnthropicMessages(raw []json.RawMessage, serveEmptySystem bool) ([]aip
 				}
 				continue
 			}
-			return nil, EmptySystemCarrierReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", i, err)
+			return nil, EmptySystemCarrierReduction{}, ContentSystemControlReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", i, err)
+		}
+		if m.Role == aipapi.RoleSystem && facts.declaresAny() {
+			if rejectControls {
+				return nil, EmptySystemCarrierReduction{}, ContentSystemControlReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", i, errPerMessageControls)
+			}
+			if facts.perTurnEffort {
+				contentControls.PerTurnEffort++
+			}
+			if facts.otherFields {
+				contentControls.MessageFields++
+			}
 		}
 		out = append(out, m)
 	}
@@ -235,22 +275,22 @@ func parseAnthropicMessages(raw []json.RawMessage, serveEmptySystem bool) ([]aip
 		// Removing contentless carriers cannot leave a request with no
 		// content-bearing turn; keep the historical refusal for that
 		// pathological body instead of inventing a turn.
-		return nil, EmptySystemCarrierReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", firstCarrier, errEmptyContentBlocks)
+		return nil, EmptySystemCarrierReduction{}, ContentSystemControlReduction{}, fmt.Errorf("anthropic: messages[%d]: %w", firstCarrier, errEmptyContentBlocks)
 	}
-	return out, reduction, nil
+	return out, reduction, contentControls, nil
 }
 
-func parseAnthropicMessage(raw json.RawMessage) (aipapi.Message, emptySystemCarrierFacts, error) {
+func parseAnthropicMessage(raw json.RawMessage) (aipapi.Message, inlineSystemControlFacts, error) {
 	var probe struct {
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
-		return aipapi.Message{}, emptySystemCarrierFacts{}, err
+		return aipapi.Message{}, inlineSystemControlFacts{}, err
 	}
 	role, err := mapAnthropicRole(probe.Role)
 	if err != nil {
-		return aipapi.Message{}, emptySystemCarrierFacts{}, err
+		return aipapi.Message{}, inlineSystemControlFacts{}, err
 	}
 	parts, err := parseMessageContent(probe.Content)
 	if err != nil {
@@ -261,24 +301,47 @@ func parseAnthropicMessage(raw json.RawMessage) (aipapi.Message, emptySystemCarr
 			// what make that reduction explicit instead of silent.
 			facts, ferr := emptySystemCarrierDeclaredFacts(raw)
 			if ferr != nil {
-				return aipapi.Message{}, emptySystemCarrierFacts{}, ferr
+				return aipapi.Message{}, inlineSystemControlFacts{}, ferr
 			}
 			return aipapi.Message{}, facts, errEmptySystemCarrier
 		}
-		return aipapi.Message{}, emptySystemCarrierFacts{}, err
+		return aipapi.Message{}, inlineSystemControlFacts{}, err
 	}
-	return aipapi.Message{Role: role, Parts: parts}, emptySystemCarrierFacts{}, nil
+	var facts inlineSystemControlFacts
+	if role == aipapi.RoleSystem {
+		facts = declaredInlineSystemControls(raw)
+	}
+	return aipapi.Message{Role: role, Parts: parts}, facts, nil
 }
 
 // emptySystemCarrierDeclaredFacts reports which per-message controls a
-// contentless inline system message declares. Only presence is retained: no
-// effort value, no other field value, and no client text leaves this function.
-func emptySystemCarrierDeclaredFacts(raw json.RawMessage) (emptySystemCarrierFacts, error) {
+// contentless inline system message declares. It keeps the historical refusal
+// for a carrier whose `output_config` is not an object; a served content-bearing
+// message must never gain that refusal, so it uses declaredInlineSystemControls.
+func emptySystemCarrierDeclaredFacts(raw json.RawMessage) (inlineSystemControlFacts, error) {
 	var probe map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &probe); err != nil {
-		return emptySystemCarrierFacts{}, err
+		return inlineSystemControlFacts{}, err
 	}
-	var facts emptySystemCarrierFacts
+	if rawOutputConfig, ok := probe[messageOutputConfigKey]; ok && !jsonpresence.IsAbsentOrJSONNull(rawOutputConfig) {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(rawOutputConfig, &fields); err != nil {
+			return inlineSystemControlFacts{}, fmt.Errorf("anthropic: output_config: %w", err)
+		}
+	}
+	return declaredInlineSystemControls(raw), nil
+}
+
+// declaredInlineSystemControls reports which per-message controls an inline
+// system message declares. Only presence is retained: no effort value, no other
+// field value, and no client text leaves this function. A malformed
+// `output_config` is itself an unmodelled field, never a refusal.
+func declaredInlineSystemControls(raw json.RawMessage) inlineSystemControlFacts {
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return inlineSystemControlFacts{otherFields: true}
+	}
+	var facts inlineSystemControlFacts
 	for key := range probe {
 		switch key {
 		case fieldRole, fieldContent, messageOutputConfigKey:
@@ -290,11 +353,12 @@ func emptySystemCarrierDeclaredFacts(raw json.RawMessage) (emptySystemCarrierFac
 	}
 	rawOutputConfig, ok := probe[messageOutputConfigKey]
 	if !ok || jsonpresence.IsAbsentOrJSONNull(rawOutputConfig) {
-		return facts, nil
+		return facts
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(rawOutputConfig, &fields); err != nil {
-		return emptySystemCarrierFacts{}, fmt.Errorf("anthropic: output_config: %w", err)
+		facts.otherFields = true
+		return facts
 	}
 	for key := range fields {
 		switch key {
@@ -311,11 +375,42 @@ func emptySystemCarrierDeclaredFacts(raw json.RawMessage) (emptySystemCarrierFac
 		// refusal the baseline did not have for a field this frontend drops.
 		if !jsonValidString(raw) {
 			facts.otherFields = true
-			return facts, nil
+			return facts
 		}
 		facts.perTurnEffort = true
 	}
-	return facts, nil
+	return facts
+}
+
+// applyRequestOutputConfig carries `output_config.effort` onto the canonical
+// generation options and reports every request-level control it cannot carry.
+// It never fails: a malformed value is reported, not rejected, so a body the
+// baseline served stays served.
+func applyRequestOutputConfig(raw json.RawMessage, opts *aipapi.GenerationOptions) RequestControlReduction {
+	if jsonpresence.IsAbsentOrJSONNull(raw) {
+		return RequestControlReduction{}
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return RequestControlReduction{FieldsNotForwarded: 1}
+	}
+	var reduction RequestControlReduction
+	for key, value := range fields {
+		if key != perTurnEffortFieldKey {
+			reduction.FieldsNotForwarded++
+			continue
+		}
+		if jsonpresence.IsAbsentOrJSONNull(value) {
+			continue
+		}
+		var effort string
+		if err := json.Unmarshal(value, &effort); err != nil || strings.TrimSpace(effort) == "" {
+			reduction.EffortNotForwarded++
+			continue
+		}
+		opts.ReasoningEffort = strings.TrimSpace(effort)
+	}
+	return reduction
 }
 
 // jsonValidString reports whether raw is a JSON string literal.

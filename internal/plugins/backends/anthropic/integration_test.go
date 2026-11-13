@@ -2,6 +2,7 @@ package anthropic_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -440,5 +441,82 @@ func TestIntegration_paramsErrorDoesNotRotateCredentials(t *testing.T) {
 	}
 	if reqs.Load() != 0 {
 		t.Fatalf("unexpected HTTP attempts: %d", reqs.Load())
+	}
+}
+
+// TestIntegration_nativeForwardsReasoningEffort pins the request-level control
+// the frontend now decodes: a canonical effort reaches the upstream as
+// `output_config.effort`, not as a thinking switch.
+func TestIntegration_nativeForwardsReasoningEffort(t *testing.T) {
+	t.Parallel()
+	var captured string
+	srv := httptest.NewServer(refbackend.NewHandler(refbackend.Config{
+		OnRequestBody: func(b []byte) { captured = string(b) },
+	}))
+	t.Cleanup(srv.Close)
+
+	be := backend.New(backend.Config{BaseURL: srv.URL, APIKey: testkit.SyntheticAnthropicAPIKey})
+	call := aipapi.Call{
+		ID: "effort",
+		Messages: []aipapi.Message{{
+			Role:  aipapi.RoleUser,
+			Parts: []aipapi.Part{aipapi.TextPart("hi")},
+		}},
+		Options: aipapi.GenerationOptions{ReasoningEffort: "xhigh"},
+	}
+	cand := routing.AttemptCandidate{Primary: routing.Primary{Model: "claude-sonnet-5-5"}}
+	es, err := be.Open(context.Background(), call, cand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := aipapi.Collect(context.Background(), es); err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		OutputConfig struct {
+			Effort string `json:"effort"`
+		} `json:"output_config"`
+		Thinking any `json:"thinking"`
+	}
+	if err := json.Unmarshal([]byte(captured), &body); err != nil {
+		t.Fatalf("captured body: %v", err)
+	}
+	if body.OutputConfig.Effort != "xhigh" {
+		t.Fatalf("output_config.effort = %q, want xhigh; body: %s", body.OutputConfig.Effort, captured)
+	}
+	if body.Thinking != nil {
+		t.Fatalf("native effort must not become a thinking switch: %s", captured)
+	}
+}
+
+// TestIntegration_compatibleDoesNotForwardReasoningEffort keeps third-party
+// Anthropic-compatible upstreams on their previous wire shape.
+func TestIntegration_compatibleDoesNotForwardReasoningEffort(t *testing.T) {
+	t.Parallel()
+	var captured string
+	srv := httptest.NewServer(refbackend.NewHandler(refbackend.Config{
+		OnRequestBody: func(b []byte) { captured = string(b) },
+	}))
+	t.Cleanup(srv.Close)
+
+	be := backend.New(backend.Config{BaseURL: srv.URL, APIKey: testkit.SyntheticAnthropicAPIKey, CompatibleModeAuth: true})
+	call := aipapi.Call{
+		ID: "effort-compatible",
+		Messages: []aipapi.Message{{
+			Role:  aipapi.RoleUser,
+			Parts: []aipapi.Part{aipapi.TextPart("hi")},
+		}},
+		Options: aipapi.GenerationOptions{ReasoningEffort: "high"},
+	}
+	cand := routing.AttemptCandidate{Primary: routing.Primary{Model: "claude-sonnet-5-5"}}
+	es, err := be.Open(context.Background(), call, cand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := aipapi.Collect(context.Background(), es); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(captured, "output_config") {
+		t.Fatalf("compatible upstream received output_config: %s", captured)
 	}
 }

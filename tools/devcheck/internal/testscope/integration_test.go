@@ -1,5 +1,3 @@
-//go:build integration
-
 package testscope
 
 import (
@@ -83,6 +81,24 @@ func TestPlanBranchAndAllWorkingChanges(t *testing.T) {
 	plan, err = Build(context.Background(), root, Options{})
 	if err != nil || !strings.Contains(plan.Fallback, "package discovery failed") || len(plan.Modules) != 2 {
 		t.Fatalf("invalid actual package graph plan=%+v err=%v", plan, err)
+	}
+}
+
+// A checkout reached through a symlink (macOS temporary directories live under
+// /var, which links to /private/var) must plan like the resolved checkout.
+func TestPlanThroughSymlinkedRoot(t *testing.T) {
+	root := fixtureRepository(t)
+	writeFixture(t, root, "embed/data.txt", "changed\n")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(root, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	plan, err := Build(context.Background(), link, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Fallback != "" || len(plan.Modules) != 1 || !slices.Contains(plan.Modules[0].Packages, "./embed") {
+		t.Fatalf("symlinked root fell back or missed the owner: %+v", plan)
 	}
 }
 

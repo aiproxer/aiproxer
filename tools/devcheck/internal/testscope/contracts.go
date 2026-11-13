@@ -37,6 +37,10 @@ func BuildContracts(ctx context.Context, root, base string) (ContractPlan, error
 	if base == "" {
 		base = "origin/main"
 	}
+	root, err := canonicalRoot(root)
+	if err != nil {
+		return ContractPlan{}, err
+	}
 	paths, comparison, err := changedPaths(ctx, root, base)
 	if err != nil {
 		return ContractPlan{}, err
@@ -109,6 +113,10 @@ func selectAutomation(paths []string) ([]string, []string) {
 			scripts = append(scripts, "scripts/test-race-check.sh")
 		case "scripts/quality-checks.sh", "scripts/quality-gate.sh", "scripts/test-quality-checks.sh", "scripts/hooks/pre-commit", "scripts/staged-commit-checks.sh", ".githooks/pre-commit":
 			scripts = append(scripts, "scripts/test-quality-checks.sh")
+		}
+		switch name {
+		case "scripts/quality-checks.sh", "scripts/quality-gate.sh", "scripts/test-quality-gate-fast-owner-skip.sh":
+			scripts = append(scripts, "scripts/test-quality-gate-fast-owner-skip.sh")
 		}
 		switch name {
 		case "scripts/dev-host-policy.sh", "scripts/dev-cpu-defaults.sh":

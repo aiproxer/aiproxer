@@ -71,6 +71,10 @@ func New(cfg Config) execbackend.Backend {
 		SDKMaxRetries:        cfg.SDKMaxRetries,
 		QuotaSwitchThreshold: cfg.QuotaSwitchThreshold,
 		ProviderCounter:      NewTokenCounter(cfg), CompatibleModeAuth: cfg.CompatibleModeAuth,
+		// Native Anthropic accepts the request-level `output_config.effort`.
+		// Compatible upstreams are not guaranteed to, so they keep the field
+		// off and let capability negotiation strip the canonical effort.
+		ForwardEffort:   !cfg.CompatibleModeAuth,
 		CacheEnrollment: string(cfg.CacheEnrollment),
 		CacheTTL:        cfg.CacheTTL,
 		ModelInventory: modeldiscover.AnthropicModelsProvider{
