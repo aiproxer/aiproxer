@@ -41,7 +41,12 @@ type Config struct {
 	NormalizeRoles       bool
 	NormalizeModel       func(string) string
 	ThinkingFromEffort   bool
-	OmitToolChoice       bool
+	// ForwardEffort maps canonical ReasoningEffort onto the request-level
+	// `output_config.effort`. Native Anthropic leaves it true; compatible
+	// upstreams leave it false because they are not guaranteed to accept the
+	// field. When false the canonical effort is stripped by negotiation.
+	ForwardEffort  bool
+	OmitToolChoice bool
 	// CompatibleModeAuth enables optional credentials for built-in compatible
 	// modes: empty resolved keys omit x-api-key. Native Anthropic must leave false.
 	CompatibleModeAuth bool
@@ -73,7 +78,7 @@ func NewBackend(cfg Config) execbackend.Backend {
 		return newConfigErrorBackend(id, fmt.Errorf("%s: cache runtime: %w", id, cacheErr))
 	}
 	backendCaps := defaultBackendCaps()
-	if cfg.ThinkingFromEffort {
+	if cfg.ThinkingFromEffort || cfg.ForwardEffort {
 		backendCaps[aipapi.CapabilityReasoning] = struct{}{}
 	}
 
@@ -87,7 +92,7 @@ func NewBackend(cfg Config) execbackend.Backend {
 		ModelInventory:                       cfg.ModelInventory,
 		ResolveCaps: func(_ context.Context, call aipapi.Call, cand routing.AttemptCandidate) aipapi.BackendCaps {
 			caps := ModelCapabilities(resolveModel(cand, call))
-			if cfg.ThinkingFromEffort {
+			if cfg.ThinkingFromEffort || cfg.ForwardEffort {
 				caps[aipapi.CapabilityReasoning] = struct{}{}
 			}
 			return caps
@@ -102,6 +107,11 @@ func NewBackend(cfg Config) execbackend.Backend {
 			}
 			if err != nil {
 				return nil, err
+			}
+			if cfg.ForwardEffort {
+				if effort := strings.TrimSpace(call.Options.ReasoningEffort); effort != "" {
+					p.OutputConfig.Effort = anthropic.OutputConfigEffort(effort)
+				}
 			}
 			cacheState := cacheRuntime.state(ctx, call, p, cand, id)
 			if noAuth {

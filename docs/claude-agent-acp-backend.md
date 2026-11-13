@@ -82,8 +82,32 @@ The recipe keeps the certified adapter, SDK and bundled-CLI bytes and overrides
 three transitive libraries to patched releases: `zod` 4.6.6, `body-parser` 2.4.0
 and `fast-uri` 3.1.9. Those override the adapter's own exact pins for libraries
 whose shipped versions carry published advisories; the executed adapter
-entrypoint, Agent SDK module and bundled CLI are byte-identical to the certified
-identity below.
+entrypoint, Agent SDK module and bundled CLI are byte-identical to the prior
+identity. The lock also updates `@hono/node-server` to 2.1.8.
+
+Existing installations of the previously certified exact tree remain admitted
+for continuity: its tree digest is
+`d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f`.
+That tree contains `@hono/node-server` 2.1.4, which is affected by published
+security advisories, including [GHSA-jpvv-r467-5p4w](https://github.com/honojs/node-server/security/advisories/GHSA-jpvv-r467-5p4w)
+for reverse-proxy path access control bypass. The connector's deny profile is a
+local stdio adapter, not a public Hono server; the dependency is also shipped
+in the MCP SDK, so do not treat admission as a general safety guarantee for
+other uses. Prefer a fresh installation from the updated lock; weigh continued
+use of the old tree against its advisory exposure in your deployment. The
+separate transitive `hono` package also has published advisories (including
+[GHSA-4m76-xfj5-7975](https://github.com/advisories/GHSA-4m76-xfj5-7975));
+updating `@hono/node-server` does not fix those advisories.
+
+The updated closure differs from the previous recipe only in the Hono server
+package. Scoped validation checked installed-tree identity and ran the real
+adapter, CLI and shipped sidecar through a synthetic loopback gateway for two
+turns with hostile settings mutation; recorded tool lists were empty. The gateway
+driver did not independently assert that every hostile effect was excluded.
+First-party control probes refused identity admission before any prompt and do
+not establish successful first-party turns. The prior accepted per-control matrix
+remains baseline evidence; it was not rerun in full on the updated tree. This
+does not expand certification to other platforms or live accounts.
 
 Put Node >=22 on the connector process PATH; set `executable` to
 `/opt/claude-agent-acp/runtime/node_modules/.bin/claude-agent-acp`. The lock includes
@@ -105,21 +129,35 @@ Linux/amd64 runtime and sidecar identities, independent of permission policy:
 | Agent SDK sdk.mjs | 0.3.293 | `a980b792353c301eea60d7896704cff21440de7c4aeefc3fe481be079504e203` |
 | Bundled Linux CLI | 2.1.293 | `8968405e26db478af44eabc4635ab5ca557057b702a54460a59c13e1b253e978` |
 | Node executable | >=22 (tested: 22.23.4) | reported in identity evidence, not pinned |
-| Complete installed node_modules tree | locked closure | `d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f` |
+| Complete installed node_modules tree | locked closure | `aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6` |
 | Project bootstrap.mjs | shipped source | `3c3ad6569f91d561ca2c933bbc32ad1fb0e861fca83a61b979a24225c5e9f90d` |
 | Project identity.mjs | shipped source | `9d4dc445cb445ab1d3aea5f60ecf7a737ea164727f2413d05f6f3f322116709d` |
 | Project models.mjs | shipped source | `53b9a67fbd5e0222db49a692d8284e2ac19f8de07f79ff609488c67ba377d064` |
 | Three-file project sidecar | shipped closure | `7ed0bff33783ae1f1eccaa624d115a7e0dc9acc50b449ddc2579a33edcf30c3d` |
-| Tree + sidecar (resolved profile digest) | combined | `dde72401ce3b32662a9fe620cc43bb55be06ac10d6a8d9cfe441665712256629` |
+| Tree + sidecar (resolved profile digest) | combined | `829f53e099292447e28dc0a17eab84d9381beac8a391c7941933b380980a143c` |
 
 The tree uses lexical depth-first traversal, excluding `.bin` links and npm's
 `node_modules/.package-lock.json` install bookkeeping, hashing each
 relative forward-slash path + NUL + file SHA-256 hex + newline. Sidecar identity
 uses that record format for `bootstrap.mjs`, `identity.mjs`, then `models.mjs`; combined identity
 is SHA-256 of tree hex + NUL + sidecar hex. A package version or lock alone does
-not authorize unknown installation bytes. Re-verify an installed tree against
-this identity with `AIP_CLAUDE_ACP_INSTALL_DIR=<install>` and
-`go test ./connectors/claudeagentacp/internal/product -run TestInstalledBundleIdentity`. No real-account/billing smoke is claimed.
+not authorize unknown installation bytes. From the repository root, verify an
+installed tree against the **updated recipe** (the tree digest in the table)
+with:
+
+```sh
+(cd connectors/claudeagentacp && AIP_CLAUDE_ACP_INSTALL_DIR=/absolute/install/path \
+  go test -v ./internal/product -run '^TestInstalledBundleIdentity$')
+```
+
+The test is opt-in and can skip on an unsupported host or without the install
+path; check for a pass, not a skip. It checks the updated recipe, not every
+allowed tree. For a prior installation, run the same command with its install
+path: the test fails by design because it expects the new digest. If inspection
+succeeds, its failure reports `installed bundle digest`; compare that value to
+the old digest above. An inspection error instead does not provide a digest.
+This comparison verifies the tree identity only; it is not a complete admission
+or safety check. No real-account/billing smoke is claimed.
 Discovery creates a bounded tools-off session and sends no user prompt. The SDK
 can issue model-validation inference when selecting a model; discovery/selection
 is not a guarantee of zero upstream requests or zero cost. Model validation

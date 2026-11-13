@@ -31,12 +31,24 @@ type Plan struct {
 	Fallback string
 }
 
+// canonicalRoot returns the absolute, symlink-free checkout root. go list reports
+// package directories in resolved form, so a root reached through a symlink (for
+// example a macOS temporary directory under /var) would otherwise never match an
+// input path and every change would fall back to a full run.
+func canonicalRoot(root string) (string, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
 // Build computes a deterministic plan without changing the checkout or index.
 func Build(ctx context.Context, root string, opts Options) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
-	root, err := filepath.Abs(root)
+	root, err := canonicalRoot(root)
 	if err != nil {
 		return Plan{}, err
 	}

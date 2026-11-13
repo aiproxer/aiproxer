@@ -19,6 +19,13 @@ type Config struct {
 	// semantic; the default `serve` does it explicitly and reports every reduced
 	// class, while `reject` refuses the carrier before routing.
 	EmptySystemMessages string `yaml:"empty_system_messages"`
+	// PerMessageControls selects the operator policy for any inline `role: system`
+	// message that declares a per-message control this frontend cannot forward
+	// (`output_config` or `clear_at`). The default `serve` reports each reduced
+	// class without echoing a client value; `reject` refuses the message before
+	// routing. A contentless carrier without controls stays governed by
+	// EmptySystemMessages.
+	PerMessageControls string `yaml:"per_message_controls"`
 }
 
 // Operator policies for an inline system message with an empty content array.
@@ -43,6 +50,27 @@ func normalizeEmptySystemMessagesPolicy(raw string) (string, error) {
 	}
 }
 
+// Operator policies for an inline system message that declares a per-message
+// control this frontend cannot forward.
+const (
+	// PerMessageControlsServe serves the message after reporting every control
+	// the canonical call could not carry.
+	PerMessageControlsServe = "serve"
+	// PerMessageControlsReject refuses the message before routing.
+	PerMessageControlsReject = "reject"
+)
+
+func normalizePerMessageControlsPolicy(raw string) (string, error) {
+	switch policy := strings.TrimSpace(raw); policy {
+	case "", PerMessageControlsServe:
+		return PerMessageControlsServe, nil
+	case PerMessageControlsReject:
+		return PerMessageControlsReject, nil
+	default:
+		return "", fmt.Errorf("anthropic: per_message_controls must be %q or %q, got %q", PerMessageControlsServe, PerMessageControlsReject, raw)
+	}
+}
+
 // Bounded class labels for the reductions applied to a contentless inline
 // system carrier. They are constants so an operator notice and any later
 // observation keep a closed, content-free vocabulary.
@@ -50,6 +78,12 @@ const (
 	carrierClassEmptyContent  = "empty_content"
 	carrierClassPerTurnEffort = "per_turn_effort_not_forwarded"
 	carrierClassMessageFields = "message_fields_not_forwarded"
+
+	requestClassEffortNotForwarded = "request_effort_not_forwarded"
+	requestClassFieldsNotForwarded = "request_output_config_fields_not_forwarded"
+
+	contentSystemClassPerTurnEffort = "content_system_per_turn_effort_not_forwarded"
+	contentSystemClassFields        = "content_system_fields_not_forwarded"
 
 	perTurnEffortFieldKey = "effort"
 
@@ -61,12 +95,10 @@ const (
 // inline system carriers. It never claims the reduction is loss-free: every
 // count names a semantic the frontend could not carry onto the canonical call.
 //
-// This frontend does not forward generation controls in either position: the
-// request-level `output_config.effort` is dropped today for every request, with
-// or without a carrier (pre-existing behaviour, out of this slice's scope), and
-// a carrier's per-turn `output_config.effort` is dropped together with the
-// carrier. A per-turn effort is reported whenever the carrier declares one, so
-// the notice never implies that a matching request-level value made it safe.
+// The request-level `output_config.effort` is carried onto the canonical
+// generation options; a carrier's per-turn `output_config.effort` is dropped
+// together with the carrier and is reported whenever the carrier declares one,
+// so the notice never implies that a matching request-level value made it safe.
 type EmptySystemCarrierReduction struct {
 	// EmptyContent is the number of contentless carriers removed from the
 	// canonical history.
@@ -102,32 +134,125 @@ func (r EmptySystemCarrierReduction) Classes() []string {
 // ClassCounts returns the bounded label and count of each reduction class this
 // decode applied, in a fixed order. A notice reports one class per line, so a
 // class that only appears on a later request still gets its own record.
-func (r EmptySystemCarrierReduction) ClassCounts() []EmptySystemCarrierClassCount {
-	out := make([]EmptySystemCarrierClassCount, 0, 3)
+func (r EmptySystemCarrierReduction) ClassCounts() []ReductionClassCount {
+	out := make([]ReductionClassCount, 0, 3)
 	if r.EmptyContent > 0 {
-		out = append(out, EmptySystemCarrierClassCount{Class: carrierClassEmptyContent, Count: r.EmptyContent})
+		out = append(out, ReductionClassCount{Class: carrierClassEmptyContent, Count: r.EmptyContent})
 	}
 	if r.PerTurnEffort > 0 {
-		out = append(out, EmptySystemCarrierClassCount{Class: carrierClassPerTurnEffort, Count: r.PerTurnEffort})
+		out = append(out, ReductionClassCount{Class: carrierClassPerTurnEffort, Count: r.PerTurnEffort})
 	}
 	if r.MessageFields > 0 {
-		out = append(out, EmptySystemCarrierClassCount{Class: carrierClassMessageFields, Count: r.MessageFields})
+		out = append(out, ReductionClassCount{Class: carrierClassMessageFields, Count: r.MessageFields})
 	}
 	return out
 }
 
-// EmptySystemCarrierClassCount is one bounded reduction class with its count.
-type EmptySystemCarrierClassCount struct {
+// ReductionClassCount is one bounded reduction class with its count.
+type ReductionClassCount struct {
 	Class string
 	Count int
 }
 
-// emptySystemCarrierFacts is what one contentless inline system message declared
-// beyond its empty content array. Only presence is retained: no effort value or
-// field value can reach a notice.
-type emptySystemCarrierFacts struct {
+// RequestControlReduction reports request-level generation controls this
+// frontend could not carry onto the canonical call. A usable
+// `output_config.effort` is not a reduction: it reaches
+// Options.ReasoningEffort. Everything else is counted so the loss is visible.
+type RequestControlReduction struct {
+	// EffortNotForwarded is set when `output_config.effort` was present but not
+	// a non-empty string, so no canonical value could be derived.
+	EffortNotForwarded int
+	// FieldsNotForwarded counts `output_config` values this frontend does not
+	// model: `format`, unknown siblings, or a value that is not an object.
+	FieldsNotForwarded int
+}
+
+// Applied reports whether any request-level control was not forwarded.
+func (r RequestControlReduction) Applied() bool {
+	return r.EffortNotForwarded > 0 || r.FieldsNotForwarded > 0
+}
+
+// Classes returns the bounded labels of the request-level reductions.
+func (r RequestControlReduction) Classes() []string {
+	out := make([]string, 0, 2)
+	if r.EffortNotForwarded > 0 {
+		out = append(out, requestClassEffortNotForwarded)
+	}
+	if r.FieldsNotForwarded > 0 {
+		out = append(out, requestClassFieldsNotForwarded)
+	}
+	return out
+}
+
+// ClassCounts returns the bounded label and count of each request-level
+// reduction class, in a fixed order.
+func (r RequestControlReduction) ClassCounts() []ReductionClassCount {
+	out := make([]ReductionClassCount, 0, 2)
+	if r.EffortNotForwarded > 0 {
+		out = append(out, ReductionClassCount{Class: requestClassEffortNotForwarded, Count: r.EffortNotForwarded})
+	}
+	if r.FieldsNotForwarded > 0 {
+		out = append(out, ReductionClassCount{Class: requestClassFieldsNotForwarded, Count: r.FieldsNotForwarded})
+	}
+	return out
+}
+
+// ContentSystemControlReduction reports per-message controls declared by a
+// content-bearing inline system message. The message keeps its content and its
+// position; the controls are not forwarded and are counted here instead.
+type ContentSystemControlReduction struct {
+	// PerTurnEffort is the number of served content-bearing system messages that
+	// declared an `output_config.effort` this frontend does not forward.
+	PerTurnEffort int
+	// MessageFields is the number of served content-bearing system messages that
+	// declared any other field this frontend does not model (for example
+	// `clear_at` or an unknown `output_config` sibling).
+	MessageFields int
+}
+
+// Applied reports whether any content-bearing message declared a control this
+// frontend did not forward.
+func (r ContentSystemControlReduction) Applied() bool {
+	return r.PerTurnEffort > 0 || r.MessageFields > 0
+}
+
+// Classes returns the bounded labels of the content-bearing reductions.
+func (r ContentSystemControlReduction) Classes() []string {
+	out := make([]string, 0, 2)
+	if r.PerTurnEffort > 0 {
+		out = append(out, contentSystemClassPerTurnEffort)
+	}
+	if r.MessageFields > 0 {
+		out = append(out, contentSystemClassFields)
+	}
+	return out
+}
+
+// ClassCounts returns the bounded label and count of each content-bearing
+// reduction class, in a fixed order.
+func (r ContentSystemControlReduction) ClassCounts() []ReductionClassCount {
+	out := make([]ReductionClassCount, 0, 2)
+	if r.PerTurnEffort > 0 {
+		out = append(out, ReductionClassCount{Class: contentSystemClassPerTurnEffort, Count: r.PerTurnEffort})
+	}
+	if r.MessageFields > 0 {
+		out = append(out, ReductionClassCount{Class: contentSystemClassFields, Count: r.MessageFields})
+	}
+	return out
+}
+
+// inlineSystemControlFacts is what one inline system message declared beyond
+// its content. Only presence is retained: no effort value or field value can
+// reach a notice.
+type inlineSystemControlFacts struct {
 	perTurnEffort bool
 	otherFields   bool
+}
+
+// declaresAny reports whether the message declared a control this frontend
+// cannot forward.
+func (f inlineSystemControlFacts) declaresAny() bool {
+	return f.perTurnEffort || f.otherFields
 }
 
 type hybridConfig struct {
@@ -183,6 +308,9 @@ func DecodeConfig(n yaml.Node) (Config, error) {
 		return Config{}, fmt.Errorf("anthropic: invalid or unknown config key")
 	}
 	if cfg.EmptySystemMessages, err = normalizeEmptySystemMessagesPolicy(cfg.EmptySystemMessages); err != nil {
+		return Config{}, err
+	}
+	if cfg.PerMessageControls, err = normalizePerMessageControlsPolicy(cfg.PerMessageControls); err != nil {
 		return Config{}, err
 	}
 	seen := map[string]bool{}

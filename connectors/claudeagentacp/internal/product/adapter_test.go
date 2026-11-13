@@ -162,24 +162,30 @@ func TestCertifiedBundle_ChangedDescriptorRefuses(t *testing.T) {
 		AdapterSHA256: "4a1f0fff5cdd26b8c9adb5f9b3d314640e06f876cfff97cac437159b4551ec27",
 		SDKSHA256:     "a980b792353c301eea60d7896704cff21440de7c4aeefc3fe481be079504e203",
 		CLISHA256:     "8968405e26db478af44eabc4635ab5ca557057b702a54460a59c13e1b253e978",
-		BundleSHA256:  "d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f",
+		BundleSHA256:  "aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6",
 	}
-	if !certifiedBundle(known) {
-		t.Fatal("demonstrated descriptor refused")
-	}
-	for _, mutate := range []func(*RuntimeProfile){
-		func(p *RuntimeProfile) { p.AdapterVersion = "0.89.2" },
-		func(p *RuntimeProfile) { p.SDKVersion = "0.3.294" },
-		func(p *RuntimeProfile) { p.CLIVersion = "2.1.294" },
-		func(p *RuntimeProfile) { p.AdapterSHA256 = "changed" },
-		func(p *RuntimeProfile) { p.SDKSHA256 = "changed" },
-		func(p *RuntimeProfile) { p.CLISHA256 = "changed" },
-		func(p *RuntimeProfile) { p.BundleSHA256 = "changed" },
+	for _, digest := range []string{
+		"d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f",
+		"aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6",
 	} {
-		changed := known
-		mutate(&changed)
-		if certifiedBundle(changed) {
-			t.Fatalf("changed descriptor admitted: %+v", changed)
+		known.BundleSHA256 = digest
+		if !certifiedBundle(known) {
+			t.Errorf("known descriptor refused: %s", digest)
+		}
+		for _, mutate := range []func(*RuntimeProfile){
+			func(p *RuntimeProfile) { p.AdapterVersion = "0.89.2" },
+			func(p *RuntimeProfile) { p.SDKVersion = "0.3.294" },
+			func(p *RuntimeProfile) { p.CLIVersion = "2.1.294" },
+			func(p *RuntimeProfile) { p.AdapterSHA256 = "changed" },
+			func(p *RuntimeProfile) { p.SDKSHA256 = "changed" },
+			func(p *RuntimeProfile) { p.CLISHA256 = "changed" },
+			func(p *RuntimeProfile) { p.BundleSHA256 = "changed" },
+		} {
+			changed := known
+			mutate(&changed)
+			if certifiedBundle(changed) {
+				t.Fatalf("changed descriptor admitted: %+v", changed)
+			}
 		}
 	}
 }
@@ -318,7 +324,7 @@ func TestInstalledBundleIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect installed bundle: %v", err)
 	}
-	if got, want := profile.BundleSHA256, "d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f"; got != want {
+	if got, want := profile.BundleSHA256, "aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6"; got != want {
 		t.Fatalf("installed bundle digest = %s, want %s from the checked-in recipe", got, want)
 	}
 	if !certifiedBundle(profile) {

@@ -74,12 +74,15 @@ func TestDecodeMessage_emptyInlineSystemCarrier(t *testing.T) {
 		t.Fatalf("native --bare carrier rejected: %v", err)
 	}
 	// The carrier declares a per-message effort. It is reported even though the
-	// request-level effort happens to match, because this frontend forwards
-	// neither and must never imply the matching value preserved the control.
+	// request-level effort happens to match, because the frontend forwards only
+	// the request-level value and must never imply the carrier's was preserved.
 	assertReduction(t, d.EmptySystemCarrier, expectedCounts{
 		empty: 1, effort: 1, fields: 0,
 		classes: []string{"empty_content", "per_turn_effort_not_forwarded"},
 	})
+	if d.Call.Options.ReasoningEffort != "medium" {
+		t.Fatalf("request-level effort = %q, want %q", d.Call.Options.ReasoningEffort, "medium")
+	}
 	if len(d.Call.Messages) != 1 || d.Call.Messages[0].Role != aipapi.RoleUser ||
 		d.Call.Messages[0].Parts[0].Text != "PROBE hi" {
 		t.Fatalf("client content changed: %+v", d.Call.Messages)
@@ -96,7 +99,7 @@ func TestDecodeMessage_emptyInlineSystemCarrier(t *testing.T) {
 
 // TestDecodeMessage_carrierPerTurnEffortAlwaysReported pins that the value is
 // irrelevant: matching, differing, and carrier-only effort all report, because
-// this frontend does not forward generation controls in either position.
+// the frontend forwards only the request-level effort, never the carrier's.
 func TestDecodeMessage_carrierPerTurnEffortAlwaysReported(t *testing.T) {
 	t.Parallel()
 	for name, body := range map[string]string{
@@ -162,9 +165,9 @@ func TestDecodeMessage_carrierMessageFieldsReported(t *testing.T) {
 }
 
 // TestDecodeMessage_malformedRequestOutputConfigStillServed is the B2 guard: the
-// baseline served a request whose top-level output_config was malformed
-// (not forwarded, never parsed), so decoding must not start rejecting it when no
-// carrier is present.
+// baseline served a request whose top-level output_config was malformed, so
+// decoding must not start rejecting it when no carrier is present. The value is
+// now reported as a request-level reduction instead of being dropped silently.
 func TestDecodeMessage_malformedRequestOutputConfigStillServed(t *testing.T) {
 	t.Parallel()
 	for name, raw := range map[string]string{
@@ -180,6 +183,12 @@ func TestDecodeMessage_malformedRequestOutputConfigStillServed(t *testing.T) {
 		}
 		if d.EmptySystemCarrier.Applied() {
 			t.Fatalf("%s: no carrier was present, reduction = %+v", name, d.EmptySystemCarrier)
+		}
+		if !d.RequestControls.Applied() {
+			t.Fatalf("%s: malformed output_config was not reported", name)
+		}
+		if d.Call.Options.ReasoningEffort != "" {
+			t.Fatalf("%s: malformed effort reached generation options: %q", name, d.Call.Options.ReasoningEffort)
 		}
 	}
 }

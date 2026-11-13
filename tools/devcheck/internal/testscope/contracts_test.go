@@ -116,6 +116,12 @@ func TestAutomationSelection_UsesExistingScriptAndConsumerContracts(t *testing.T
 			t.Errorf("setup self-test missing for %s: %v", input, scripts)
 		}
 	}
+	for _, input := range []string{"scripts/quality-gate.sh", "scripts/quality-checks.sh", "scripts/test-quality-gate-fast-owner-skip.sh"} {
+		_, scripts = selectAutomation([]string{input})
+		if !slices.Contains(scripts, "scripts/test-quality-gate-fast-owner-skip.sh") {
+			t.Errorf("owner-skip self-test missing for %s: %v", input, scripts)
+		}
+	}
 	qa, scripts = selectAutomation([]string{"scripts/dev-host-policy.sh"})
 	if !slices.Contains(qa, "TestRaceCheckDevHostGuard") || !slices.Contains(scripts, "scripts/test-configsource-fault-check.sh") || !slices.Contains(scripts, "scripts/test-quality-checks.sh") {
 		t.Fatalf("shared policy consumers missing: %v %v", qa, scripts)

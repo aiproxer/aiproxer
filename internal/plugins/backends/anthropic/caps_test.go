@@ -33,3 +33,23 @@ func TestModelCapabilities_claudeV2Alias(t *testing.T) {
 		t.Fatal("did not expect parallel tool calls for claude-v2 alias")
 	}
 }
+
+// TestNew_nativeAdvertisesReasoningEffort pins that the native backend keeps a
+// canonical effort instead of letting capability negotiation strip it.
+func TestNew_nativeAdvertisesReasoningEffort(t *testing.T) {
+	t.Parallel()
+	be := anthropic.New(anthropic.Config{BaseURL: "http://127.0.0.1:1", APIKey: "k"})
+	if _, ok := be.Caps[aipapi.CapabilityReasoning]; !ok {
+		t.Fatal("native backend must advertise reasoning")
+	}
+}
+
+// TestNew_compatibleDoesNotAdvertiseReasoningEffort pins the explicit
+// degradation for upstreams that are not guaranteed to accept the field.
+func TestNew_compatibleDoesNotAdvertiseReasoningEffort(t *testing.T) {
+	t.Parallel()
+	be := anthropic.New(anthropic.Config{BaseURL: "http://127.0.0.1:1", APIKey: "k", CompatibleModeAuth: true})
+	if _, ok := be.Caps[aipapi.CapabilityReasoning]; ok {
+		t.Fatal("compatible backend must not advertise reasoning")
+	}
+}
