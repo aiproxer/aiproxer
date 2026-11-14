@@ -193,17 +193,23 @@ func buildAnthropicMessages(call *aipapi.Call) ([]anthropic.MessageParam, error)
 // (assistant tool_use / tool tool_result) to user, for providers that reject
 // other roles.
 // Top-level Instructions are already mapped to System blocks. For normal
-// provider semantics any RoleSystem in call.Messages is mid-conversation and
-// explicitly unsupported (must reject before Open, not silently lift). For
-// compatible-mode (NormalizeRoles=true, e.g. Alibaba Token Plan Intl) legacy
-// lifting of RoleSystem Messages into System blocks is preserved explicitly.
+// provider semantics a RoleSystem in call.Messages stays in its original
+// history position as an Anthropic `role: "system"` message, which the
+// Messages API accepts from the point it appears onward; see
+// validateSystemMessagePlacement for the documented placement constraints.
+// This is a lossless in-place projection: the instruction text, its ordering
+// and its authority are unchanged, and the adapter never lifts it into
+// top-level System blocks or rewrites neighbouring turns. The vendor accepts
+// the shape on Claude Opus 4.8 and the Claude 5 family; a model that does not
+// support it answers 400, and the known emitter (Claude Code) retries once
+// without system turns. For compatible-mode (NormalizeRoles=true, e.g. Alibaba
+// Token Plan Intl) the legacy lifting of RoleSystem Messages into System
+// blocks is preserved explicitly.
 func buildAnthropicMessagesWithRolePolicy(call *aipapi.Call, normalizeRoles bool) ([]anthropic.MessageParam, error) {
 	out := make([]anthropic.MessageParam, 0, len(call.Messages))
 	for _, m := range call.Messages {
-		if m.Role == aipapi.RoleSystem {
-			if normalizeRoles {
-				continue
-			}
+		if m.Role == aipapi.RoleSystem && normalizeRoles {
+			continue
 		}
 		if normalizeRoles && m.Role != aipapi.RoleUser {
 			structuredToolMessage := (m.Role == aipapi.RoleAssistant && messageHasPartKind(m, aipapi.PartJSON)) ||
@@ -218,7 +224,37 @@ func buildAnthropicMessagesWithRolePolicy(call *aipapi.Call, normalizeRoles bool
 		}
 		out = append(out, u)
 	}
-	return mergeConsecutiveAnthropicMessages(out), nil
+	merged := mergeConsecutiveAnthropicMessages(out)
+	if err := validateSystemMessagePlacement(merged); err != nil {
+		return nil, err
+	}
+	return merged, nil
+}
+
+// validateSystemMessagePlacement enforces the vendor placement rules for a
+// mid-conversation `role: "system"` input message: it cannot be the first entry,
+// it must immediately follow a user message, and it must be either the last
+// entry or be followed by an assistant turn. Anything else is refused before
+// upstream I/O as a client error instead of emitting a shape the provider
+// answers with 400. Verifying placement locally keeps the refusal attributable
+// and avoids a provider round-trip for a request this adapter can already prove
+// invalid.
+func validateSystemMessagePlacement(msgs []anthropic.MessageParam) error {
+	for i, m := range msgs {
+		if m.Role != anthropic.MessageParamRoleSystem {
+			continue
+		}
+		if i == 0 {
+			return &aipapi.RejectError{Reason: "mid-history system message cannot be the first message"}
+		}
+		if msgs[i-1].Role != anthropic.MessageParamRoleUser {
+			return &aipapi.RejectError{Reason: "mid-history system message must follow a user message"}
+		}
+		if i != len(msgs)-1 && msgs[i+1].Role != anthropic.MessageParamRoleAssistant {
+			return &aipapi.RejectError{Reason: "mid-history system message must be followed by an assistant turn or end the request"}
+		}
+	}
+	return nil
 }
 
 func mergeConsecutiveAnthropicMessages(msgs []anthropic.MessageParam) []anthropic.MessageParam {
@@ -281,9 +317,36 @@ func messageToParam(m aipapi.Message) (anthropic.MessageParam, error) {
 			return anthropic.MessageParam{}, err
 		}
 		return anthropic.NewUserMessage(b), nil
+	case aipapi.RoleSystem:
+		// A mid-conversation instruction stays a system message in place. The
+		// vendor wire vocabulary only accepts text blocks here, so anything
+		// else is refused instead of being coerced to a user utterance.
+		return systemMessageParam(m)
 	default:
 		return anthropic.MessageParam{}, fmt.Errorf("anthropic: unsupported message role %q", m.Role)
 	}
+}
+
+// systemMessageParam renders one canonical system message as a system-role wire
+// message with text blocks only.
+func systemMessageParam(m aipapi.Message) (anthropic.MessageParam, error) {
+	blocks := make([]anthropic.ContentBlockParamUnion, 0, len(m.Parts))
+	for _, p := range m.Parts {
+		if p.Kind != aipapi.PartText {
+			return anthropic.MessageParam{}, &aipapi.RejectError{Reason: "system message supports text parts only"}
+		}
+		if strings.TrimSpace(p.Text) == "" {
+			continue
+		}
+		blocks = append(blocks, anthropic.NewTextBlock(p.Text))
+	}
+	if len(blocks) == 0 {
+		return anthropic.MessageParam{}, &aipapi.RejectError{Reason: "system message is empty after trimming"}
+	}
+	return anthropic.MessageParam{
+		Role:    anthropic.MessageParamRoleSystem,
+		Content: blocks,
+	}, nil
 }
 
 func userMessageParam(m aipapi.Message) (anthropic.MessageParam, error) {

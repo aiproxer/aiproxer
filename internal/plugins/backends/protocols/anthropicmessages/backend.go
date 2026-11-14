@@ -124,7 +124,7 @@ func NewBackend(cfg Config) execbackend.Backend {
 					return streampeek.NewManagedPrependFirst(ev, es), nil
 				}
 				_ = es.Close()
-				return nil, rerr
+				return nil, classifyInlineSystemReject(rerr, p)
 			}
 			// Ordered quota-aware attempts before any output: the first usable
 			// key stays preferred; only auth-invalid or a 429 with a
@@ -181,7 +181,7 @@ func NewBackend(cfg Config) execbackend.Backend {
 				errors.Is(runErr, credpool.ErrNoUsableCredential) {
 				return nil, aipapi.RecoverablePreOutputError(runErr)
 			}
-			return nil, runErr
+			return nil, classifyInlineSystemReject(runErr, p)
 		},
 	}
 	cacheRuntime.configureBackend(&be, func(call *aipapi.Call, cand routing.AttemptCandidate) (anthropic.MessageNewParams, error) {

@@ -167,6 +167,7 @@ func TestCertifiedBundle_ChangedDescriptorRefuses(t *testing.T) {
 	for _, digest := range []string{
 		"d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f",
 		"aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6",
+		"4fd6d8c786b7c1c88e6b7d7b5c59ca107d311ec663a97cf90f96c92e217c886f",
 	} {
 		known.BundleSHA256 = digest
 		if !certifiedBundle(known) {
@@ -324,7 +325,7 @@ func TestInstalledBundleIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect installed bundle: %v", err)
 	}
-	if got, want := profile.BundleSHA256, "aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6"; got != want {
+	if got, want := profile.BundleSHA256, "4fd6d8c786b7c1c88e6b7d7b5c59ca107d311ec663a97cf90f96c92e217c886f"; got != want {
 		t.Fatalf("installed bundle digest = %s, want %s from the checked-in recipe", got, want)
 	}
 	if !certifiedBundle(profile) {

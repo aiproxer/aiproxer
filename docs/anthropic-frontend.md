@@ -77,6 +77,36 @@ per-message control is dropped and reported. Forwarding per-message generation
 controls through the canonical call is a public-contract slice of its own and is
 deliberately deferred; this page does not claim those controls are preserved.
 
+## Content-bearing inline system messages
+
+A `role: "system"` message that carries text keeps its role and its original
+history position: it reaches the Anthropic Messages backend as a `system`-role
+wire message, never hoisted into the top-level `system` field and never coerced
+onto a user turn. Its text is trimmed of leading and trailing whitespace like
+every text block the frontend accepts, so the text is not guaranteed
+byte-for-byte.
+
+The adapter applies the vendor placement rules to the canonical projection it
+represents, before upstream I/O: a system message cannot be the first entry,
+must follow a user message, and must be last or followed by an assistant turn.
+Any other shape returns `400 invalid_request_error` locally. Anthropic also
+allows a system message after an assistant turn that ends in a server-tool
+result; this adapter does not represent server-tool results, so that shape is
+refused by the same local check. Only text blocks are accepted there; a non-text
+part is refused the same way.
+
+Whether a model accepts an inline system message is decided by the provider, not
+by a model list in the proxy. Anthropic documents the shape as supported on
+selected models, for example Claude Opus 5.5 (the model in the captured Claude
+Code trace), and documents Claude Sonnet 5 as an exception that answers 400.
+When the upstream answers 400 to a request that carries an inline system
+message, the proxy returns `400 invalid_request_error` with the fixed message
+`upstream rejected the mid-history system message`; the provider body is not
+forwarded, and the same credential is not retried; the route may still try its
+remaining candidates. Clients that implement the documented fallback for a 400 can then retry without system turns.
+An upstream 400 without an inline system message, and any 429, 5xx, or transport
+failure, keep their existing handling.
+
 The frontend therefore classifies every reduction instead of calling it
 loss-free:
 

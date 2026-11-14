@@ -283,8 +283,9 @@ func TestParamsForCall_developerRoleCoercedToUserKeepingPosition(t *testing.T) {
 // TestParamsForCall_everyCanonicalRoleMapsToItsWireRole pins the complete
 // canonical-role translation on this adapter's wire, one canonical message per
 // role, because the role vocabulary is Anthropic's provider contract rather than
-// a canonical one. Every previously mapped role keeps its exact wire role, and
-// the default arm keeps rejecting what it rejected.
+// a canonical one. Every previously mapped role keeps its exact wire role, a
+// mid-history system message stays system, and the default arm still rejects an
+// unknown role.
 func TestParamsForCall_everyCanonicalRoleMapsToItsWireRole(t *testing.T) {
 	t.Parallel()
 
@@ -292,6 +293,7 @@ func TestParamsForCall_everyCanonicalRoleMapsToItsWireRole(t *testing.T) {
 		name      string
 		role      aipapi.Role
 		parts     []aipapi.Part
+		leading   []aipapi.Message
 		wantRole  string
 		wantError string
 	}{
@@ -325,12 +327,21 @@ func TestParamsForCall_everyCanonicalRoleMapsToItsWireRole(t *testing.T) {
 			wantRole: "user",
 		},
 		{
-			// The default arm is unchanged: a mid-conversation system message
-			// still fails explicitly instead of being lifted or coerced.
-			name:      "system mid-conversation still rejected",
-			role:      aipapi.RoleSystem,
-			parts:     []aipapi.Part{aipapi.TextPart("S")},
-			wantError: `anthropic: unsupported message role "system"`,
+			// A mid-history system message stays in place as a system-role wire
+			// message: the vendor Messages API accepts it from the point it
+			// appears onward, so it is neither lifted nor coerced to user. It
+			// must follow a user message, so a leading user turn is supplied.
+			name:     "system mid-conversation stays system",
+			role:     aipapi.RoleSystem,
+			parts:    []aipapi.Part{aipapi.TextPart("S")},
+			leading:  []aipapi.Message{{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("U")}}},
+			wantRole: "system",
+		},
+		{
+			name:      "unknown role still rejected",
+			role:      aipapi.Role("bogus"),
+			parts:     []aipapi.Part{aipapi.TextPart("X")},
+			wantError: `unsupported message role "bogus"`,
 		},
 	}
 
@@ -339,7 +350,7 @@ func TestParamsForCall_everyCanonicalRoleMapsToItsWireRole(t *testing.T) {
 			t.Parallel()
 			call := aipapi.Call{
 				ID:       "role-map-" + tc.name,
-				Messages: []aipapi.Message{{Role: tc.role, Parts: tc.parts}},
+				Messages: append(append([]aipapi.Message(nil), tc.leading...), aipapi.Message{Role: tc.role, Parts: tc.parts}),
 			}
 			cand := routing.AttemptCandidate{Primary: routing.Primary{Model: "claude-3-5-haiku-20241022"}}
 			p, err := anthropicmessages.ParamsForCall(&call, cand)
@@ -355,10 +366,11 @@ func TestParamsForCall_everyCanonicalRoleMapsToItsWireRole(t *testing.T) {
 			if err != nil {
 				t.Fatalf("canonical role %q must be encodable, got error: %v", tc.role, err)
 			}
-			if len(p.Messages) != 1 {
-				t.Fatalf("canonical role %q produced %d wire messages, want 1", tc.role, len(p.Messages))
+			if len(p.Messages) != 1+len(tc.leading) {
+				t.Fatalf("canonical role %q produced %d wire messages, want %d", tc.role, len(p.Messages), 1+len(tc.leading))
 			}
-			if got := string(p.Messages[0].Role); got != tc.wantRole {
+			last := p.Messages[len(p.Messages)-1]
+			if got := string(last.Role); got != tc.wantRole {
 				t.Fatalf("canonical role %q mapped to wire role %q, want %q", tc.role, got, tc.wantRole)
 			}
 		})

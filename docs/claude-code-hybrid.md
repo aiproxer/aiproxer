@@ -107,8 +107,12 @@ change the main model to the external alias, or globally replace Haiku/Sonnet.
   top-level instructions. The ordinary Anthropic Messages frontend admits the
   same shape so stock worker histories keep their positions; downstream backend
   contracts determine fidelity: Chat and Responses preserve the in-place role,
-  Anthropic Messages and Gemini reject it before upstream I/O, and Bedrock and
-  the commandcode-anthropic connector lift it to the top-level system field,
+  Anthropic Messages preserves a text-only message too (subject to the vendor
+  placement rules and to the model accepting inline system messages; a non-text
+  block is refused as a client error, and a model that refuses it returns a
+  client 400), Gemini
+  rejects it before upstream I/O, and Bedrock and the
+  commandcode-anthropic connector lift it to the top-level system field,
   preserving the text but not its mid-history position. The full history is
   retained; each external request opens a fresh proxy session rather than
   accepting body or header resume authority, preventing inherited routing

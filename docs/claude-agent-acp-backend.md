@@ -83,31 +83,38 @@ three transitive libraries to patched releases: `zod` 4.6.6, `body-parser` 2.4.0
 and `fast-uri` 3.1.9. Those override the adapter's own exact pins for libraries
 whose shipped versions carry published advisories; the executed adapter
 entrypoint, Agent SDK module and bundled CLI are byte-identical to the prior
-identity. The lock also updates `@hono/node-server` to 2.1.8.
+identity. The lock also updates `@hono/node-server` to 2.1.8 and `hono` to
+4.13.18.
 
-Existing installations of the previously certified exact tree remain admitted
-for continuity: its tree digest is
-`d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f`.
-That tree contains `@hono/node-server` 2.1.4, which is affected by published
-security advisories, including [GHSA-jpvv-r467-5p4w](https://github.com/honojs/node-server/security/advisories/GHSA-jpvv-r467-5p4w)
+Existing installations of earlier certified exact trees remain admitted for
+continuity, so they keep working without reinstalling:
+
+- `aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6` (the
+  previous recipe: `hono` 4.13.13, `@hono/node-server` 2.1.8);
+- `d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f` (the
+  earlier recipe: `hono` 4.13.13, `@hono/node-server` 2.1.4).
+
+Both admitted older trees carry `hono` 4.13.13, which is affected by published
+advisories, including [GHSA-4m76-xfj5-7975](https://github.com/advisories/GHSA-4m76-xfj5-7975)
+(fixed in 4.13.16) and others fixed by 4.13.18. The `d39ea52f` tree also carries
+`@hono/node-server` 2.1.4, affected by
+[GHSA-jpvv-r467-5p4w](https://github.com/honojs/node-server/security/advisories/GHSA-jpvv-r467-5p4w)
 for reverse-proxy path access control bypass. The connector's deny profile is a
 local stdio adapter, not a public Hono server; the dependency is also shipped
 in the MCP SDK, so do not treat admission as a general safety guarantee for
 other uses. Prefer a fresh installation from the updated lock; weigh continued
-use of the old tree against its advisory exposure in your deployment. The
-separate transitive `hono` package also has published advisories (including
-[GHSA-4m76-xfj5-7975](https://github.com/advisories/GHSA-4m76-xfj5-7975));
-updating `@hono/node-server` does not fix those advisories.
+use of an older tree against its advisory exposure in your deployment.
 
-The updated closure differs from the previous recipe only in the Hono server
-package. Scoped validation checked installed-tree identity and ran the real
-adapter, CLI and shipped sidecar through a synthetic loopback gateway for two
-turns with hostile settings mutation; recorded tool lists were empty. The gateway
-driver did not independently assert that every hostile effect was excluded.
-First-party control probes refused identity admission before any prompt and do
-not establish successful first-party turns. The prior accepted per-control matrix
-remains baseline evidence; it was not rerun in full on the updated tree. This
-does not expand certification to other platforms or live accounts.
+The updated closure differs from the `aec8d4fe…` closure only in the Hono
+package (`hono` 4.13.13 to 4.13.18). `npm audit --omit=dev` reports no
+advisories for the updated installed tree, and reports the `hono` advisories
+above for the `aec8d4fe…` tree. The updated identity was verified by reproducing
+its tree digest from a fresh `npm ci` of the checked-in lock with the opt-in
+`TestInstalledBundleIdentity`, and by the package unit tests. The gateway
+certification harness (`make claude-gateway-certify` with
+`AIP_GATEWAY_CERT_RUNTIME` set to that fresh install) also passes on the updated
+tree against the stub gateway, asserting the `TestCertGateway_RealRuntime`
+rows. This does not expand certification to other platforms or live accounts.
 
 Put Node >=22 on the connector process PATH; set `executable` to
 `/opt/claude-agent-acp/runtime/node_modules/.bin/claude-agent-acp`. The lock includes
@@ -129,12 +136,12 @@ Linux/amd64 runtime and sidecar identities, independent of permission policy:
 | Agent SDK sdk.mjs | 0.3.293 | `a980b792353c301eea60d7896704cff21440de7c4aeefc3fe481be079504e203` |
 | Bundled Linux CLI | 2.1.293 | `8968405e26db478af44eabc4635ab5ca557057b702a54460a59c13e1b253e978` |
 | Node executable | >=22 (tested: 22.23.4) | reported in identity evidence, not pinned |
-| Complete installed node_modules tree | locked closure | `aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6` |
+| Complete installed node_modules tree | locked closure | `4fd6d8c786b7c1c88e6b7d7b5c59ca107d311ec663a97cf90f96c92e217c886f` |
 | Project bootstrap.mjs | shipped source | `3c3ad6569f91d561ca2c933bbc32ad1fb0e861fca83a61b979a24225c5e9f90d` |
 | Project identity.mjs | shipped source | `9d4dc445cb445ab1d3aea5f60ecf7a737ea164727f2413d05f6f3f322116709d` |
 | Project models.mjs | shipped source | `53b9a67fbd5e0222db49a692d8284e2ac19f8de07f79ff609488c67ba377d064` |
 | Three-file project sidecar | shipped closure | `7ed0bff33783ae1f1eccaa624d115a7e0dc9acc50b449ddc2579a33edcf30c3d` |
-| Tree + sidecar (resolved profile digest) | combined | `829f53e099292447e28dc0a17eab84d9381beac8a391c7941933b380980a143c` |
+| Tree + sidecar (resolved profile digest) | combined | `08f6090d51077513f318c0a97ef85f736b888ee984d5206779ec88170ddf8887` |
 
 The tree uses lexical depth-first traversal, excluding `.bin` links and npm's
 `node_modules/.package-lock.json` install bookkeeping, hashing each

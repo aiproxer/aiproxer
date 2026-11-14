@@ -126,6 +126,60 @@ func TestTokenCounterCountCallMapsResponse(t *testing.T) {
 	}
 }
 
+// Claim (#793/#841): count_tokens uses the same in-place mid-history system
+// projection as generation, so serving and token accounting agree.
+// Mutant: remove the backend's RoleSystem arm; CountCall then reports the call
+// unsupported instead of sending the system message.
+func TestTokenCounterCountCallKeepsMidHistorySystemInPlace(t *testing.T) {
+	t.Parallel()
+	var gotBody struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"messages"`
+		System []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"system"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Errorf("decode request body: %v", err)
+		}
+		w.Header().Set("content-type", "application/json")
+		_, _ = w.Write([]byte(`{"input_tokens":42}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	counter := NewTokenCounter(Config{BaseURL: srv.URL, APIKey: "secret", HTTPClient: srv.Client()})
+	_, err := counter.CountCall(context.Background(), app.CountCallInput{
+		Backend: ID,
+		Model:   "claude-sonnet-5-5",
+		Call: aipapi.Call{
+			Instructions: []aipapi.Message{{Role: aipapi.RoleSystem, Parts: []aipapi.Part{aipapi.TextPart("stable instruction")}}},
+			Messages: []aipapi.Message{
+				{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("probe")}},
+				{Role: aipapi.RoleSystem, Parts: []aipapi.Part{aipapi.TextPart("mid-system")}},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CountCall() error = %v", err)
+	}
+	if len(gotBody.Messages) != 2 || gotBody.Messages[1].Role != "system" {
+		t.Fatalf("count messages = %+v, want user then system", gotBody.Messages)
+	}
+	if len(gotBody.Messages[1].Content) != 1 || gotBody.Messages[1].Content[0].Text != "mid-system" {
+		t.Fatalf("count mid-history system content = %+v", gotBody.Messages[1].Content)
+	}
+	if len(gotBody.System) != 1 || gotBody.System[0].Text != "stable instruction" {
+		t.Fatalf("count top-level system = %+v", gotBody.System)
+	}
+}
+
 func TestTokenCounterUnavailableConfig(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

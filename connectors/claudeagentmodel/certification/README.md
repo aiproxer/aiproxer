@@ -42,7 +42,9 @@ The verified identity covers:
   model set.
 
 The committed approved identity pins the Go binary, manifest, sidecar/lock
-files, installed dependency closure, Node/CLI identity and SDK pin. It does not
+files, installed dependency closure, CLI identity and SDK pin. Node is not
+pinned: its version and hash are recorded as observed evidence, and the runtime
+enforces only the minimum version. It does not
 pin the discovered model catalogue: those IDs are account/runtime data, written
 only to the private observed/record JSON. Verification requires a non-empty
 unique observed model set and accepts a changed catalogue.
@@ -137,6 +139,8 @@ not claim a published binary release or re-run the live acceptance matrix.
 | npm | 10.9.9 |
 | Packaging command | `go run ./tools/backendplugin/package_plugins -root . -profile full -select claudeagentmodel -dest /absolute/scratch/claudeagentmodel-closeout` (the actual private scratch path is recorded only in the handoff evidence) |
 
+This is the closeout snapshot of the earlier build. The authoritative approved values are in [`approved-local-candidate.json`](approved-local-candidate.json).
+
 | Artifact | Value |
 |---|---|
 | Platform | linux/amd64 |
@@ -149,7 +153,7 @@ not claim a published binary release or re-run the live acceptance matrix.
 | `sidecar/package-lock.json` SHA-256 | `6d60981b1833d2061e7e4c4e07938e364105035c3fe18267420cbcd4fb53b899` |
 | Installed dependency tree SHA-256 | `6ee9941268434879dc9751c8bc06835271d7a53d113f91d1a9735287170357e5` |
 | Installed dependency file count | 7698 |
-| Node version / SHA-256 | 22.23.4 / `94efd062ed066c1a0b332e18249859c905e920eeada5df55d24c99b919629a90` |
+| Node version / SHA-256 | Not approved identity. Observed evidence only; the runtime enforces the `>=18.14.0` floor. |
 | Claude Code CLI version / SHA-256 | 2.1.316 / `fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824` |
 | Pinned Agent SDK version | 0.3.316 |
 | Discovered models | 13 observed at the local candidate run; the catalogue is account/plan data, may change, and is not pinned by the approved oracle. Verification requires a non-empty unique observed set. |

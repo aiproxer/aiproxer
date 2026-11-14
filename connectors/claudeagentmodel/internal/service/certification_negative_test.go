@@ -50,8 +50,6 @@ func TestCompareInstalledBundleIdentity_RejectsEveryIdentityFieldDrift(t *testin
 		{"sidecar_package_lock_sha256", func(g *installedBundleIdentity) { g.PackageLockSHA256 = "drifted" }},
 		{"dependency_tree_sha256", func(g *installedBundleIdentity) { g.DependencyTreeSHA256 = "drifted" }},
 		{"dependency_file_count", func(g *installedBundleIdentity) { g.DependencyFileCount++ }},
-		{"node_version", func(g *installedBundleIdentity) { g.NodeVersion = "18.13.0" }},
-		{"node_sha256", func(g *installedBundleIdentity) { g.NodeSHA256 = "drifted" }},
 		{"cli_version", func(g *installedBundleIdentity) { g.CLIVersion = "2.1.247" }},
 		{"cli_sha256", func(g *installedBundleIdentity) { g.CLISHA256 = "drifted" }},
 		{"sdk_version", func(g *installedBundleIdentity) { g.SDKVersion = "0.3.315" }},
@@ -229,5 +227,20 @@ func TestLaunchInstalledConnector_RejectsNonConnector(t *testing.T) {
 		stop()
 		_ = conn.Close()
 		t.Fatal("a non-connector executable must not certify")
+	}
+}
+
+// Claim: the Node runtime is observed evidence, not approved artifact identity.
+// Patch releases of Node must not force a re-record; the minimum-version floor
+// is enforced by the runtime probe.
+func TestCompareInstalledBundleIdentity_NodeRuntimeIsNotApprovalIdentity(t *testing.T) {
+	t.Parallel()
+	want := approvedIdentityFixture()
+	got := want
+	got.NodeVersion = "22.23.5"
+	got.NodeSHA256 = "other-node-binary"
+	got.ModelIDs, got.ModelCount = []string{"observed-model"}, 1
+	if err := compareInstalledBundleIdentity(want, got); err != nil {
+		t.Fatalf("node runtime change must not be approval drift: %v", err)
 	}
 }
