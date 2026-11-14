@@ -89,14 +89,32 @@ func TestVisibilitySentinel_OpenAI_SystemMidPreserves(t *testing.T) {
 	assert.Equal(t, "cache-key-123", proj.PromptCacheKey)
 }
 
-func TestVisibilitySentinel_Anthropic_Gemini_SystemMidRejects(t *testing.T) {
+// Claim (#793): a projected mid-history system steering overlay keeps its role
+// and position on the Anthropic wire, while Gemini still refuses that shape.
+// Mutant: lift the overlay into top-level System, coerce it to user, or let
+// Gemini silently serve it.
+func TestVisibilitySentinel_AnthropicSystemMidPreserved_GeminiRejects(t *testing.T) {
 	t.Parallel()
 	proj, _ := visibilityProjectedCall(t, aipapi.RoleSystem, "STEER_FIXED_SYSTEM")
 	cand := routing.AttemptCandidate{Primary: routing.Primary{Backend: "any", Model: "sentinel-model"}}
-	_, err := anthropic.ParamsForCall(&proj, cand)
-	require.Error(t, err)
-	assert.Contains(t, strings.ToLower(err.Error()), "unsupported")
-	assert.NotContains(t, err.Error(), "STEER_FIXED_SYSTEM")
+	pA, err := anthropic.ParamsForCall(&proj, cand)
+	require.NoError(t, err)
+	require.Len(t, pA.System, 1)
+	assert.Contains(t, pA.System[0].Text, "SYS_BASE")
+	assert.Contains(t, pA.System[0].Text, "STEER_STABLE")
+	assert.NotContains(t, pA.System[0].Text, "STEER_FIXED_SYSTEM")
+	require.Len(t, pA.Messages, 4)
+	for i, exp := range []struct{ role, text string }{
+		{"user", "U1"},
+		{"system", "STEER_FIXED_SYSTEM"},
+		{"assistant", "A1"},
+		{"user", "U2"},
+	} {
+		b, _ := pA.Messages[i].MarshalJSON()
+		s := string(b)
+		assert.Contains(t, s, exp.text)
+		assert.Contains(t, s, `"role":"`+exp.role+`"`)
+	}
 
 	_, err = gemini.StreamParamsForCall(&proj, cand)
 	require.Error(t, err)

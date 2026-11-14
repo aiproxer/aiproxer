@@ -38,15 +38,25 @@ func TestNormalizeRoles_SystemMidLiftedToSystem(t *testing.T) {
 	if len(p.Messages[0].Content) != 2 {
 		t.Fatalf("merged message content blocks %d, want 2", len(p.Messages[0].Content))
 	}
-	// Ensure plain mode still rejects
-	_, err = paramsForCall(&call, cand, false, nil)
-	if err == nil {
-		t.Fatal("normalize false should explicitly reject mid-system")
+	// Ensure plain mode keeps the mid-history instruction in place instead of
+	// lifting it (the compatible-mode lift above is provider-specific).
+	p, err = paramsForCall(&call, cand, false, nil)
+	if err != nil {
+		t.Fatalf("normalize false must serve a mid-history system message, got %v", err)
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "unsupported") {
-		t.Fatalf("expected unsupported, got %v", err)
+	if len(p.System) != 1 || !strings.Contains(p.System[0].Text, "stable instruction") {
+		t.Fatalf("plain mode must keep only top-level instructions, got %+v", p.System)
 	}
-	if strings.Contains(err.Error(), "mid-system") {
-		t.Fatalf("error must not leak plaintext: %v", err)
+	if len(p.Messages) != 3 {
+		t.Fatalf("messages len %d, want 3 in-place turns (U1, system, A1)", len(p.Messages))
+	}
+	if got := string(p.Messages[1].Role); got != "system" {
+		t.Fatalf("wire message 1 role %q, want system", got)
+	}
+	if strings.Contains(p.System[0].Text, "mid-system") {
+		t.Fatalf("plain mode must not lift the mid-history instruction: %q", p.System[0].Text)
+	}
+	if err := call.Validate(); err != nil {
+		t.Fatalf("validation: %v", err)
 	}
 }

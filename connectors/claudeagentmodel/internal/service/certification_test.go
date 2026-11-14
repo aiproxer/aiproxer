@@ -172,7 +172,6 @@ func readApprovedIdentity(path string) (installedBundleIdentity, error) {
 		"sidecar_bridge_sha256": identity.BridgeSHA256, "sidecar_session_sha256": identity.SessionSHA256,
 		"sidecar_tool_server_sha256": identity.ToolServerSHA256, "sidecar_package_json_sha256": identity.PackageJSONSHA256,
 		"sidecar_package_lock_sha256": identity.PackageLockSHA256, "dependency_tree_sha256": identity.DependencyTreeSHA256,
-		"node_version": identity.NodeVersion, "node_sha256": identity.NodeSHA256,
 		"cli_version": identity.CLIVersion, "cli_sha256": identity.CLISHA256, "sdk_version": identity.SDKVersion,
 	} {
 		if strings.TrimSpace(value) == "" {
@@ -475,8 +474,6 @@ func compareInstalledBundleIdentity(want, got installedBundleIdentity) error {
 		{"sidecar_package_json_sha256", want.PackageJSONSHA256, got.PackageJSONSHA256},
 		{"sidecar_package_lock_sha256", want.PackageLockSHA256, got.PackageLockSHA256},
 		{"dependency_tree_sha256", want.DependencyTreeSHA256, got.DependencyTreeSHA256},
-		{"node_version", want.NodeVersion, got.NodeVersion},
-		{"node_sha256", want.NodeSHA256, got.NodeSHA256},
 		{"cli_version", want.CLIVersion, got.CLIVersion},
 		{"cli_sha256", want.CLISHA256, got.CLISHA256},
 		{"sdk_version", want.SDKVersion, got.SDKVersion},

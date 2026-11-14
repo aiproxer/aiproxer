@@ -110,9 +110,9 @@ func (r AdapterResolver) Resolve(ctx context.Context, configured string, host []
 }
 
 // Pinned upstream closures for Linux/amd64. The original closure has a deny
-// baseline; the updated closure changes only @hono/node-server. Permissions
-// are independently configured; neither tuple authorizes unknown bytes, WSL
-// or other native platforms.
+// baseline; later closures change only Hono packages (@hono/node-server 2.1.8,
+// then hono 4.13.18). Permissions are independently configured; no tuple
+// authorizes unknown bytes, WSL or other native platforms.
 func certifiedBundle(p RuntimeProfile) bool {
 	return p.AdapterVersion == "0.89.1" && p.SDKVersion == "0.3.293" &&
 		(p.CLIVersion == "" || p.CLIVersion == "2.1.293") &&
@@ -120,7 +120,8 @@ func certifiedBundle(p RuntimeProfile) bool {
 		p.SDKSHA256 == "a980b792353c301eea60d7896704cff21440de7c4aeefc3fe481be079504e203" &&
 		p.CLISHA256 == "8968405e26db478af44eabc4635ab5ca557057b702a54460a59c13e1b253e978" &&
 		(p.BundleSHA256 == "d39ea52fb6f52fdc2617b65ce4ebb8831312df708118d60d6f6ad0ccb202547f" ||
-			p.BundleSHA256 == "aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6")
+			p.BundleSHA256 == "aec8d4fe70fd6c18bc0a33bd9e17ba6c78dd65efade14e0a8aae6dce2c1c55f6" ||
+			p.BundleSHA256 == "4fd6d8c786b7c1c88e6b7d7b5c59ca107d311ec663a97cf90f96c92e217c886f")
 }
 
 func (r AdapterResolver) version(ctx context.Context, executable, cwd string, env []string, mode string) (string, error) {
