@@ -41,6 +41,61 @@ func TestCIScopeClassifier_SelfTest(t *testing.T) {
 	}
 }
 
+func TestQAPolicyCheckRunsForCodeAndPolicy(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("workflow expressions execute through Bash on the Ubuntu runner")
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				If  string `yaml:"if"`
+				Run string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(readRepositoryFile(t, ".github", "workflows", "qa.yml")), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range workflow.Jobs["qa"].Steps {
+		if !strings.Contains(step.Run, "go run ./tools/kiro/kirocheck") {
+			continue
+		}
+		for _, tc := range []struct {
+			name, result, code, policy string
+			want                       bool
+		}{
+			{"code", "success", "true", "false", true},
+			{"policy", "success", "false", "true", true},
+			{"both", "success", "true", "true", true},
+			{"neither", "success", "false", "false", false},
+			{"scope failure", "failure", "true", "true", false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				condition := strings.NewReplacer(
+					"needs.changes.result", "'"+tc.result+"'",
+					"needs.changes.outputs.test", "'"+tc.code+"'",
+					"needs.changes.outputs.kiro", "'"+tc.policy+"'",
+				).Replace(step.If)
+				cmd := exec.CommandContext(t.Context(), "bash", "-c", "[[ "+condition+" ]]")
+				cmd.Env = gitscope.Environ()
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					exit, ok := err.(*exec.ExitError)
+					if !ok || exit.ExitCode() != 1 {
+						t.Fatalf("evaluate condition %q: %v\n%s", step.If, err, out)
+					}
+				}
+				if got := err == nil; got != tc.want {
+					t.Fatalf("policy step enabled=%v, want %v", got, tc.want)
+				}
+			})
+		}
+		return
+	}
+	t.Fatal("QA policy check step missing")
+}
+
 func TestCIPreflight_LocalScanHasCheckoutWithoutEnablingGoForDocs(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS == "windows" {

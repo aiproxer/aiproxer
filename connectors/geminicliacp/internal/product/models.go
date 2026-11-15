@@ -29,6 +29,19 @@ type sessionModelsProvider struct {
 	timeout   time.Duration
 }
 
+// discoveryContext bounds one enumeration only when the caller supplied no
+// deadline of its own. A caller deadline is authoritative: the host model
+// inventory fetch budget must not be silently shortened by this provider.
+func discoveryContext(ctx context.Context, fallback time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	if fallback <= 0 {
+		fallback = defaultDiscoveryTimeout
+	}
+	return context.WithTimeout(ctx, fallback)
+}
+
 func (p sessionModelsProvider) LoadModels(ctx context.Context) (modelinventory.Snapshot, error) {
 	if ctx == nil {
 		return modelinventory.Snapshot{}, modelinventory.ErrNilContext
@@ -49,11 +62,7 @@ func (p sessionModelsProvider) LoadModels(ctx context.Context) (modelinventory.S
 			Err:  fmt.Errorf("gemini models: build command: %w", err),
 		}
 	}
-	timeout := p.timeout
-	if timeout <= 0 {
-		timeout = defaultDiscoveryTimeout
-	}
-	dctx, cancel := context.WithTimeout(ctx, timeout)
+	dctx, cancel := discoveryContext(ctx, p.timeout)
 	defer cancel()
 	discovered, err := acp.DiscoverSessionModels(dctx, cmd, cwd, env, p.starter, p.spec.HandshakeProfile())
 	if err != nil {

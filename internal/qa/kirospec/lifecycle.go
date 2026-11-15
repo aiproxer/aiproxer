@@ -1,12 +1,14 @@
-// Package kirospec validates the Kiro spec tree: lifecycle placement, slice
-// budgets from .kiro/steering/delivery.md, and stale references to archived
-// specs. It depends only on the standard library so the pre-commit hook can
-// run it through `go run ./tools/kiro/kirocheck` without a heavy Go slot.
+// Package kirospec validates the Kiro spec tree and the agent policy
+// documents: spec lifecycle placement, slice budgets from
+// .kiro/steering/delivery.md, stale references to archived specs, the
+// deterministic rules of the steering and AGENTS.md prose. The pre-commit
+// spec-only checker uses this package without third-party module dependencies.
 package kirospec
 
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,8 +23,17 @@ import (
 
 const maxStaleReferenceLineBytes = 4 * 1024 * 1024
 
-// Validate checks the repository rooted at root and returns sorted findings.
+// Validate checks Kiro specs and agent policy documents, returning sorted findings.
 func Validate(root string) []string {
+	errs := ValidateSpecs(root)
+	errs = append(errs, ValidatePolicyDocs(root)...)
+	sort.Strings(errs)
+	return errs
+}
+
+// ValidateSpecs checks spec lifecycle, budgets and stale references without
+// requiring policy documents or third-party Go modules.
+func ValidateSpecs(root string) []string {
 	specsRoot := filepath.Join(root, ".kiro", "specs")
 	errs := ValidateLifecycle(specsRoot)
 	errs = append(errs, ValidateBudgets(specsRoot)...)
@@ -120,6 +131,24 @@ func ValidateLifecycleWithOmissions(specsRoot string) ([]string, []string) {
 	sort.Strings(errs)
 	sort.Strings(omissions)
 	return errs, omissions
+}
+
+// ExportOmitted reports whether an absent file is excluded by export policy
+// in a public tree. The repository must have Git metadata for attribute lookup.
+func ExportOmitted(root, path string) bool {
+	return exportOmitted(filepath.Join(root, ".kiro", "specs"), path)
+}
+
+// ValidateGitMetadata reports a tree that cannot resolve export-ignore rules:
+// a public export with no Git metadata. Private trees and checkouts return nil.
+func ValidateGitMetadata(root string) error {
+	if !opensource.IsOpenSourceTree(root) {
+		return nil
+	}
+	if _, err := os.Stat(filepath.Join(root, ".git")); !os.IsNotExist(err) {
+		return nil
+	}
+	return errors.New("export-ignore rules need a Git checkout; run `git init` in the exported tree")
 }
 
 // Only an absent file explicitly excluded by export policy may be tolerated.

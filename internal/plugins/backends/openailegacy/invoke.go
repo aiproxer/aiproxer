@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aiproxer/aiproxer/internal/core/jsonpresence"
 	"github.com/aiproxer/aiproxer/internal/core/routing"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 	"github.com/openai/openai-go/v3"
@@ -168,6 +169,7 @@ func assistantChatMessage(m aipapi.Message) (openai.ChatCompletionMessageParamUn
 	var textParts []string
 	var reasoningText string
 	var toolCalls []openai.ChatCompletionMessageToolCallUnionParam
+	var legacyCall *legacyFunctionCallText
 	for _, p := range m.Parts {
 		switch p.Kind {
 		case aipapi.PartText:
@@ -191,6 +193,17 @@ func assistantChatMessage(m aipapi.Message) (openai.ChatCompletionMessageParamUn
 				}
 			}
 		case aipapi.PartJSON:
+			if isLegacyFunctionCallPart(p) {
+				if legacyCall != nil {
+					return openai.ChatCompletionMessageParamUnion{}, fmt.Errorf("openailegacy: assistant message carries more than one legacy function_call")
+				}
+				fc, err := assistantPartLegacyFunctionCall(p)
+				if err != nil {
+					return openai.ChatCompletionMessageParamUnion{}, err
+				}
+				legacyCall = &fc
+				continue
+			}
 			tc, err := assistantPartJSONToToolCall(p)
 			if err != nil {
 				return openai.ChatCompletionMessageParamUnion{}, err
@@ -200,7 +213,7 @@ func assistantChatMessage(m aipapi.Message) (openai.ChatCompletionMessageParamUn
 			return openai.ChatCompletionMessageParamUnion{}, fmt.Errorf("openailegacy: assistant message part kind %q not supported", p.Kind)
 		}
 	}
-	if len(textParts) == 0 && reasoningText == "" && len(toolCalls) == 0 {
+	if len(textParts) == 0 && reasoningText == "" && len(toolCalls) == 0 && legacyCall == nil {
 		return openai.ChatCompletionMessageParamUnion{}, fmt.Errorf("openailegacy: assistant message is empty after trimming")
 	}
 	u := openai.AssistantMessage(strings.Join(textParts, ""))
@@ -209,6 +222,21 @@ func assistantChatMessage(m aipapi.Message) (openai.ChatCompletionMessageParamUn
 	}
 	if len(toolCalls) > 0 {
 		u.OfAssistant.ToolCalls = toolCalls
+	}
+	// A tool-call or function_call turn with no text is sent as content:null,
+	// the shape OpenAI itself emits and agent clients echo, rather than "".
+	// Accepted trade-off: the canonical form cannot tell a client's explicit ""
+	// from null (the frontend reads both as "no text"), so a rare explicit ""
+	// alongside a call is also sent as null. Full fidelity needs a presence
+	// marker in pkg/aipapi, which is out of scope here.
+	if (len(toolCalls) > 0 || legacyCall != nil) && len(textParts) == 0 {
+		u.OfAssistant.Content = openai.ChatCompletionAssistantMessageParamContentUnion{
+			OfString: param.Null[string](),
+		}
+	}
+	if legacyCall != nil {
+		//nolint:staticcheck // the legacy function_call field is the only wire slot that replays a client's deprecated function_call history; no call id is invented for it
+		u.OfAssistant.FunctionCall = openai.ChatCompletionAssistantMessageParamFunctionCall{Name: legacyCall.name, Arguments: legacyCall.arguments}
 	}
 	if reasoningText != "" {
 		u.OfAssistant.SetExtraFields(map[string]any{
@@ -271,6 +299,68 @@ func assistantPartJSONToToolCall(p aipapi.Part) (openai.ChatCompletionMessageToo
 			},
 		},
 	}, nil
+}
+
+// isLegacyFunctionCallPart reports whether a PartJSON is a deprecated
+// function_call object. It has no call id on the part, and its content carries
+// no id, call_id, type, or tool_calls-shaped "function" envelope. Any of those
+// keeps the part on its existing path, so an identity is never dropped silently.
+func isLegacyFunctionCallPart(p aipapi.Part) bool {
+	if strings.TrimSpace(p.ToolCallID) != "" || len(p.Content) == 0 {
+		return false
+	}
+	var probe struct {
+		ID       json.RawMessage `json:"id"`
+		CallID   json.RawMessage `json:"call_id"`
+		Type     json.RawMessage `json:"type"`
+		Function json.RawMessage `json:"function"`
+	}
+	if err := json.Unmarshal(p.Content, &probe); err != nil {
+		return false
+	}
+	return len(probe.ID) == 0 && len(probe.CallID) == 0 && len(probe.Type) == 0 && len(probe.Function) == 0
+}
+
+// legacyFunctionCallText is a deprecated function_call payload, held as plain
+// text until the assistant message is built.
+type legacyFunctionCallText struct {
+	name      string
+	arguments string
+}
+
+// assistantPartLegacyFunctionCall decodes a deprecated function_call part. The
+// legacy field has no call id, so none is invented.
+func assistantPartLegacyFunctionCall(p aipapi.Part) (legacyFunctionCallText, error) {
+	var wire struct {
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
+	}
+	if err := json.Unmarshal(p.Content, &wire); err != nil {
+		return legacyFunctionCallText{}, fmt.Errorf("openailegacy: function_call: %w", err)
+	}
+	name := strings.TrimSpace(p.ToolName)
+	if name == "" {
+		name = strings.TrimSpace(wire.Name)
+	}
+	if name == "" {
+		return legacyFunctionCallText{}, fmt.Errorf("openailegacy: assistant function_call requires name")
+	}
+	args := "{}"
+	if jsonpresence.IsPresentNonNullJSON(wire.Arguments) {
+		if wire.Arguments[0] == '"' {
+			var s string
+			if err := json.Unmarshal(wire.Arguments, &s); err != nil {
+				return legacyFunctionCallText{}, fmt.Errorf("openailegacy: function_call.arguments: %w", err)
+			}
+			args = s
+		} else {
+			if !json.Valid(wire.Arguments) {
+				return legacyFunctionCallText{}, fmt.Errorf("openailegacy: function_call.arguments invalid json")
+			}
+			args = string(wire.Arguments)
+		}
+	}
+	return legacyFunctionCallText{name: name, arguments: args}, nil
 }
 
 // developerChatMessage encodes a canonical developer-role message.

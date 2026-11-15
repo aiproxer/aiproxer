@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -382,6 +383,101 @@ func TestBuild_failSoftInvalidInventory_logsOnce(t *testing.T) {
 	}
 	if !strings.Contains(got, `"error_code":"invalid_inventory"`) {
 		t.Fatalf("expected error_code attr, got %q", got)
+	}
+}
+
+func TestBuild_failSoftInvalidInventoryWarnNamesFailedRule(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		model     modelinventory.Model
+		reason    string
+		canonical string
+	}{
+		{
+			name:      "canonical id empty",
+			model:     modelinventory.Model{CanonicalID: "", NativeID: "x"},
+			reason:    "canonical_id_empty",
+			canonical: "",
+		},
+		{
+			name:      "native id empty",
+			model:     modelinventory.Model{CanonicalID: "vendor/model", NativeID: ""},
+			reason:    "native_id_empty",
+			canonical: "vendor/model",
+		},
+		{
+			name:      "canonical id not namespaced",
+			model:     modelinventory.Model{CanonicalID: "model-a", NativeID: "model-a"},
+			reason:    "canonical_id_not_namespaced",
+			canonical: "model-a",
+		},
+		{
+			name:      "canonical id empty vendor",
+			model:     modelinventory.Model{CanonicalID: "/model-a", NativeID: "model-a"},
+			reason:    "canonical_id_empty_vendor",
+			canonical: "/model-a",
+		},
+		{
+			name:      "canonical id empty model",
+			model:     modelinventory.Model{CanonicalID: "vendor/", NativeID: "model-a"},
+			reason:    "canonical_id_empty_model",
+			canonical: "vendor/",
+		},
+		{
+			name:      "canonical id extra separator",
+			model:     modelinventory.Model{CanonicalID: "vendor/model/extra", NativeID: "model-a"},
+			reason:    "canonical_id_extra_separator",
+			canonical: "vendor/model/extra",
+		},
+		{
+			name:      "canonical id uses registered prefix",
+			model:     modelinventory.Model{CanonicalID: "test-bad:vendor/model", NativeID: "model-a"},
+			reason:    "canonical_id_uses_registered_prefix",
+			canonical: "test-bad:vendor/model",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var logBuf bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+			built, err := modelregistry.Build(context.Background(), []modelregistry.BackendInventory{{
+				BackendID:       "bad",
+				Kind:            "test",
+				BackendPrefixes: []string{"test-bad"},
+				Provider: modelinventory.StaticProvider{Models: []modelinventory.Model{
+					{CanonicalID: "vendor/ok", NativeID: "ok"},
+					tt.model,
+				}},
+			}}, logger)
+			if err != nil {
+				t.Fatalf("Build() error = %v", err)
+			}
+			if got := built.Registry.All(); len(got) != 0 {
+				t.Fatalf("models = %+v, want the whole backend omitted", got)
+			}
+
+			got := logBuf.String()
+			for _, want := range []string{
+				`"msg":"modelregistry: invalid inventory omitted"`,
+				`"error_code":"invalid_inventory"`,
+				`"reason":"` + tt.reason + `"`,
+				`"model_index":1`,
+				`"canonical_id":` + strconv.Quote(tt.canonical),
+			} {
+				if !strings.Contains(got, want) {
+					t.Fatalf("expected %s in WARN record, got %q", want, got)
+				}
+			}
+			// Privacy: only operator-config identifiers are logged, never native IDs.
+			if strings.Contains(got, `"native_id":`) {
+				t.Fatalf("WARN record leaked native id field: %q", got)
+			}
+		})
 	}
 }
 

@@ -12,6 +12,18 @@ Normative criteria for merge-to-main and local pre-push checks. Commands assume 
 | Critical fuzz (Req. 15.4 + design) | Bounded smoke for each listed `Fuzz*` below | `make test-fuzz` or `make release-gates` locally; nightly CI via `.github/workflows/race-fuzz-nightly.yml`. Not part of PR `qa.yml`. |
 | Migration fixtures (Req. 15.13) | Exactly **3** golden JSON files under `testdata/migration/` with fixed names | Enforced by `TestMigrationGoldenFixtureInventory` in conformance; see [testdata/migration/README.md](../testdata/migration/README.md) |
 
+## Local pre-push checks
+
+`scripts/hooks/pre-push` runs three checks before a push leaves the machine. They are local gates for the pushed commits; GitHub CI re-checks the pull request against its actual target base independently of them.
+
+| Check | Criterion | Command |
+|-------|-----------|---------|
+| Release cleanliness | Every file in each pushed commit's tree matches an approved pattern in `.release-files` | `scripts/check-release-clean.sh --ref <commit>`, run once per pushed commit |
+| Change size | At most 100 changed `*.go` files between the measured base and the pushed head; non-Go files (docs, skills, catalogs) are not counted | `scripts/check-change-size.sh --base <base> --head <head>` (`tools/changesize`); base selection is described in [development iteration](development-iteration.md#commit-runs-an-affected-scope-gate-ci-runs-the-full-suite) |
+| Task-branch prefix | A push that *creates* a remote branch names it `fix/`, `feat/`, `spec/` or `docs/` | `scripts/task-branch-prefix.sh`, sourced by the hook and by `scripts/worktree-create.sh`, so both enforcement points apply the same rule |
+
+The prefix rule guards creation only: updating a branch whose name predates the rule, deleting a branch and pushing tags are all allowed. Overrides for the size gate (`AIP_ALLOW_LARGE_CHANGE`, `aip.allowLargeChange`, the `allow-large-change` label) are maintainer-only, and `--no-verify` is never the answer because it skips the secret scan too.
+
 ## API parity (LLM surfaces)
 
 Normative matrices and row IDs: [.kiro/specs/archive/llm-api-parity/design.md](../.kiro/specs/archive/llm-api-parity/design.md). A protocol may be marked **parity-ready** only when every matrix row for that protocol is `implemented` or explicitly `out_of_scope`, with automated evidence at the layers named in the spec.

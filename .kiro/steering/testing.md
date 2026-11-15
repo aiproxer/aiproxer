@@ -42,7 +42,7 @@ Do not grow frontend×backend matrices simply because another provider/profile w
 Tests serve the slice (see `delivery.md`). They prove the behaviour the change ships, at the cheapest layer that can observe it.
 
 - Each implementation task carries its own tests. Testing is never a requirement, a certification matrix, or a standalone task.
-- A feature PR stays within about 1.5x test lines per production line (alpha budget). When a proof needs more, the slice or the design is too large.
+- Review test proportionality using the advisory ratio in `delivery.md`. Do not weaken needed tests to fit a ratio.
 - Architecture rules are generic and declarative: new code joins an existing rule (add the package, stage, or import to its list). A new `internal/archtest` or `internal/qa` check is warranted only for a rule that applies across features, and it lands in its own PR. Frozen until 2026-11-21: no new gates/ratchets/censuses/hooks/dev tooling, except a gate that is broken or blocks delivery (see `delivery.md` Alpha budget).
 - Feature behaviour is proven by feature tests: table tests for decisions, one integration test per seam the feature touches, and a fail-open test when the feature can fail.
 - Documentation, metric names, and Markdown content are reviewed by humans; tests assert code behaviour.
@@ -56,9 +56,9 @@ Fast feedback is an architectural constraint.
 - Keep the default suite narrow enough for normal development loops.
 - Prefer focused package/contract execution over recursively spawning repository-wide test commands from tests.
 - Reuse compiled/cached test helpers rather than rebuilding the same executable for each check.
-- Prefer fake clocks and deterministic IDs over sleeps/polling.
+- Prefer fake clocks and deterministic IDs over sleeps/polling. Growth in `time.Sleep` calls in test files fails `TestGrowthRatchet` (`internal/qa`); record a reviewed increase with `go test -tags=precommit ./internal/qa -run TestGrowthRatchet -update-growth-baseline`.
 - Prefer in-memory persistence unless reopen/durability/engine behavior is the subject of the test.
-- When a test genuinely needs a file-backed SQLite database (reopen/durability/engine behavior), build the DSN with WAL journaling and `synchronous=NORMAL` (`?_pragma=foreign_keys(ON)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)`, preserving any `_txlock`). WAL+`NORMAL` keeps close/reopen and process-crash durability for committed transactions while avoiding a full fsync per commit, which otherwise makes file-backed stores dominate the suite. Do not use it for tests that assert rollback-journal or power-loss durability semantics.
+- For a test that genuinely needs a file-backed SQLite database, `internal/testkit/sqlitefixture.FileDSN` supplies WAL and `synchronous=NORMAL` with the standard pragmas. Construct a different DSN when testing rollback-journal or power-loss durability; preserve any required `_txlock`. Growth in hand-built `file:` DSNs and `db.SQLiteFileDSN` calls in test files fails `TestGrowthRatchet` (`internal/qa`); record a reviewed increase with `go test -tags=precommit ./internal/qa -run TestGrowthRatchet -update-growth-baseline`.
 - Do not add expensive tagged/external work to the default unit path.
 - Before intentionally increasing test/QA infrastructure cost, run the Windows-authoritative `make test-cost` ratchet and provide evidence. Budget changes require explicit maintainer authorization; they are not a normal escape hatch for regressions.
 

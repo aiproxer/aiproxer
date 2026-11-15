@@ -271,7 +271,7 @@ func (a *toolCallAssembler) completionError() error {
 // the finalizer's steer request, and marks the attempt when it accepts. A nil
 // gate declines, so an ActionSteer with no gate releases the call exactly as an
 // ActionPass does.
-func (a *toolCallAssembler) ingest(ctx context.Context, ev aipapi.Event, meta toolcall.Meta, steerGate func(name string, req toolcall.SteerRequest) bool) (held bool, err error) {
+func (a *toolCallAssembler) ingest(ctx context.Context, ev aipapi.Event, meta toolcall.Meta, steerGate func(name, triggerReason string, req toolcall.SteerRequest) bool) (held bool, err error) {
 	if !a.enabled() {
 		return false, nil
 	}
@@ -486,7 +486,7 @@ func (a *toolCallAssembler) ingestDelta(ev aipapi.Event, id string) bool {
 	return true
 }
 
-func (a *toolCallAssembler) ingestFinished(ctx context.Context, ev aipapi.Event, id string, meta toolcall.Meta, steerGate func(name string, req toolcall.SteerRequest) bool) (bool, error) {
+func (a *toolCallAssembler) ingestFinished(ctx context.Context, ev aipapi.Event, id string, meta toolcall.Meta, steerGate func(name, triggerReason string, req toolcall.SteerRequest) bool) (bool, error) {
 	buf, ok := a.active[id]
 	if !ok {
 		a.passThrough[id] = struct{}{}
@@ -511,7 +511,7 @@ func (a *toolCallAssembler) ingestFinished(ctx context.Context, ev aipapi.Event,
 	return true, nil
 }
 
-func (a *toolCallAssembler) finalizeCall(ctx context.Context, buf *toolCallBuffer, meta toolcall.Meta, steerGate func(name string, req toolcall.SteerRequest) bool) ([]aipapi.Event, error) {
+func (a *toolCallAssembler) finalizeCall(ctx context.Context, buf *toolCallBuffer, meta toolcall.Meta, steerGate func(name, triggerReason string, req toolcall.SteerRequest) bool) ([]aipapi.Event, error) {
 	// An APPLICABLE declarer that published a present-but-unusable declaration
 	// cannot be honored at any bound, and treating it as "did not opt in" would
 	// downgrade a mandatory completeness requirement into optional pass-through
@@ -594,7 +594,7 @@ func (a *toolCallAssembler) finalizeCall(ctx context.Context, buf *toolCallBuffe
 				// The gate owns acceptance: it marks the attempt as withholding
 				// when it accepts. Either answer continues the chain exactly as
 				// if this finalizer had returned ActionPass.
-				steerGate(name, *steer)
+				steerGate(name, res.ReasonCode, *steer)
 			}
 			fallthrough
 		case toolcall.ActionPass:

@@ -21,13 +21,13 @@ Steering records technology **choices and constraints**, not dependency/version 
 
 ## Runtime Composition Invariants
 
-- **Explicit composition**: constructors and composition roots wire dependencies. Do not add DI containers, reflection-driven service registries, or request-time service locators.
+- **Explicit composition**: constructors and composition roots wire dependencies. Do not add DI containers, reflection-driven service registries, or request-time service locators. `TestCompositionImports_NoNativePluginOrDIContainer` in `internal/qa` rejects native `plugin` and the `go.uber.org/fx`, `go.uber.org/dig`, `github.com/google/wire`, and `github.com/samber/do` roots in every tracked Go file of every module.
 - **No dynamic `init()` registration/state**: package initialization must not perform service registration, runtime discovery, mutable process setup, or hidden dependency construction.
 - **Generated immutable metadata exception**: deterministic generated package initialization may capture/freeze canonical immutable metadata when it is mechanically generated, architecture-tested, and does not perform dynamic discovery/registration.
 - **Single Host ownership**: Host construction owns process resources, immutable generation management, reload coordination, and shutdown. `Host.Close` is the process shutdown coordinator.
 - **Immutable generations**: configuration reload compiles a candidate and publishes a new immutable request plane for new admissions.
 - **Publication isolation**: candidate compilation/validation must not mutate active process-visible behavior. Publication-only side effects run through the publication lifecycle after the generation becomes active.
-- **Hybrid backend model** ([ADR 0008](docs/adr/0008-hybrid-backend-connector-plugins.md)): essential adapters may be linked in-process; optional backends with independent dependency/runtime needs use executable connectors under `connectors/` over the versioned SDK ABI. Native Go `plugin` loading is forbidden.
+- **Hybrid backend model** ([ADR 0008](../../docs/adr/0008-hybrid-backend-connector-plugins.md)): essential adapters may be linked in-process; optional backends with independent dependency/runtime needs use executable connectors under `connectors/` over the versioned SDK ABI. Native Go `plugin` loading is forbidden.
 
 ## Dependency and SDK Isolation
 
@@ -39,8 +39,8 @@ Steering records technology **choices and constraints**, not dependency/version 
 
 ## Concurrency & Context Standards
 
-- `context.Context` is the first parameter for external/I/O operations where cancellation/deadline propagation matters.
-- Do not store request contexts in long-lived structs.
+- `context.Context` is the first parameter for external/I/O operations where cancellation/deadline propagation matters; the `revive` `context-as-argument` rule in `.golangci.yml` enforces it.
+- Do not store request contexts in long-lived structs. Growth in `context.Context` struct fields fails `TestGrowthRatchet` (`internal/qa`); record a reviewed increase with `go test -tags=precommit ./internal/qa -run TestGrowthRatchet -update-growth-baseline`.
 - Do not replace a request context with `context.Background()` in the middle of request work.
 - Every goroutine/channel has an explicit owner and cancellation/close path.
 - Avoid ad-hoc per-request goroutines when the same work can remain synchronous or use an existing owned scheduler/pool.

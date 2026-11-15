@@ -304,7 +304,7 @@ func TestToolNameCorrectionWithhold_QueueBoundAndCleanup(t *testing.T) {
 		t.Fatal("the event bound must refuse the next append")
 	}
 	retired := &attemptSession{}
-	retired.markWithholding(correctionName, "call one of the available tools")
+	retired.markWithholding(correctionName, toolcall.ReasonUnknownToolName, "call one of the available tools")
 	if !retired.enqueueWithheld(ev) {
 		t.Fatal("the fixture must hold one event")
 	}
@@ -463,7 +463,7 @@ func TestToolNameCorrectionWithhold_ReleasePrependsDuringDrain(t *testing.T) {
 		{Kind: aipapi.EventToolCallFinished, ToolCallID: "c2", ToolName: steerToolName, MessageIndex: 2},
 	}
 	attempt := &attemptSession{}
-	attempt.markWithholding(correctionName, "call one of the available tools")
+	attempt.markWithholding(correctionName, toolcall.ReasonUnknownToolName, "call one of the available tools")
 	for _, ev := range held {
 		if !attempt.enqueueWithheld(ev) {
 			t.Fatal("fixture must hold the steered call")

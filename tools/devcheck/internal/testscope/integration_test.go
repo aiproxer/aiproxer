@@ -121,7 +121,7 @@ func TestGitBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan, err = Build(context.Background(), root, Options{})
-	if err != nil || plan.Fallback == "" || len(plan.Modules) != 2 {
+	if err != nil || plan.Fallback != "" || len(plan.Modules) != 1 || plan.Modules[0].Directory != "." || !reflect.DeepEqual(plan.Modules[0].Packages, []string{"./..."}) {
 		t.Fatalf("deleted package plan=%+v err=%v", plan, err)
 	}
 	gitFixture(t, root, "update-ref", "-d", "refs/remotes/origin/main")
@@ -131,6 +131,21 @@ func TestGitBoundaries(t *testing.T) {
 	}
 	if _, err := Build(context.Background(), root, Options{Base: "missing-explicit-base"}); err == nil {
 		t.Fatal("accepted invalid explicit base")
+	}
+}
+
+func TestModuleLocalDocumentationAndUnresolvedFixture(t *testing.T) {
+	root := fixtureRepository(t)
+	writeFixture(t, root, "connectors/one/README.md", "connector notes\n")
+	writeFixture(t, root, "connectors/one/docs/guide.md", "guide\n")
+	plan, err := Build(context.Background(), root, Options{})
+	if err != nil || plan.Fallback != "" || len(plan.Modules) != 0 {
+		t.Fatalf("module-local documentation selected tests: %+v err=%v", plan, err)
+	}
+	writeFixture(t, root, "connectors/one/certification/approved.json", "{}\n")
+	plan, err = Build(context.Background(), root, Options{})
+	if err != nil || plan.Fallback != "" || len(plan.Modules) != 1 || plan.Modules[0].Directory != "connectors/one" || !reflect.DeepEqual(plan.Modules[0].Packages, []string{"./..."}) {
+		t.Fatalf("module-local fixture plan=%+v err=%v", plan, err)
 	}
 }
 

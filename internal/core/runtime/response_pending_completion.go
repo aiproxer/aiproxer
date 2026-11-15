@@ -466,7 +466,7 @@ func (p *responsePipeline) pendingActionNameIndex(facts recvTurnFacts, held []ai
 		}
 		names[callID] = name
 	}
-	for _, item := range aipapi.NormalizedItems(facts.terminalFacts().call) {
+	for _, item := range evidenceItems(facts.terminalFacts().call) {
 		if item.Kind == aipapi.ItemKindToolCall && item.ToolCall != nil {
 			note(item.ToolCall.CallID, item.ToolCall.Name)
 		}

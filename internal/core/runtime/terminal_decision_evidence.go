@@ -68,7 +68,7 @@ func derivedContinuationIntentFacts(call aipapi.Call, traceID string, attempt *a
 // the other, and neither carries a control name, call identity, result text, or
 // argument byte.
 func projectTerminalDecisionEvidence(request requestTerminalFacts, attempt *attemptSession, p *responsePipeline) terminaldecision.Evidence {
-	items := aipapi.NormalizedItems(request.call)
+	items := evidenceItems(request.call)
 	expectedCompletion, observedProxyCompletion := attempt.controlCompletionFacts()
 	evidence := terminaldecision.Evidence{
 		Objective:     boundedTerminalDecisionText(terminalDecisionObjective(items)),

@@ -55,7 +55,7 @@ Until then, local evidence stands in for remote CI:
 - Routing/failover/B2BUA rules: `.kiro/steering/routing-and-orchestration.md`.
 - Tech/tooling rules: `.kiro/steering/tech.md`.
 - Test policy: `.kiro/steering/testing.md`.
-- Do not add changelog, `_Updated`, `_Reason`, timestamp, or history footers to steering or agent instructions; git tracks history.
+- History belongs in Git, not changelog or timestamp footers in steering or agent instructions. `go run ./tools/kiro/kirocheck` checks the delivery budget table, Makefile targets, skill names, repository paths, links and their Markdown anchors, and history hygiene. CI runs it for code and policy changes; the pre-commit hook runs it for a policy-only commit.
 
 ## Work Rules
 
@@ -72,7 +72,7 @@ Until then, local evidence stands in for remote CI:
 Keep `main` clean: it only receives PR merges and never donates them.
 
 - Before changing files, check the current worktree and branch. If you are already in a non-`main` worktree dedicated to the task, work there.
-- Otherwise create one with `make worktree-create WORKTREE_BRANCH=fix/short-description [WORKTREE_BASE=origin/main]`, on a `fix/`, `feat/`, `spec/`, or `docs/` branch. If you create it by hand, use an absolute path directly under `<container>/worktrees/`; a relative path lands inside `branches/main` and is rejected at commit time.
+- Otherwise create one with `make worktree-create WORKTREE_BRANCH=fix/short-description [WORKTREE_BASE=origin/main]`, on a `fix/`, `feat/`, `spec/`, or `docs/` branch. The script refuses other names, and the pre-push hook refuses to push a new remote branch without one of those prefixes (updates, deletions and tags are unaffected). If you create it by hand, use an absolute path directly under `<container>/worktrees/`; a relative path lands inside `branches/main` and is rejected at commit time.
 - `main` and `dev` author nothing; the pre-commit hook refuses commits there. `AIP_ALLOW_MERGE_RECEIVER_COMMIT=1` is maintainer-only.
 - Run `codegraph init` in a new worktree before implementation, or whenever `.codegraph/` is absent. Spec-archiving tasks may skip index creation; if archival reveals a need for code changes, the implementation rule applies to that repair.
 

@@ -11,12 +11,13 @@ is_kiro_spec_path() {
   esac
 }
 
-# Agent policy surface: steering, skills, and root agent instructions. Prose
-# edits here are validated by the cheap QA policy preflight, never by the
-# platform test matrix.
+# Documentation changes may remove link targets used by policy documents.
+# Alternative skill roots may contain duplicate skills. Validate both with the
+# cheap QA policy preflight, not the platform test matrix.
 is_agent_policy_path() {
   case "$1" in
-    .kiro/*|.agents/*|AGENTS.md|CLAUDE.md) return 0 ;;
+    .kiro/*|.agents/*|.codex/skills/*|.cursor/skills/*|.opencode/skills/*|.pi/skills/*|AGENTS.md|CLAUDE.md) return 0 ;;
+    docs/*|.github/dependabot.yml|README.md|README.*.md|CHANGELOG.md|CHANGELOG.*.md|LICENSE|LICENSE.*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -319,7 +320,8 @@ self_test() {
 
   # Agent policy prose keeps the cheap policy preflight, but scripts inside the
   # same trees stay code-relevant.
-  for relevant in AGENTS.md .kiro/steering/delivery.md .agents/skills/x/SKILL.md; do
+  for relevant in AGENTS.md .kiro/steering/delivery.md .agents/skills/x/SKILL.md \
+    .codex/skills/x/SKILL.md .github/dependabot.yml docs/README.md README.md LICENSE CHANGELOG.md; do
     file_matches kiro "$relevant" || { echo "kiro scope missed $relevant" >&2; return 1; }
   done
   for relevant in .agents/skills/x/scripts/run.sh .agents/skills/x/check.go; do
@@ -365,7 +367,7 @@ self_test() {
     .kiro/specs/archive/example/tasks.md; do
     file_matches kiro "$relevant" || { echo "kiro scope missed $relevant" >&2; return 1; }
   done
-  for unrelated in docs/README.md internal/core/runtime.go notes/README.md; do
+  for unrelated in internal/core/runtime.go notes/README.md; do
     file_matches kiro "$unrelated" && { echo "kiro scope included $unrelated" >&2; return 1; }
   done
 
@@ -460,6 +462,20 @@ self_test() {
     test_cost=false; do
     grep -qx "$relevant" <<< "$output" || {
       echo "spec-only scope regression: expected $relevant, got: $output" >&2
+      return 1
+    }
+  done
+  # Deleting a root documentation target must still run policy link checks.
+  printf '# Readme\n' > "$tmp/README.md"
+  git -C "$tmp" add README.md
+  git -C "$tmp" -c user.email=qa@example.com -c user.name=QA commit -qm add-readme
+  base="$(git -C "$tmp" rev-parse HEAD)"
+  git -C "$tmp" rm -q README.md
+  git -C "$tmp" -c user.email=qa@example.com -c user.name=QA commit -qm delete-readme
+  output="$(cd "$tmp" && bash "$script_path" --outputs "$base" HEAD)"
+  for relevant in test=false kiro=true; do
+    grep -qx "$relevant" <<< "$output" || {
+      echo "root documentation deletion regression: expected $relevant, got: $output" >&2
       return 1
     }
   done
@@ -569,13 +585,17 @@ self_test() {
   echo 'OK: CI scope self-test'
 }
 
-if [[ "${1:-}" == "--self-test" ]]; then
-  self_test
-  exit 0
-fi
+# The hook sources this file for the policy-path classifiers; dispatch only
+# when executed so sourcing never runs a scope or exits the caller's shell.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  if [[ "${1:-}" == "--self-test" ]]; then
+    self_test
+    exit 0
+  fi
 
-if [[ "${1:-}" != "--outputs" || $# -ne 3 ]]; then
-  echo "usage: $0 --outputs BASE_SHA HEAD_SHA | --self-test" >&2
-  exit 2
+  if [[ "${1:-}" != "--outputs" || $# -ne 3 ]]; then
+    echo "usage: $0 --outputs BASE_SHA HEAD_SHA | --self-test" >&2
+    exit 2
+  fi
+  classify_diff "$2" "$3"
 fi
-classify_diff "$2" "$3"

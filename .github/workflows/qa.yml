@@ -120,13 +120,17 @@ jobs:
           # The shared composite owns the advancing main QA baseline.
           cache: false
 
-      # Kiro specification changes still need the repository's lifecycle policy,
-      # but spec-only PRs must not pay for formatting, fixture tidies, vet,
-      # architecture package loading, runtime tests, or database parity.
-      - name: Kiro spec policy
-        if: needs.changes.result == 'success' && needs.changes.outputs.kiro == 'true' && needs.changes.outputs.test != 'true'
+      # Policy inputs include documentation and Dependabot configuration as
+      # well as code that may remove referenced files or Make targets.
+      - name: Kiro spec and agent policy
+        if: needs.changes.result == 'success' && (needs.changes.outputs.kiro == 'true' || needs.changes.outputs.test == 'true')
         shell: bash
         run: go run ./tools/kiro/kirocheck
+
+      - name: Agent skill catalog
+        if: needs.changes.result == 'success' && needs.changes.outputs.kiro == 'true'
+        shell: pwsh
+        run: ./scripts/check-agent-skill-catalog.ps1
 
       # Main publishes complete QA baselines; all PRs can restore them.
       - name: Restore bounded qa Go cache

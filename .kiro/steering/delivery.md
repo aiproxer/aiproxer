@@ -24,21 +24,20 @@ The leading word is **slice**: the smallest change that delivers observable valu
 | GitHub issue body | about one page (~60 lines): goal, V1 slice, deferred list, done criterion |
 | Spec | at most 5 requirement areas and 25 acceptance criteria; `design.md` at most 300 lines; at most 12 leaf tasks |
 | PR | at most ~1,500 lines of non-test Go and ~40 changed files |
-| Tests in a feature PR | at most ~1.5x the production lines they cover (alpha budget) |
+| Tests in a feature PR | about ~5x added test lines per added production line; advisory |
 
-`go run ./tools/kiro/kirocheck` enforces the Spec row (and a Deferred section in `requirements.md`) for every active spec; the pre-commit hook and CI run it. Specs that predate the check have shrink-only ceilings in `internal/qa/kirospec/budget.go`.
+`go run ./tools/kiro/kirocheck` enforces the Spec row (and a Deferred section in `requirements.md`) for every active spec, and checks the Spec, PR and test rows against `internal/qa/kirospec`. `make dev-delivery-plan` reports the PR and test figures as advisory signals. Specs that predate the check have shrink-only ceilings in `internal/qa/kirospec/budget.go`.
 
-When a budget is exceeded, split the work into slices and report the split. A budget is a design signal, not a gate to argue past: the slice is wrong, not the budget.
+When a budget is exceeded, review the slice and report the reason or a split. Never weaken or remove needed tests merely to meet a ratio.
 
 Before submission, run `make dev-delivery-plan DEV_BASE=<intended-base>
 DEV_CONSUMER='<immediate consumer>'` and account for every budget row. Passing the
-file-count gate does not waive test proportionality. Reduce duplicated proof or
-split the slice; an exception requires explicit maintainer authorization rather
-than an agent declaring the guidance soft.
+file-count gate does not waive test proportionality. Explain excess test additions
+and consider reducing redundant proof or splitting the slice; preserve needed coverage.
 
 ## Alpha budget
 
-- Test budget: new test lines ≤ ~1.5× new product lines per slice; exceeding it needs a one-line reason in the PR body.
+- Test proportionality: explain test additions above the table's advisory ratio in the PR body; keep the tests needed to prove the slice.
 - Hardening (bounded/fail-closed/crash-safe/parity/race-proof) is deferred by default unless it protects a VISION "line never crossed".
 - Spec size: aim for at most ~10 tasks (12 is the enforced ceiling); split otherwise. Direct code stays the default.
 - Handoffs/issues fit one screen: goal, files, done-when; no pre-scripted transcripts.

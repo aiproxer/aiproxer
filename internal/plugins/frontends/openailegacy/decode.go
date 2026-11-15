@@ -317,7 +317,7 @@ func parseAssistantParts(content, toolCalls, functionCall json.RawMessage, reaso
 		parts = append(parts, part)
 	}
 	if len(functionCallPart) > 0 {
-		parts = append(parts, aipapi.Part{Kind: aipapi.PartJSON, Content: functionCallPart})
+		parts = append(parts, legacyFunctionCallPart(functionCallPart))
 	}
 	if len(parts) == 0 {
 		return nil, errEmptyAssistantMessage
@@ -333,6 +333,23 @@ func chatAssistantReasoningText(reasoningContent, reasoningAlias *string) (text 
 		return *reasoningAlias, false
 	}
 	return "", false
+}
+
+// legacyFunctionCallPart keeps a deprecated function_call object as the part
+// content and names the call with its function name, so name-keyed consumers
+// (history rails, terminal evidence) see it. The legacy field has no wire id,
+// so ToolCallID stays empty. The name is advisory: a function_call that is not
+// an object keeps its exact bytes with an empty name.
+func legacyFunctionCallPart(raw json.RawMessage) aipapi.Part {
+	var wire struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(raw, &wire)
+	return aipapi.Part{
+		Kind:     aipapi.PartJSON,
+		ToolName: strings.TrimSpace(wire.Name),
+		Content:  raw,
+	}
 }
 
 // assistantToolCallPart normalizes a wire tool_calls entry into PartJSON matching

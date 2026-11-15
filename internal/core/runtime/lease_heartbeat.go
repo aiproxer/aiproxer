@@ -132,10 +132,7 @@ func (e *Executor) startLeaseHeartbeat(parent context.Context, st *requestAuthor
 	st.heartbeat = hb
 	reqID := st.RequestID
 	setID := st.LeaseSetID
-	cleanupTimeout := coord.CleanupTimeout
-	if cleanupTimeout <= 0 {
-		cleanupTimeout = 2 * time.Second
-	}
+	cleanupTimeout := e.leaseCleanupTimeout(st)
 
 	go func() {
 		defer close(hb.doneCh)

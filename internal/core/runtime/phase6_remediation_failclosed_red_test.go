@@ -77,11 +77,16 @@ func (s *remediatingSetConc) MarkLeaseSetUncertain(_ context.Context, setID stri
 }
 
 type capturingIntentStore struct {
-	appended []terminalwork.WorkRecord
-	fail     error
+	appended    []terminalwork.WorkRecord
+	fail        error
+	deadline    time.Time
+	hasDeadline bool
+	cancelErr   error
 }
 
-func (s *capturingIntentStore) AppendIntent(_ context.Context, rec terminalwork.WorkRecord) error {
+func (s *capturingIntentStore) AppendIntent(ctx context.Context, rec terminalwork.WorkRecord) error {
+	s.deadline, s.hasDeadline = ctx.Deadline()
+	s.cancelErr = ctx.Err()
 	if s.fail != nil {
 		return s.fail
 	}

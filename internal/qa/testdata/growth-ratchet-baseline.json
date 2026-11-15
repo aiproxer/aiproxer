@@ -1,0 +1,1100 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "path": "cmd/aipstd/reload_signal_adapter_unix_test.go",
+      "measure": "test_time_sleep",
+      "count": 5
+    },
+    {
+      "path": "connector-support/acp/invoke_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "connector-support/acp/ndjson_stream.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connector-support/acp/process_tree_cleanup_unix_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "connector-support/acp/process_tree_cleanup_windows_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "connector-support/acp/runtime_pool_rereview_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connector-support/acp/runtime_pool_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connector-support/acp/runtime_pool_turn_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connector-support/acp/transport_stdio_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connector-support/openaicompat/client_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentacp/certgateway/gateway_cert_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentacp/internal/product/authenv_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentacp/internal/product/gates_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentacp/internal/product/supervisor_linux_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentacp/internal/service/lifecycle_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/bridge/process_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/bridge/session_test.go",
+      "measure": "test_time_sleep",
+      "count": 5
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/service/acceptance_staging_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/service/engine_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/service/engine_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/service/s3_tool_integration_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/claudeagentmodel/internal/service/tool_integration_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/codex/internal/codex/attempt.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connectors/codex/internal/codex/native_context_plan.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connectors/codex/parity_suite_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "connectors/cohere/internal/service/client.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connectors/openaichatgptplan/cmd/aip-backend-openaichatgptplan/launcher_linux_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "connectors/openaichatgptplan/cmd/aip-backend-openaichatgptplan/login_safety_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "connectors/openaichatgptplan/internal/responses/stream.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connectors/openaichatgptplan/internal/siwc/adversarial_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/openaichatgptplan/internal/siwc/authorize_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/openaichatgptplan/internal/siwc/profile.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connectors/openaichatgptplan/internal/siwc/siwcfake_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "connectors/openaichatgptplan/internal/siwc/wait_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "connectors/replicate/internal/service/client.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "connectors/replicate/parity_suite_test.go",
+      "measure": "test_time_sleep",
+      "count": 4
+    },
+    {
+      "path": "internal/archtest/api_key_credential_census_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 3
+    },
+    {
+      "path": "internal/core/auxreq/background.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/auxreq/background_deadline_test.go",
+      "measure": "test_time_sleep",
+      "count": 4
+    },
+    {
+      "path": "internal/core/auxreq/generation_pin_auxiliary_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/auxreq/poll_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/core/concurrencyauthority/compatible/attempt_provider_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/continuity/bunstore/dbparity_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/core/continuity/bunstore/dbparity_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/continuity/bunstore/routeoverride_persist_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 2
+    },
+    {
+      "path": "internal/core/continuity/bunstore/store_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 3
+    },
+    {
+      "path": "internal/core/continuity/bunstore/store_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/extensions/decision_runner.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/extensions/final_stream_observation_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/extensions/tool_policy.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/jsonshape/scanner.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/largebody/assessor_sentinel_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/modelregistry/runtime_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/attempt_publication_ownership_new_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/authority_timing_characterization_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/billing_call_closure_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/billing_call_state_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/cancel_launch_linearization_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/checkpoint_sqlite_fixture_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/executor_expired_deadline_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/core/runtime/executor_final_stream_emit_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/executor_open_attempt.go",
+      "measure": "non_test_context_field",
+      "count": 3
+    },
+    {
+      "path": "internal/core/runtime/executor_open_attempt_duration_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/executor_open_attempt_state_tdd_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/core/runtime/executor_prepare_request.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/executor_prepare_secure.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/executor_retry_stream.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/generation_pin_heartbeat_join_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/lease_heartbeat_renewal_validation_test.go",
+      "measure": "test_time_sleep",
+      "count": 4
+    },
+    {
+      "path": "internal/core/runtime/lease_integration_test.go",
+      "measure": "test_time_sleep",
+      "count": 6
+    },
+    {
+      "path": "internal/core/runtime/parallel_race_authority_leak_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/parallel_race_blocker2_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/parallel_race_cancel_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/core/runtime/parallel_race_isolation_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/parallel_race_late_arm_race_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/parallel_race_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/phase63_lease_set_heartbeat_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/phase6_certification_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/register_bleg_ctx_cancel_leak_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/response_pending_completion.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/runtime/response_pipeline.go",
+      "measure": "non_test_context_field",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/reviewer_blocker_publication_ownership_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/core/runtime/stream_terminal_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/core/runtime/task13_3_recovery_matrix_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/core/runtime/ttft_budget.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/core/securesession/adapters/bunstore/dbparity_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/core/securesession/adapters/bunstore/store_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/core/securesession/storecontract/dbparity_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/core/terminalwork/app/ambiguous_append_reconciler_test.go",
+      "measure": "test_time_sleep",
+      "count": 4
+    },
+    {
+      "path": "internal/core/terminalwork/app/processor_test.go",
+      "measure": "test_time_sleep",
+      "count": 5
+    },
+    {
+      "path": "internal/infra/backendplugins/adapter/cancel_outcome_matrix_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/adapter/invalidation_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/adapter/stream.go",
+      "measure": "non_test_context_field",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/backendplugins/adapter/stream_close_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/activation_gate_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/drain_flood_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/drain_linux_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/host.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/launch_windows_adversarial_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/pipeconn_windows_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/proctree_linux_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/proctree_windows_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/backendplugins/processhost/windows_production_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/concurrencyauthority/leasestore/dbparity_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/concurrencyauthority/leasestore/renew_race_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/concurrencyauthority/leasestore/schema_spec_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/concurrencyauthority/leasestore/sqlite_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/conversationview/bootstrap_durable_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/conversationview/bun_store_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/db/classify_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/endpoint/endpoint_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/geoip/service.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/metering/journalstore/append_race_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/metering/journalstore/phase11_account_window_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/metering/journalstore/phase11_account_window_upgrade_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/metering/journalstore/schema_spec_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/proxymemorystore/phase_failures_reopen_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/backend_resource_pool.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/build_context.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/candidate_ledger_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/compatible_multi_instance_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/control_plane.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/lifecycle_observer_host_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/infra/runtimebundle/observation_lifecycle_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/options.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/phase8_codex_e2e_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/runtimebundle/plugin_serve_leak_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/runtimebundle/plugin_serve_leak_windows_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/process_state_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/infra/runtimebundle/reload_bench_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/secure_session.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimebundle/terminal_decision_lifecycle_withdrawal_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimehost/attempt_gate.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/runtimehost/coordinator_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/infra/terminalwork/workstore/phase43_contract_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/infra/terminalwork/workstore/schema_spec_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/integration/openresponses/leak_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/backends/openailegacy/integration_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/keepwarm/manager.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/keepwarm/refresh_cap_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/keepwarm/regression_fixes_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/keepwarm/scheduler.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/pathvirtualization/rewrite/opaque_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/proxymemory/capture.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/proxymemory/capture_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/features/proxymemory/transcript_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/features/reasoningpreservation/compression_lifecycle_certification_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "internal/plugins/features/secretguard/logical_fragments_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/features/toolcallrepair/repair/schema_compile_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/anthropic/hybrid_handler.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/decodeqos/limiter_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/frontendpipe/candidate_assessment_saturation_race_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/frontendpipe/candidate_keepalive_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/frontendpipe/candidate_proof_saturation_race_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/frontendpipe/large_payload_concurrency_spool_bench_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/frontendpipe/pipe.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/frontendpipe/profile.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/holdalive/pr1064_f3_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openailegacy/e2e_lane2_conformance_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openairesponses/e2e_lane1_conformance_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/e2e_lane3_conformance_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/streaming_test.go",
+      "measure": "test_time_sleep",
+      "count": 4
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/websocket_handler.go",
+      "measure": "non_test_context_field",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/websocket_phase6_review_internal_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/websocket_stress_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/websocket_turn_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/websocket_upgrade_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/plugins/frontends/openresponses/ws_goroutine_leak_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/providerprofiles/profile_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/refbackend/acp/server_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/refbackend/openresponses/delay_cancel_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/conversation_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/model_system_prompt_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/proxy_memory_isolation_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 2
+    },
+    {
+      "path": "internal/standardplugins/featurehost/sessionclassification/bun_store_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/sessionclassification/jev_wire_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/sessionclassification/metrics_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/sessionclassification_candidate_rollback_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/sessionclassification_durable_resume_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/standardplugins/featurehost/sessionclassification_lifecycle_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/stdhttp/contract/http_input.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/stdhttp/generation_host_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/stdhttp/mount_admin.go",
+      "measure": "non_test_context_field",
+      "count": 5
+    },
+    {
+      "path": "internal/stdhttp/mount_diagnostics.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/stdhttp/mount_metrics.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/stdhttp/mount_securesession.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "internal/testkit/compatibleparity/instance_isolation_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/testkit/conformance/agentloopguard_preferred_transport_e2e_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "internal/testkit/dbparity/command_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/testkit/dbparity/schema_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "internal/testkit/productsmoke/shutdown_unix_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "internal/testkit/reasoninge2e/soak_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "pkg/aipapi/limits_field_path_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipruntime/reload_facade_external_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipruntime/serve_public_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipruntime/serve_schedule_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/cancel_coordinator_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/conformance/harness.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/contracttest/contracttest.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/convert_characterization_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 3
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/fallback_cancel_red_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/forward_execute_test.go",
+      "measure": "test_time_sleep",
+      "count": 3
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/host/session.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/host/session_cross_generation_concurrency_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/host/session_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/invocation_items_validate_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/serve_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/backendplugin/server.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "pkg/aipsdk/factory.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "tools/backendplugin/bounded_orchestration_contract_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "tools/backendplugin/crossplatform_qa/compile_pool_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    },
+    {
+      "path": "tools/backendplugin/main_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "tools/kiro/speccheck/residual_ownership_inventory_test.go",
+      "measure": "test_sqlite_file_dsn",
+      "count": 1
+    },
+    {
+      "path": "tools/taskrunner/process_group_exit_posix_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "tools/taskrunner/process_group_zombie_linux_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "tools/taskrunner/process_tree_posix_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "tools/taskrunner/process_tree_windows_test.go",
+      "measure": "test_time_sleep",
+      "count": 1
+    },
+    {
+      "path": "tools/taskrunner/runner.go",
+      "measure": "non_test_context_field",
+      "count": 1
+    },
+    {
+      "path": "tools/taskrunner/runner_waitdelay_posix_test.go",
+      "measure": "test_time_sleep",
+      "count": 2
+    }
+  ]
+}

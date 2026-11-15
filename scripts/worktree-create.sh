@@ -2,7 +2,7 @@
 # worktree-create.sh creates a task worktree at the correct, validated location
 # or refuses to.
 #
-#   scripts/worktree-create.sh fix-short-description [--base origin/main] [--apply] [--setup]
+#   scripts/worktree-create.sh fix/short-description [--base origin/main] [--apply] [--setup]
 #
 # The repository layout is a constraint, not a convention: `<container>/branches/`
 # holds the long-lived checkouts and `<container>/worktrees/` holds task worktrees.
@@ -23,6 +23,9 @@
 #   1 refused: a validation failed (nothing was created)
 #   2 usage error
 set -euo pipefail
+
+# shellcheck source=scripts/task-branch-prefix.sh
+source "$(dirname "${BASH_SOURCE[0]}")/task-branch-prefix.sh"
 
 readonly EXIT_REFUSED=1
 readonly EXIT_USAGE=2
@@ -86,13 +89,15 @@ sanitize_name() {
 	printf '%s' "$1" | tr '/' '-' | tr -cd 'A-Za-z0-9._-'
 }
 
-# validate_branch rejects names that cannot become a directory name or that git
-# would treat as something other than a branch.
+# validate_branch rejects names that cannot become a directory name, that git
+# would treat as something other than a branch, or that lack a task prefix.
 validate_branch() {
 	local branch=$1 name
 	[[ -n "$branch" ]] || die "branch name is required"
 	[[ "$branch" != -* ]] || die "branch name must not start with -: $branch"
 	[[ "$branch" != *..* ]] || die "branch name must not contain '..': $branch"
+	task_branch_has_prefix "$branch" ||
+		die "branch name must start with $TASK_BRANCH_PREFIXES (AGENTS.md): $branch"
 	[[ "$branch" != */ ]] || die "branch name must not end with a slash: $branch"
 	[[ "$branch" != *//* ]] || die "branch name must not contain an empty component: $branch"
 	name=$(sanitize_name "$branch")
@@ -252,7 +257,7 @@ self_test() {
 	[[ $rc -eq 1 && ! -e "$container/worktrees/fix-relative-existing" ]] ||
 		{ echo "FAIL: relative destination with existing parent accepted" >&2; return 1; }
 	# Folding slash to dash must not reuse a different branch's worktree.
-	out=$(cd "$container/branches/main" && bash "$script" fix-demo --base main 2>&1) && rc=0 || rc=$?
+	out=$(cd "$container/branches/main" && bash "$script" fix/de+mo --base main 2>&1) && rc=0 || rc=$?
 	[[ $rc -eq 1 ]] || { echo "FAIL: reused a worktree holding a different branch" >&2; return 1; }
 
 	# Claim: creating again is safe and idempotent. It must report the existing
@@ -309,7 +314,13 @@ self_test() {
 	out=$(cd "$container/branches/main" && bash "$script" '../escape' 2>&1) && rc=0 || rc=$?
 	[[ $rc -eq 2 ]] || { echo "FAIL: escaping branch returned $rc, want usage error" >&2; echo "$out" >&2; return 1; }
 
-	echo "PASS: worktree created at the validated absolute path; layout guard consulted; repeats, escaping paths, occupied directories, existing branches, unresolvable bases and unsafe branch names all refused without creating anything"
+	# Claim: a branch without a task prefix is refused before anything is created.
+	out=$(cd "$container/branches/main" && bash "$script" chore/demo --base main --apply 2>&1) && rc=0 || rc=$?
+	[[ $rc -eq 2 && ! -e "$container/worktrees/chore-demo" ]] ||
+		{ echo "FAIL: unprefixed branch returned $rc, want usage error" >&2; echo "$out" >&2; return 1; }
+	grep -q 'must start with fix/, feat/, spec/, or docs/' <<<"$out" || { echo "FAIL: prefix refusal not explained" >&2; return 1; }
+
+	echo "PASS: worktree created at the validated absolute path; layout guard consulted; repeats, escaping paths, occupied directories, existing branches, unresolvable bases, unsafe and unprefixed branch names all refused without creating anything"
 }
 
 # ensure_hooks installs the repository commit hooks for the new worktree when

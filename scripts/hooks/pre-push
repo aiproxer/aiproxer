@@ -4,6 +4,8 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 checker="$repo_root/scripts/check-release-clean.sh"
 change_size="$repo_root/scripts/check-change-size.sh"
+# shellcheck source=scripts/task-branch-prefix.sh
+source "$repo_root/scripts/task-branch-prefix.sh"
 remote_name="${1:?missing remote name}"
 zero="0000000000000000000000000000000000000000"
 commits=()
@@ -47,8 +49,24 @@ size_gate_base() {
 	fi
 }
 
-while read -r _local_ref local_sha _remote_ref remote_sha; do
+# refuse_unprefixed_new_branch rejects creating a remote branch whose name lacks
+# a task prefix (AGENTS.md). Only creation is refused: the remote already holds
+# branches named pr/..., refactor/... and pr-NNNN, and they must stay updatable
+# and deletable. Tags and every other ref namespace are untouched.
+refuse_unprefixed_new_branch() {
+	local remote_ref="$1" remote_sha="$2" branch
+	[[ "$remote_ref" == refs/heads/* ]] || return 0
+	[[ "$remote_sha" == "$zero" ]] || return 0
+	branch="${remote_ref#refs/heads/}"
+	task_branch_has_prefix "$branch" && return 0
+	echo "pre-push: refused: new remote branch '$branch' must start with $TASK_BRANCH_PREFIXES (AGENTS.md)" >&2
+	echo "pre-push: create task branches with: make worktree-create WORKTREE_BRANCH=fix/short-description" >&2
+	exit 1
+}
+
+while read -r _local_ref local_sha remote_ref remote_sha; do
 	[[ "$local_sha" == "$zero" ]] && continue
+	refuse_unprefixed_new_branch "$remote_ref" "$remote_sha"
 	updates+=("$local_sha $remote_sha")
 
 	if [[ "$remote_sha" == "$zero" ]]; then
