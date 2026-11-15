@@ -489,6 +489,8 @@ func matchImportTarget(imp, pattern string) bool {
 		return strings.Contains(imp, strings.Trim(pattern, "*"))
 	case imp == pattern:
 		return true
+	case !strings.ContainsAny(pattern, "/*"):
+		return false // a standard-library name matches exactly, never as a substring
 	case strings.HasPrefix(imp, pattern+"/"):
 		// Exact package forbid does not include subpackages.
 		return false

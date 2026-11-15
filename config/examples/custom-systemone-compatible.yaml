@@ -51,7 +51,7 @@ plugins:
         models:
           source: inline
           items:
-            - canonical_id: custom-jev
+            - canonical_id: custom-decision/jev-latest
               native_id: jev-latest
               display_name: Custom System One
   features: []

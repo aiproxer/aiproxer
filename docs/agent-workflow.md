@@ -5,7 +5,7 @@ Read the section matching the operation; root `AGENTS.md` retains safety and arc
 ## Dependabot PRs
 
 - Dependabot groups are per dependency family (`.github/dependabot.yml`). Handle each PR on its own; do not bundle families into one rescue PR.
-- A failing family is skipped, not fixed in place: merge the green PRs, comment on the failing one, and track the incompatibility in an issue. Add an `ignore` rule only with that issue linked.
+- A failing family is skipped, not fixed in place: merge the green PRs, comment on the failing one, and track the incompatibility in an issue. Add an `ignore` rule only with that issue linked; kirocheck requires the issue URL in the comment above each entry.
 - Dependabot cannot sync consumer/fixture modules. If "All Go modules tidy and test" fails on drift, run `bash scripts/tidy-all-modules.sh` on the PR branch and push the result as one `build(deps): synchronize module metadata` commit.
 - Keep each Dependabot PR to its own slice; do not wait for unrelated PRs.
 
@@ -51,13 +51,13 @@ Do not add such a model to the review roster or as a pre-filter. Exploring the c
 ## Canonical skill catalog
 
 - `.agents/skills/` is the single tracked catalog for Codex, OpenCode, Pi, Antigravity CLI, Cursor, and Codebuff. Git worktrees receive it automatically.
-- `.agents/catalog.json` is the curated inventory. Add or update a skill there in the same change as its directory.
-- Keep one source rather than same-name copies under `.codex/skills`, `.cursor/skills`, `.kiro/skills`, `.opencode/skills`, or `.pi/skills`; duplicate discovery has agent-specific precedence and causes drift.
-- Portable frontmatter contains `name`, `description`, optional `license`, and optional `metadata`. Folder and frontmatter names match.
-- Run `pwsh -NoProfile -File scripts/check-agent-skill-catalog.ps1` after catalog changes.
+- `.agents/catalog.json` is the curated inventory, updated in the same change as the skill directory.
+- No same-name copies under `.codex/skills`, `.cursor/skills`, `.kiro/skills`, `.opencode/skills`, or `.pi/skills`: duplicate discovery has agent-specific precedence and causes drift.
+- `scripts/check-agent-skill-catalog.ps1` checks the inventory, portable frontmatter, matching folder and frontmatter names, and duplicate skills. Run it after catalog changes; CI also runs it for policy changes.
 
 ## Verification
 
+- Policy prose is checked deterministically. `go run ./tools/kiro/kirocheck` validates the delivery budget table, Makefile targets, skill names, repository paths, links and their Markdown heading anchors, history hygiene, and Dependabot ignore comments. An extension-bearing path must exist even when its first component is unknown. CI runs it for code and policy changes; the pre-commit hook runs it for a policy-only commit, and `go run ./tools/kiro/kirospec-check` for the spec-only subset.
 - `git commit` gates staged packages (build, vet, tests, lint); PR CI checks the complete suite and consumers. Run commits in background with no timeout so the gate survives long checks. Keep hooks enabled; a failed gate requires diagnosis, not `--no-verify`.
 - Background commands notify completion. End the turn when waiting; do not poll with sleeps or repeated output reads.
 - Setup, missing tools, Go guard installation, resource queues, scratch or database readiness: use [development setup](development-iteration.md#development-setup-and-readiness) and `make dev-doctor`.

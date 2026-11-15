@@ -427,6 +427,20 @@ func (e *Executor) requestCoordinatorFor(st *requestAuthorityState) *authorityco
 	return nil
 }
 
+// leaseCleanupTimeout resolves the one cleanup budget shared by lease-set
+// release intents, uncertain marking, and heartbeat renewal. The request-bound
+// coordinator override wins, then the executor's resolved operator setting,
+// then the existing two-second default.
+func (e *Executor) leaseCleanupTimeout(st *requestAuthorityState) time.Duration {
+	if coord := e.requestCoordinatorFor(st); coord != nil && coord.CleanupTimeout > 0 {
+		return coord.CleanupTimeout
+	}
+	if e != nil && e.UsageAuthorityCleanupTimeout > 0 {
+		return e.UsageAuthorityCleanupTimeout
+	}
+	return defaultAuthorityCleanupTimeout
+}
+
 func (e *Executor) acceptSettleDurableIntents(ctx context.Context, st *requestAuthorityState) error {
 	if st == nil {
 		return fmt.Errorf("%w: missing request authority state", terminalworkapp.ErrDurableIntentRejected)
@@ -490,10 +504,7 @@ func (e *Executor) acceptLeaseSetReleaseIntent(ctx context.Context, st *requestA
 		st.LeaseSetReleaseAcceptErr = err
 		return err
 	}
-	timeout := 2 * time.Second
-	if coord := e.requestCoordinatorFor(st); coord != nil && coord.CleanupTimeout > 0 {
-		timeout = coord.CleanupTimeout
-	}
+	timeout := e.leaseCleanupTimeout(st)
 	base := ctx
 	if base == nil {
 		base = context.Background()
@@ -535,7 +546,7 @@ func (e *Executor) markLeaseSetUncertain(ctx context.Context, st *requestAuthori
 		if base == nil {
 			base = context.Background()
 		}
-		mctx, cancel := context.WithTimeout(context.WithoutCancel(base), 2*time.Second)
+		mctx, cancel := context.WithTimeout(context.WithoutCancel(base), e.leaseCleanupTimeout(st))
 		defer cancel()
 		return m.MarkLeaseSetUncertain(mctx, setID)
 	}

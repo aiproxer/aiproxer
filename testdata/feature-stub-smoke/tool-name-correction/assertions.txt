@@ -6,3 +6,5 @@ wire:invented_tool:0
 wire:get_weather:1
 backend:Available tools: \"get_weather\":1
 log:outcome=corrected reason=unknown_tool_name:1
+# A fixture inventory row the registry rejects logs this WARN; the smoke must not carry it.
+log:invalid inventory omitted:0

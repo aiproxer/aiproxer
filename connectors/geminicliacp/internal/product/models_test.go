@@ -125,6 +125,70 @@ func TestSessionModelsProvider_ContextCanceled(t *testing.T) {
 	}
 }
 
+func TestDiscoveryContext_HonorsCallerDeadline(t *testing.T) {
+	t.Parallel()
+
+	t.Run("long caller deadline is unchanged", func(t *testing.T) {
+		t.Parallel()
+		want := time.Now().Add(2 * time.Minute)
+		ctx, cancel := context.WithDeadline(context.Background(), want)
+		defer cancel()
+		got, gotCancel := discoveryContext(ctx, 0)
+		defer gotCancel()
+		deadline, ok := got.Deadline()
+		if !ok || !deadline.Equal(want) {
+			t.Fatalf("deadline = %v (ok=%v), want exactly %v", deadline, ok, want)
+		}
+	})
+
+	t.Run("short caller deadline is unchanged", func(t *testing.T) {
+		t.Parallel()
+		want := time.Now().Add(250 * time.Millisecond)
+		ctx, cancel := context.WithDeadline(context.Background(), want)
+		defer cancel()
+		got, gotCancel := discoveryContext(ctx, time.Minute)
+		defer gotCancel()
+		deadline, ok := got.Deadline()
+		if !ok || !deadline.Equal(want) {
+			t.Fatalf("deadline = %v (ok=%v), want exactly %v", deadline, ok, want)
+		}
+	})
+
+	t.Run("undated context gets the 30 second fallback", func(t *testing.T) {
+		t.Parallel()
+		before := time.Now()
+		got, gotCancel := discoveryContext(context.Background(), 0)
+		defer gotCancel()
+		deadline, ok := got.Deadline()
+		if !ok {
+			t.Fatal("undated context received no fallback deadline")
+		}
+		if earliest := before.Add(defaultDiscoveryTimeout - time.Second); deadline.Before(earliest) {
+			t.Fatalf("deadline %v earlier than %v", deadline, earliest)
+		}
+		if latest := time.Now().Add(defaultDiscoveryTimeout + time.Second); deadline.After(latest) {
+			t.Fatalf("deadline %v later than %v", deadline, latest)
+		}
+	})
+
+	t.Run("positive explicit fallback wins without a caller deadline", func(t *testing.T) {
+		t.Parallel()
+		before := time.Now()
+		got, gotCancel := discoveryContext(context.Background(), 2*time.Minute)
+		defer gotCancel()
+		deadline, ok := got.Deadline()
+		if !ok {
+			t.Fatal("undated context received no fallback deadline")
+		}
+		if earliest := before.Add(2*time.Minute - time.Second); deadline.Before(earliest) {
+			t.Fatalf("deadline %v earlier than %v", deadline, earliest)
+		}
+		if latest := time.Now().Add(2*time.Minute + time.Second); deadline.After(latest) {
+			t.Fatalf("deadline %v later than %v", deadline, latest)
+		}
+	})
+}
+
 type failProcessStarter struct{ err error }
 
 func (s *failProcessStarter) Start([]string, string, []string) (acp.Process, error) {

@@ -71,7 +71,7 @@ Provider SDKs and vendor transport types stay inside these adapter boundaries.
 
 ### 5. Optional executable backends — `connectors/` and `connector-support/`
 
-Hybrid backend composition ([ADR 0008](docs/adr/0008-hybrid-backend-connector-plugins.md)): essential builtins are static; optional integrations that should not widen the root module run as executable connectors under `connectors/` over the versioned backend-plugin ABI.
+Hybrid backend composition ([ADR 0008](../../docs/adr/0008-hybrid-backend-connector-plugins.md)): essential builtins are static; optional integrations that should not widen the root module run as executable connectors under `connectors/` over the versioned backend-plugin ABI.
 
 Rules:
 

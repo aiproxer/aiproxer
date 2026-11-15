@@ -340,28 +340,30 @@ func (a *attemptSession) toolCallAssembler() *toolCallAssembler {
 // continuation is the only place that may carry it. Acceptance is the only
 // producer: the steer gate calls it synchronously on the single receive loop.
 // The name is kept with the withhold state - never recorded raw - so the
-// outcome that ends the withhold can hash it.
-func (a *attemptSession) markWithholding(name, instruction string) {
+// outcome that ends the withhold can hash it. The trigger is the bounded steer
+// reason the outcome records carry.
+func (a *attemptSession) markWithholding(name, trigger, instruction string) {
 	if a == nil {
 		return
 	}
 	a.withholdMu.Lock()
 	a.withheld.name = name
+	a.withheld.trigger = trigger
 	a.withheld.instruction = instruction
 	a.withholdMu.Unlock()
 	a.withholding.Store(true)
 }
 
-// withheldSteer returns the accepted correction's effective name and
-// instruction. The finish intercept reads them once, before it publishes or
-// replays the queue.
-func (a *attemptSession) withheldSteer() (name, instruction string) {
+// withheldSteer returns the accepted correction's effective name, instruction,
+// and bounded trigger. The finish intercept reads them once, before it publishes
+// or replays the queue.
+func (a *attemptSession) withheldSteer() (name, instruction, trigger string) {
 	if a == nil {
-		return "", ""
+		return "", "", ""
 	}
 	a.withholdMu.Lock()
 	defer a.withholdMu.Unlock()
-	return a.withheld.name, a.withheld.instruction
+	return a.withheld.name, a.withheld.instruction, a.withheld.trigger
 }
 
 // discardWithheld clears the withhold queue and the withhold mark, and the

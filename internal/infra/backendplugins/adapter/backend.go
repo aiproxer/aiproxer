@@ -319,8 +319,15 @@ func (t *tokenCounterBridge) CountCall(ctx context.Context, in accountingapp.Cou
 }
 
 func (t *tokenCounterBridge) count(ctx context.Context, model string, inv backendplugin.Invocation) (accountingapp.CountResult, error) {
-	cctx, cancel := context.WithTimeout(ctx, t.timeout)
-	defer cancel()
+	// The accounting service already bounds this call with the operator's
+	// accounting.count_timeout; the adapter metadata timeout is only a
+	// fallback for direct callers that supplied no deadline of their own.
+	cctx := ctx
+	if _, ok := ctx.Deadline(); !ok && t.timeout > 0 {
+		var cancel context.CancelFunc
+		cctx, cancel = context.WithTimeout(ctx, t.timeout)
+		defer cancel()
+	}
 	resp, err := t.session.CountTokens(cctx, backendplugin.CountTokensRequest{
 		InstanceID: t.instanceID,
 		ModelID:    model,

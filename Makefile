@@ -18,6 +18,12 @@ AIP_TEST_PARALLEL ?= 2
 export GOMAXPROCS
 endif
 DEV_JOBS ?= 4
+# Scoped dev tests use the host's declared package/test budgets when present;
+# an explicit DEV_JOBS (environment or command line) wins, and DEV_JOBS remains
+# the fallback for hosts that declare neither.
+DEV_PACKAGES ?= $(if $(filter environment command line override,$(origin DEV_JOBS)),$(DEV_JOBS),$(if $(strip $(AIP_TEST_PACKAGES)),$(strip $(AIP_TEST_PACKAGES)),$(DEV_JOBS)))
+DEV_PARALLEL ?= $(if $(filter environment command line override,$(origin DEV_JOBS)),$(DEV_JOBS),$(if $(strip $(AIP_TEST_PARALLEL)),$(strip $(AIP_TEST_PARALLEL)),$(DEV_PACKAGES)))
+DEV_MODULE_JOBS ?= 1
 DEV_REPEAT ?= 1
 DEV_TIMEOUT ?= 30m
 DEV_OUTPUT ?= stream
@@ -41,27 +47,34 @@ DEV_CONSUMER ?=
 .PHONY: dev-test dev-test-changed dev-contract-check dev-delivery-plan dev-build dev-lint dev-doctor dev-setup dev-setup-check
 SETUP_APPLY ?= 0
 DOCTOR_POSTGRES ?= 0
+# POSIX targets execute a cached binary instead of paying the `go run` link
+# cost on every invocation; Windows keeps its existing go run path.
+ifeq ($(OS),Windows_NT)
+DEVCHECK := $(GO) run -buildvcs=false ./tools/devcheck
+else
+DEVCHECK := AIP_DEVCHECK_GO="$(GO)" bash scripts/devcheck-run.sh
+endif
 dev-setup:
 	bash scripts/dev-setup.sh $(if $(filter 1,$(SETUP_APPLY)),--apply,)
 dev-setup-check:
 	bash scripts/test-dev-setup.sh
 dev-test:
-	$(GO) run -buildvcs=false ./tools/devcheck -task=test -module="$(MODULE)" -packages="$(PKGS)" -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
+	$(DEVCHECK) -task=test -module="$(MODULE)" -packages="$(PKGS)" -jobs=$(DEV_PACKAGES) -parallel="$(DEV_PARALLEL)" -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
 dev-test-changed:
-	$(GO) run -buildvcs=false ./tools/devcheck -task=test -scope=changed -module="$(MODULE)" -packages="$(PKGS)" -base="$(DEV_BASE)" -plan=$(DEV_PLAN) -full=$(DEV_FULL) -fresh=$(DEV_FRESH) -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
+	$(DEVCHECK) -task=test -scope=changed -module="$(MODULE)" -packages="$(PKGS)" -base="$(DEV_BASE)" -plan=$(DEV_PLAN) -full=$(DEV_FULL) -fresh=$(DEV_FRESH) -jobs=$(DEV_PACKAGES) -parallel="$(DEV_PARALLEL)" -module-jobs=$(DEV_MODULE_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
 dev-contract-check:
-	$(GO) run -buildvcs=false ./tools/devcheck -task=contracts -scope=changed -module="$(MODULE)" -packages="$(PKGS)" -base="$(DEV_BASE)" -plan=$(DEV_PLAN) -full=$(DEV_FULL) -fresh=$(DEV_FRESH) -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
+	$(DEVCHECK) -task=contracts -scope=changed -module="$(MODULE)" -packages="$(PKGS)" -base="$(DEV_BASE)" -plan=$(DEV_PLAN) -full=$(DEV_FULL) -fresh=$(DEV_FRESH) -jobs=$(DEV_JOBS) -parallel="$(DEV_PARALLEL)" -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
 dev-delivery-plan:
 	@$(GO) run -buildvcs=false ./tools/devcheck -task=delivery -base="$(DEV_BASE)" -head="$(DEV_HEAD)" -consumer="$(DEV_CONSUMER)" -timeout="$(DEV_TIMEOUT)" -evidence="$(DEV_EVIDENCE)"
 dev-build:
-	$(GO) run -buildvcs=false ./tools/devcheck -task=build -module="$(MODULE)" -packages="$(PKGS)" -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
+	$(DEVCHECK) -task=build -module="$(MODULE)" -packages="$(PKGS)" -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
 dev-lint:
-	$(GO) run -buildvcs=false ./tools/devcheck -task=lint -module="$(MODULE)" -packages="$(PKGS)" -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
+	$(DEVCHECK) -task=lint -module="$(MODULE)" -packages="$(PKGS)" -jobs=$(DEV_JOBS) -repeat=$(DEV_REPEAT) -timeout="$(DEV_TIMEOUT)" -output="$(DEV_OUTPUT)" -evidence="$(DEV_EVIDENCE)"
 dev-doctor:
 ifneq ($(OS),Windows_NT)
 	bash scripts/dev-setup.sh --doctor $(if $(filter 1,$(DOCTOR_POSTGRES)),--postgres,)
 endif
-	$(GO) run -buildvcs=false ./tools/devcheck -task=doctor -module="$(MODULE)" -timeout="$(DEV_TIMEOUT)" -evidence="$(DEV_EVIDENCE)"
+	$(DEVCHECK) -task=doctor -module="$(MODULE)" -timeout="$(DEV_TIMEOUT)" -evidence="$(DEV_EVIDENCE)"
 
 # Bounded product smoke: build aipstd once and drive real client journeys
 # through it under one 600-second command budget. The outer supervisor includes

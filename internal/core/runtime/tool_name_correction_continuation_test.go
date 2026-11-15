@@ -28,7 +28,10 @@ import (
 	"github.com/aiproxer/aiproxer/internal/plugins/features/agentloopguard"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/agentloopguard/causepolicy"
 	algprogress "github.com/aiproxer/aiproxer/internal/plugins/features/agentloopguard/progress"
+	"github.com/aiproxer/aiproxer/internal/plugins/features/powershellheredoc"
+	"github.com/aiproxer/aiproxer/internal/plugins/features/toolnamecorrection"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
+	aipfeature "github.com/aiproxer/aiproxer/pkg/aipsdk/feature"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk/steering"
 	sdkterminal "github.com/aiproxer/aiproxer/pkg/aipsdk/terminal"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk/terminaldecision"
@@ -685,4 +688,279 @@ func assertGuardEvaluatedCorrectedAttempt(t *testing.T, recorder *tccProvider) {
 			t.Fatalf("terminal decision %d is not verifier-eligible, so the progress decode is unreachable: %+v", i, result)
 		}
 	}
+}
+
+// tccShellTool is the offered shell tool the PowerShell heredoc feature maps.
+const tccShellTool = "shell_command"
+
+// tccHeredocArgs is the call B1 emits: a heredoc PowerShell cannot parse.
+const tccHeredocArgs = `{"command":"python - <<'PY'\nprint(1)\nPY"}`
+
+// tccHeredocCommand is the command text tccHeredocArgs carries. It must never
+// reach the client, the follow-up request, or the logs.
+const tccHeredocCommand = "python - <<'PY'\nprint(1)\nPY"
+
+// tccPowerShellHeredocFinalizer returns the real feature finalizer, configured
+// for shell_command as a PowerShell tool.
+func tccPowerShellHeredocFinalizer(t *testing.T) toolcall.Finalizer {
+	t.Helper()
+	bundle, err := powershellheredoc.FeatureBundle(powershellheredoc.Config{
+		Tools: map[string]powershellheredoc.ToolRule{tccShellTool: {Arg: "command", Shell: powershellheredoc.ShellPowerShell}},
+	})
+	if err != nil {
+		t.Fatalf("powershell heredoc bundle: %v", err)
+	}
+	fins := aipfeature.Get(bundle.PlaneSet, aipfeature.PlaneToolCallFinalizers)
+	if len(fins) != 1 {
+		t.Fatalf("powershell heredoc finalizers = %d, want one", len(fins))
+	}
+	return fins[0]
+}
+
+// tccUnknownNameFinalizer returns the real tool-name-correction finalizer with
+// the per-turn budget raised to its maximum, so the budget rail alone cannot
+// stop a second steer.
+func tccUnknownNameFinalizer(t *testing.T) toolcall.Finalizer {
+	t.Helper()
+	bundle, err := toolnamecorrection.FeatureBundle(toolnamecorrection.Config{MaxCorrectionsPerTurn: toolcall.MaxSteerTurnBudget})
+	if err != nil {
+		t.Fatalf("tool-name-correction bundle: %v", err)
+	}
+	fins := aipfeature.Get(bundle.PlaneSet, aipfeature.PlaneToolCallFinalizers)
+	if len(fins) != 1 {
+		t.Fatalf("tool-name-correction finalizers = %d, want one", len(fins))
+	}
+	return fins[0]
+}
+
+// tccHeredocInstruction is the hidden instruction the real finalizer produces
+// for the heredoc call. B2 must receive exactly this text.
+func tccHeredocInstruction(t *testing.T, fin toolcall.Finalizer) string {
+	t.Helper()
+	res, err := fin.Finalize(context.Background(),
+		toolcall.CompletedCall{ToolName: tccShellTool, ArgsJSON: []byte(tccHeredocArgs)},
+		aipapi.ToolDef{}, nil, toolcall.Meta{})
+	if err != nil || res.Action != toolcall.ActionSteer || res.Steer == nil {
+		t.Fatalf("heredoc call result = %+v, err = %v, want a steer", res, err)
+	}
+	return res.Steer.Instruction
+}
+
+// tccShellIngress is client history that already ran the shell tool, so the
+// same-name ingress-history rail is in force for the invalid call.
+func tccShellIngress() aipapi.Call {
+	return aipapi.Call{
+		ID: "request-tcc",
+		Items: []aipapi.Item{
+			{Kind: aipapi.ItemKindMessage, Role: aipapi.RoleUser, Content: []aipapi.ContentPart{{Kind: aipapi.ContentPartText, Text: "list the files"}}},
+			{Kind: aipapi.ItemKindToolCall, ToolCall: &aipapi.ToolCallItem{CallID: "prev-1", Name: tccShellTool, Arguments: []byte(`{"command":"dir"}`)}},
+			{Kind: aipapi.ItemKindToolResult, ToolResult: &aipapi.ToolResultItem{CallID: "prev-1", Name: tccShellTool, Output: "a.txt"}},
+			{Kind: aipapi.ItemKindMessage, Role: aipapi.RoleUser, Content: []aipapi.ContentPart{{Kind: aipapi.ContentPartText, Text: "fix the failing test"}}},
+		},
+	}
+}
+
+// tccHeredocB1Script is the invalid attempt: one heredoc shell call followed by
+// later output that must be held with the call.
+func tccHeredocB1Script() []aipapi.Event {
+	b1 := []aipapi.Event{{Kind: aipapi.EventResponseStarted}, {Kind: aipapi.EventMessageStarted}}
+	b1 = append(b1, twCallEvents("c1", tccShellTool, tccHeredocArgs, 1)...)
+	b1 = append(b1, aipapi.Event{Kind: aipapi.EventTextDelta, Delta: tccB1LaterText})
+	return append(b1, aipapi.Event{Kind: aipapi.EventResponseFinished})
+}
+
+// tccOfferCatalog replaces the attempt's assembler with one that offers the
+// shell tool and the steer test's tool, so a shell call is a known name and only
+// an invented name is unknown. The finalizers keep their order.
+func tccOfferCatalog(h *tccHarness, finalizers ...toolcall.Finalizer) {
+	catalog := []aipapi.ToolDef{
+		{Name: tccShellTool, Parameters: []byte(`{"type":"object"}`)},
+		{Name: steerToolName, Parameters: []byte(`{"type":"object"}`)},
+	}
+	h.attempt.toolFinal = newToolCallAssembler(finalizers, 64*1024, catalog)
+}
+
+// tccSameDelivery compares the client-visible identity of two events.
+func tccSameDelivery(a, b aipapi.Event) bool {
+	return a.Kind == b.Kind && a.ToolName == b.ToolName && a.ToolCallID == b.ToolCallID && a.Delta == b.Delta
+}
+
+func tccKinds(events []aipapi.Event) []aipapi.EventKind {
+	kinds := make([]aipapi.EventKind, 0, len(events))
+	for _, ev := range events {
+		kinds = append(kinds, ev.Kind)
+	}
+	return kinds
+}
+
+// tccCarriesSubstring reports whether any text, tool-call argument, or tool
+// output of the call contains s.
+func tccCarriesSubstring(call aipapi.Call, s string) bool {
+	for _, item := range aipapi.NormalizedItems(call) {
+		if item.ToolCall != nil && strings.Contains(string(item.ToolCall.Arguments), s) {
+			return true
+		}
+		if item.ToolResult != nil && strings.Contains(item.ToolResult.Output, s) {
+			return true
+		}
+		for _, part := range item.Content {
+			if strings.Contains(part.Text, s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// TestToolNameCorrectionContinuation_PowerShellHeredocPublishesCorrectedAttempt
+// proves the real heredoc finalizer's steer, with the same-name shell call already
+// in client history: the heredoc call never reaches the client, B2 receives only
+// the hidden instruction and not the command, and the client gets B2's call once.
+func TestToolNameCorrectionContinuation_PowerShellHeredocPublishesCorrectedAttempt(t *testing.T) {
+	t.Parallel()
+	fin := tccPowerShellHeredocFinalizer(t)
+	h := newTCCHarnessWithFinalizers(t, aipapi.NewFixedEventStream(tccHeredocB1Script()), fin)
+	h.stream.facts.baseline = tccShellIngress()
+	h.stream.facts.ingressCall = tccShellIngress()
+	tccOfferCatalog(h, fin)
+	h.b2Events = tccB2Script()
+
+	events, err := tccDrain(t, h.stream)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("terminal recv error = %v, want io.EOF", err)
+	}
+	if got := tccCountKind(events, aipapi.EventResponseStarted); got != 1 {
+		t.Fatalf("delivered response starts = %d, want one", got)
+	}
+	if got := tccCountKind(events, aipapi.EventResponseFinished); got != 1 {
+		t.Fatalf("delivered finishes = %d, want one", got)
+	}
+	// The client sees exactly B2's lifecycle: no heredoc call, no invented result.
+	if got, want := tccKinds(events), tccKinds(tccB2Script()); !slices.Equal(got, want) {
+		t.Fatalf("delivered kinds = %v, want exactly B2's lifecycle %v", got, want)
+	}
+	if names := tccDeliveredToolNames(events); !slices.Equal(names, []string{steerToolName}) {
+		t.Fatalf("delivered tool calls = %v, want only B2's corrected call", names)
+	}
+	if payload := tccEventPayload(events); strings.Contains(payload, tccShellTool) || strings.Contains(payload, "print(1)") || strings.Contains(payload, tccB1LaterText) {
+		t.Fatalf("delivered output carries the withheld heredoc attempt: %q", payload)
+	}
+
+	if h.opens.Load() != 1 {
+		t.Fatalf("follow-up opens = %d, want exactly one", h.opens.Load())
+	}
+	baseline := h.openReq.pinnedFacts.baseline
+	if names := tccCallNames(baseline); !slices.Equal(names, []string{tccShellTool}) {
+		t.Fatalf("follow-up tool calls = %v, want only the prior shell call: the heredoc call must never be replayed", names)
+	}
+	want := tccHeredocInstruction(t, fin)
+	if !tccCarriesText(baseline, want) {
+		t.Fatal("follow-up request does not carry the hidden PowerShell instruction")
+	}
+	if tccCarriesSubstring(baseline, "print(1)") || tccCarriesSubstring(baseline, "<<'PY'") {
+		t.Fatal("follow-up request carries the heredoc command text")
+	}
+	if puts := h.writer.puts; len(puts) != 1 || puts[0].OverlayID != toolNameCorrectionOverlayID ||
+		puts[0].Message.Text != want || puts[0].Placement != steering.AfterIngressTail {
+		t.Fatalf("correction overlay put = %+v, want the dedicated overlay carrying the heredoc instruction", puts)
+	}
+	if h.attempt.isWithholding() {
+		t.Fatal("B1 is still withholding after publication")
+	}
+	if logs := h.logs.String(); !strings.Contains(logs, "reason=powershell_heredoc") || !strings.Contains(logs, "trigger=powershell_heredoc") ||
+		strings.Contains(logs, "print(1)") || strings.Contains(logs, "<<'PY'") || strings.Contains(logs, tccShellTool) {
+		t.Fatalf("correction record = %q, want the bounded heredoc trigger and no raw command or tool name", logs)
+	}
+	assertTCCOverlayGone(t, h)
+}
+
+// TestToolNameCorrectionContinuation_PowerShellHeredocAdmissionFailureReplaysOriginalOutput
+// forces the heredoc attempt's follow-up admission to fail. The client receives
+// B1's heredoc call and later output in order, each recorded once, and the
+// records carry the heredoc trigger without the raw command.
+func TestToolNameCorrectionContinuation_PowerShellHeredocAdmissionFailureReplaysOriginalOutput(t *testing.T) {
+	t.Parallel()
+	fin := tccPowerShellHeredocFinalizer(t)
+	h := newTCCHarnessWithFinalizers(t, aipapi.NewFixedEventStream(tccHeredocB1Script()), fin)
+	h.stream.facts.baseline = tccShellIngress()
+	h.stream.facts.ingressCall = tccShellIngress()
+	tccOfferCatalog(h, fin)
+	h.disposeProbe = true
+	h.openErr = errors.New("backend admission denied")
+
+	events, err := tccDrain(t, h.stream)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("terminal recv error = %v, want io.EOF", err)
+	}
+	want := tccHeredocB1Script()
+	if !slices.EqualFunc(events, want, tccSameDelivery) {
+		t.Fatalf("delivered %+v, want the original heredoc attempt's output in order", events)
+	}
+	recorded := h.recorder.recordedKinds()
+	if len(recorded) != len(want) {
+		t.Fatalf("recorded %d events, want %d: every replayed event is recorded exactly once", len(recorded), len(want))
+	}
+	if got := tccCountRecorded(recorded, aipapi.EventResponseFinished); got != 1 {
+		t.Fatalf("recorded finishes = %d, want one", got)
+	}
+	if got := h.traffic.countFinish(tccBLegID); got != 1 {
+		t.Fatalf("B1 finish BTP observations = %d, want exactly one even on the fail-open path", got)
+	}
+	if h.b2Stream == nil || h.b2Stream.cancelCalls.Load() != 1 || h.b2Stream.closeCalls.Load() != 1 {
+		t.Fatalf("admission resources = %+v, want one Cancel and one Close", h.b2Stream)
+	}
+	logs := h.logs.String()
+	if !strings.Contains(logs, "outcome=delivered") || !strings.Contains(logs, "reason=followup_failed") || !strings.Contains(logs, "trigger=powershell_heredoc") {
+		t.Fatalf("decision record = %q, want one bounded followup_failed delivery under the heredoc trigger", logs)
+	}
+	if strings.Contains(logs, "print(1)") || strings.Contains(logs, "<<'PY'") || strings.Contains(logs, tccShellTool) {
+		t.Fatalf("decision record carries the raw command or tool name: %q", logs)
+	}
+	if !h.writer.deactivatedOverlay(toolNameCorrectionOverlayID) {
+		t.Fatal("the failed follow-up left its correction overlay active")
+	}
+}
+
+// TestToolNameCorrectionContinuation_PowerShellHeredocAndUnknownNameSteerOnce runs
+// one attempt whose two parallel calls would both steer: the heredoc call, which
+// is accepted first, and an invented name, which the per-turn budget (raised to
+// its maximum) would otherwise still admit. Exactly one steer is accepted and the
+// second is declined with already_withholding.
+func TestToolNameCorrectionContinuation_PowerShellHeredocAndUnknownNameSteerOnce(t *testing.T) {
+	t.Parallel()
+	heredoc := tccPowerShellHeredocFinalizer(t)
+	unknown := tccUnknownNameFinalizer(t)
+	b1 := []aipapi.Event{{Kind: aipapi.EventResponseStarted}, {Kind: aipapi.EventMessageStarted}}
+	b1 = append(b1, twCallEvents("c1", tccShellTool, tccHeredocArgs, 1)...)
+	b1 = append(b1, twCallEvents("c2", correctionName, `{"q":"x"}`, 2)...)
+	b1 = append(b1, aipapi.Event{Kind: aipapi.EventTextDelta, Delta: tccB1LaterText})
+	b1 = append(b1, aipapi.Event{Kind: aipapi.EventResponseFinished})
+	h := newTCCHarnessWithFinalizers(t, aipapi.NewFixedEventStream(b1), unknown, heredoc)
+	tccOfferCatalog(h, unknown, heredoc)
+	h.b2Events = tccB2Script()
+
+	events, err := tccDrain(t, h.stream)
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("terminal recv error = %v, want io.EOF", err)
+	}
+	if names := tccDeliveredToolNames(events); !slices.Equal(names, []string{steerToolName}) {
+		t.Fatalf("delivered tool calls = %v, want only B2's corrected call", names)
+	}
+	if puts := h.writer.puts; len(puts) != 1 || puts[0].Message.Text != tccHeredocInstruction(t, heredoc) {
+		t.Fatalf("correction overlay puts = %+v, want exactly one put carrying the heredoc instruction", puts)
+	}
+	logs := h.logs.String()
+	if got := strings.Count(logs, "outcome=corrected"); got != 1 {
+		t.Fatalf("accepted steers = %d, want exactly one: %q", got, logs)
+	}
+	if got := strings.Count(logs, "trigger=unknown_tool_name outcome=delivered reason=already_withholding"); got != 1 {
+		t.Fatalf("already_withholding declines for the unknown-name steer = %d, want one: %q", got, logs)
+	}
+	if strings.Contains(logs, "reason=budget_spent") {
+		t.Fatalf("a budget rail declined a steer, so the already_withholding rail was not what stopped the second steer: %q", logs)
+	}
+	if h.opens.Load() != 1 {
+		t.Fatalf("follow-up opens = %d, want exactly one", h.opens.Load())
+	}
+	assertTCCOverlayGone(t, h)
 }

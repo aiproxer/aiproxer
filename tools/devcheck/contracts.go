@@ -51,7 +51,7 @@ func runContractCheck(ctx context.Context, root, base string, opts testPlanOptio
 		if err := validateListedContracts(plan.QA, string(listed)); err != nil {
 			return err
 		}
-		command, err := commandFor("test", "./internal/qa", opts.jobs, opts.fresh)
+		command, err := commandFor("test", "./internal/qa", opts.jobs, opts.parallel, opts.fresh)
 		if err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func runContractCheck(ctx context.Context, root, base string, opts testPlanOptio
 	}
 	for n := 1; n <= opts.repeat; n++ {
 		if len(plan.Tests) != 0 {
-			command, err := commandFor("test", "./internal/archtest", opts.jobs, opts.fresh)
+			command, err := commandFor("test", "./internal/archtest", opts.jobs, opts.parallel, opts.fresh)
 			if err != nil {
 				return err
 			}
@@ -106,7 +106,7 @@ func runContractCheck(ctx context.Context, root, base string, opts testPlanOptio
 			}
 		}
 		for _, group := range plan.Groups {
-			command, err := commandFor("test", group.Package, opts.jobs, opts.fresh)
+			command, err := commandFor("test", group.Package, opts.jobs, opts.parallel, opts.fresh)
 			if err != nil {
 				return err
 			}
@@ -120,7 +120,7 @@ func runContractCheck(ctx context.Context, root, base string, opts testPlanOptio
 			if err != nil {
 				return err
 			}
-			command, err := commandFor("lint", strings.Join(module.Packages, " "), opts.jobs, false)
+			command, err := commandFor("lint", strings.Join(module.Packages, " "), opts.jobs, opts.parallel, false)
 			if err != nil {
 				return err
 			}

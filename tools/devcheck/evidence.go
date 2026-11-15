@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aiproxer/aiproxer/tools/devcheck/internal/evidence"
@@ -25,6 +26,7 @@ import (
 // that does not exist. Without -evidence the recorder is nil and command
 // output is untouched.
 type evidenceRecorder struct {
+	mu          sync.Mutex
 	manifest    *evidence.Manifest
 	path        string
 	dir         string
@@ -78,7 +80,12 @@ func newEvidenceRecorder(ctx context.Context, path, task string, scope evidence.
 // from producing a code verdict. Later conditions add nothing: the run already
 // cannot claim its scope passed.
 func (r *evidenceRecorder) block(reason string) {
-	if r == nil || r.blockReason != "" {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.blockReason != "" {
 		return
 	}
 	r.blockReason = reason
@@ -111,9 +118,12 @@ func (r *evidenceRecorder) finish(runErr error) error {
 }
 
 func (r *evidenceRecorder) skip(target, reason string) {
-	if r != nil {
-		r.manifest.Skips = append(r.manifest.Skips, evidence.Skip{Target: target, Reason: reason})
+	if r == nil {
+		return
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.manifest.Skips = append(r.manifest.Skips, evidence.Skip{Target: target, Reason: reason})
 }
 
 // commandRun is one in-flight command: its log file, the writer that streams
@@ -155,22 +165,26 @@ func (r *evidenceRecorder) start(label string, command []string, dir string, std
 			run.scope.Packages = append(run.scope.Packages, arg)
 		}
 	}
+	r.mu.Lock()
 	if err := os.MkdirAll(r.dir, 0o755); err != nil {
+		r.mu.Unlock()
 		r.block(fmt.Sprintf("create step log directory: %v", err))
 		return run
 	}
 	if r.sequence == 0 {
-		dir, err := os.MkdirTemp(r.dir, filepath.Base(r.path)+"-logs-*")
+		logDir, err := os.MkdirTemp(r.dir, filepath.Base(r.path)+"-logs-*")
 		if err != nil {
+			r.mu.Unlock()
 			r.block(fmt.Sprintf("create run log directory: %v", err))
 			return run
 		}
-		r.dir = dir
+		r.dir = logDir
 	}
 	r.sequence++
 	name := fmt.Sprintf("step-%02d-%s.log", r.sequence, sanitizeLogLabel(label))
 	path := filepath.Join(r.dir, name)
 	log, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	r.mu.Unlock()
 	if err != nil {
 		r.block(fmt.Sprintf("open step log %s: %v", path, err))
 		return run
@@ -237,7 +251,9 @@ func (r *evidenceRecorder) finishRun(run *commandRun, stats *evidence.Stats, run
 	if runErr != nil {
 		step.Result = evidence.OutcomeFailed
 	}
+	r.mu.Lock()
 	r.manifest.Steps = append(r.manifest.Steps, step)
+	r.mu.Unlock()
 	if r.quiet && r.report != nil {
 		if _, err := fmt.Fprintf(r.report, "%s: %s elapsed=%.3fs scope=%s:%v log=%s\n", step.Label, step.Result, float64(step.DurationMS)/1000, step.Scope.Module, step.Scope.Packages, step.LogPath); err != nil {
 			r.block(fmt.Sprintf("write summary: %v", err))

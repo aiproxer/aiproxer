@@ -66,7 +66,7 @@ type recvEventPreparation struct {
 // correction gate for this event's call, built by the receive-loop coordinator
 // from the production rails; it is nil for events that can never finalize a
 // call, and a nil gate declines.
-func (p *responsePipeline) prepareRecvEvent(ctx context.Context, facts recvTurnFacts, attempt *attemptSession, ev aipapi.Event, steerGate func(name string, req toolcall.SteerRequest) bool) recvEventPreparation {
+func (p *responsePipeline) prepareRecvEvent(ctx context.Context, facts recvTurnFacts, attempt *attemptSession, ev aipapi.Event, steerGate func(name, triggerReason string, req toolcall.SteerRequest) bool) recvEventPreparation {
 	prepared := recvEventPreparation{event: ev}
 	if p == nil || attempt == nil {
 		prepared.err = errNilRetryRecvStream

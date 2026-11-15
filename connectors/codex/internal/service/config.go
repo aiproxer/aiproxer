@@ -54,6 +54,15 @@ type Config struct {
 	HTTPTimeout                              string                     `yaml:"http_timeout"`
 	Transport                                string                     `yaml:"transport"`
 	ExperimentalWebSocket                    bool                       `yaml:"experimental_websocket"`
+	DefaultReasoningEffort                   string                     `yaml:"default_reasoning_effort"`
+	GPT55DowngradeDisabled                   bool                       `yaml:"gpt55_downgrade_disabled"`
+	GPT55DowngradeSourceModel                string                     `yaml:"gpt55_downgrade_source_model"`
+	GPT55DowngradeTargetModel                string                     `yaml:"gpt55_downgrade_target_model"`
+	EarlySessionVerbosityBumpDisabled        bool                       `yaml:"early_session_verbosity_bump_disabled"`
+	EarlySessionVerbosityBumpTurns           int                        `yaml:"early_session_verbosity_bump_turns"`
+	MidSessionVerbosityBumpDisabled          bool                       `yaml:"mid_session_verbosity_bump_disabled"`
+	MidSessionVerbosityBumpFrequency         int                        `yaml:"mid_session_verbosity_bump_frequency"`
+	WebSocketFallbackCooldownSeconds         float64                    `yaml:"websocket_fallback_cooldown_seconds"`
 	NativeContext                            *codex.NativeContextConfig `yaml:"-"`
 	DisableNativeCompactionWithoutAccounting bool                       `yaml:"-"`
 }
@@ -192,7 +201,7 @@ func (c Config) toCodexHTTP(cat *catalog.Catalog, accessToken string) (codex.Con
 	if err != nil {
 		return codex.Config{}, err
 	}
-	return codex.Config{
+	cfg := codex.Config{
 		BaseURL:                                  firstNonEmpty(strings.TrimSpace(c.BaseURL), codex.DefaultBaseURL),
 		AccessToken:                              strings.TrimSpace(accessToken),
 		AccountID:                                strings.TrimSpace(c.AccountID),
@@ -200,12 +209,26 @@ func (c Config) toCodexHTTP(cat *catalog.Catalog, accessToken string) (codex.Con
 		Models:                                   c.Models,
 		ModelCatalog:                             cat,
 		CatalogLoadOpts:                          c.catalogLoadOptions(),
+		DefaultReasoningEffort:                   strings.TrimSpace(c.DefaultReasoningEffort),
 		DefaultVerbosity:                         verbosity,
+		GPT55DowngradeDisabled:                   c.GPT55DowngradeDisabled,
+		GPT55DowngradeSourceModel:                strings.TrimSpace(c.GPT55DowngradeSourceModel),
+		GPT55DowngradeTargetModel:                strings.TrimSpace(c.GPT55DowngradeTargetModel),
 		Transport:                                strings.TrimSpace(c.Transport),
 		ExperimentalWebSocket:                    c.ExperimentalWebSocket,
+		EarlySessionVerbosityBumpDisabled:        c.EarlySessionVerbosityBumpDisabled,
+		EarlySessionVerbosityBumpTurns:           c.EarlySessionVerbosityBumpTurns,
+		MidSessionVerbosityBumpDisabled:          c.MidSessionVerbosityBumpDisabled,
+		MidSessionVerbosityBumpFrequency:         c.MidSessionVerbosityBumpFrequency,
 		NativeContext:                            nativeContext,
 		DisableNativeCompactionWithoutAccounting: c.DisableNativeCompactionWithoutAccounting,
-	}, nil
+	}
+	// A zero/omitted YAML value leaves the runtime field at zero so codex.New
+	// keeps owning the 300-second default; the service layer never defaults it.
+	if c.WebSocketFallbackCooldownSeconds > 0 {
+		cfg.WebSocketFallbackCooldown = time.Duration(c.WebSocketFallbackCooldownSeconds * float64(time.Second))
+	}
+	return cfg, nil
 }
 
 func (c Config) toAppServer(cat *catalog.Catalog, src catalog.Source, cache *acp.ExecutableCache) (appserver.Config, error) {

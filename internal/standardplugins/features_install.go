@@ -12,6 +12,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/plugins/features/partsnoop"
 	pathvirtualizationbundle "github.com/aiproxer/aiproxer/internal/plugins/features/pathvirtualization/bundle"
 	pathvirtualizationconfig "github.com/aiproxer/aiproxer/internal/plugins/features/pathvirtualization/config"
+	"github.com/aiproxer/aiproxer/internal/plugins/features/powershellheredoc"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/prerequestpolicy"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/proxymemory"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/reasoningpreservation"
@@ -308,6 +309,15 @@ func featureToolNameCorrection(n yaml.Node) (aipfeature.FeatureBundle, error) {
 		return aipfeature.FeatureBundle{}, err
 	}
 	return toolnamecorrection.FeatureBundle(cfg)
+}
+
+// featurePowerShellHeredoc builds the opt-in PowerShell heredoc steering bundle.
+func featurePowerShellHeredoc(n yaml.Node) (aipfeature.FeatureBundle, error) {
+	cfg, err := powershellheredoc.DecodeConfig(n)
+	if err != nil {
+		return aipfeature.FeatureBundle{}, err
+	}
+	return powershellheredoc.FeatureBundle(cfg)
 }
 
 // featurePathVirtualization builds the B-leg path virtualization bundle.

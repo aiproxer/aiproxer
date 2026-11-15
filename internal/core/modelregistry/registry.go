@@ -188,12 +188,12 @@ func Build(ctx context.Context, inventories []BackendInventory, log *slog.Logger
 				return nil
 			}
 			backendRows := make([]BackendModel, 0, len(snap.Models))
-			invalid := false
-			for _, m := range snap.Models {
+			var invalid *invalidInventoryModelError
+			for j, m := range snap.Models {
 				canonical := strings.TrimSpace(m.CanonicalID)
 				native := strings.TrimSpace(m.NativeID)
-				if canonical == "" || native == "" || !validCanonicalID(canonical) || canonicalUsesRegisteredPrefixQualifier(canonical, registeredPrefixes) {
-					invalid = true
+				if bad := checkInventoryModel(j, canonical, native, registeredPrefixes); bad != nil {
+					invalid = bad
 					break
 				}
 				backendRows = append(backendRows, BackendModel{
@@ -207,13 +207,16 @@ func Build(ctx context.Context, inventories []BackendInventory, log *slog.Logger
 					IsDefault:   m.IsDefault,
 				})
 			}
-			if invalid {
+			if invalid != nil {
 				mu.Lock()
 				warnInventory(
 					ctx, log, "modelregistry: invalid inventory omitted",
 					"backend_id", backendID,
 					"kind", kind,
 					"error_code", modelinventory.ErrorCodeInvalidInventory,
+					"reason", invalid.reason,
+					"model_index", invalid.index,
+					"canonical_id", invalid.canonicalID,
 				)
 				mu.Unlock()
 				results[i] = inventoryLoadResult{disc: newBackendDiscovery(backendID, kind, modelinventory.Discovery{
@@ -342,12 +345,71 @@ func (r *Registry) DefaultModel(instanceID string) (BackendModel, bool) {
 	}
 }
 
-func validCanonicalID(id string) bool {
-	left, right, ok := strings.Cut(id, "/")
-	if !ok {
-		return false
+// Reason codes name the validation rule an inventory row violated. They are
+// logged as the bounded `reason` attribute of the invalid-inventory WARN.
+const (
+	reasonCanonicalIDEmpty                = "canonical_id_empty"
+	reasonNativeIDEmpty                   = "native_id_empty"
+	reasonCanonicalIDNotNamespaced        = "canonical_id_not_namespaced"
+	reasonCanonicalIDEmptyVendor          = "canonical_id_empty_vendor"
+	reasonCanonicalIDEmptyModel           = "canonical_id_empty_model"
+	reasonCanonicalIDExtraSeparator       = "canonical_id_extra_separator"
+	reasonCanonicalIDUsesRegisteredPrefix = "canonical_id_uses_registered_prefix"
+)
+
+// invalidInventoryModelError reports the first rule an inventory row violated,
+// with the row's index in its backend's model list and its canonical ID.
+// Backend and canonical IDs are operator config; no other row field is carried.
+type invalidInventoryModelError struct {
+	reason      string
+	index       int
+	canonicalID string
+}
+
+func (e *invalidInventoryModelError) Error() string {
+	return fmt.Sprintf("modelregistry: invalid inventory model[%d]: %s", e.index, e.reason)
+}
+
+// checkInventoryModel returns nil when the trimmed canonical and native IDs of
+// the row at index are acceptable, or the first rule they violate.
+func checkInventoryModel(index int, canonical, native string, registeredPrefixes map[string]struct{}) *invalidInventoryModelError {
+	reason := ""
+	switch {
+	case canonical == "":
+		reason = reasonCanonicalIDEmpty
+	case native == "":
+		reason = reasonNativeIDEmpty
+	default:
+		reason = canonicalIDRejectReason(canonical)
+		if reason == "" && canonicalUsesRegisteredPrefixQualifier(canonical, registeredPrefixes) {
+			reason = reasonCanonicalIDUsesRegisteredPrefix
+		}
 	}
-	return strings.TrimSpace(left) != "" && strings.TrimSpace(right) != "" && !strings.Contains(right, "/")
+	if reason == "" {
+		return nil
+	}
+	return &invalidInventoryModelError{reason: reason, index: index, canonicalID: canonical}
+}
+
+// canonicalIDRejectReason returns the first namespacing rule id violates
+// (exactly one "/" with non-blank vendor and model parts), or "" when it has none.
+func canonicalIDRejectReason(id string) string {
+	left, right, ok := strings.Cut(id, "/")
+	switch {
+	case !ok:
+		return reasonCanonicalIDNotNamespaced
+	case strings.TrimSpace(left) == "":
+		return reasonCanonicalIDEmptyVendor
+	case strings.TrimSpace(right) == "":
+		return reasonCanonicalIDEmptyModel
+	case strings.Contains(right, "/"):
+		return reasonCanonicalIDExtraSeparator
+	}
+	return ""
+}
+
+func validCanonicalID(id string) bool {
+	return canonicalIDRejectReason(id) == ""
 }
 
 type prefixOwner struct {

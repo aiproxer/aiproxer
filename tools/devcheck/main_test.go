@@ -53,11 +53,42 @@ func TestScopedCommands(t *testing.T) {
 	} {
 		t.Run(tc.task, func(t *testing.T) {
 			t.Parallel()
-			got, err := commandFor(tc.task, "./pkg/one ./pkg/two/...", 2, false)
+			got, err := commandFor(tc.task, "./pkg/one ./pkg/two/...", 2, 2, false)
 			if err != nil || !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("command = %v, %v; want %v", got, err, tc.want)
 			}
 		})
+	}
+}
+
+func TestEnvPositiveInt(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		want  int
+	}{
+		{"", 0},
+		{"8", 8},
+		{" 4 ", 4},
+		{"0", 0},
+		{"-2", 0},
+		{"many", 0},
+	} {
+		t.Setenv("AIP_TEST_PARALLEL", tc.value)
+		if got := envPositiveInt("AIP_TEST_PARALLEL"); got != tc.want {
+			t.Errorf("envPositiveInt(%q) = %d, want %d", tc.value, got, tc.want)
+		}
+	}
+}
+
+func TestSeparateTestParallelBudget(t *testing.T) {
+	t.Parallel()
+	got, err := commandFor("test", "./pkg/one", 2, 5, false)
+	if err != nil || !slices.Contains(got, "-p=2") || !slices.Contains(got, "-parallel=5") {
+		t.Fatalf("command = %v, %v; want -p=2 and -parallel=5", got, err)
+	}
+	got, err = commandFor("test", "./pkg/one", 3, 0, false)
+	if err != nil || !slices.Contains(got, "-parallel=3") {
+		t.Fatalf("zero parallel must follow jobs: %v, %v", got, err)
 	}
 }
 
@@ -141,7 +172,7 @@ func TestLocalArchTrimpathCommandGroups(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			commands, err := commandGroupsFor(tc.task, tc.module, tc.scope, 2, true, tc.localArchTrimpath)
+			commands, err := commandGroupsFor(tc.task, tc.module, tc.scope, 2, 2, true, tc.localArchTrimpath)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -173,18 +204,18 @@ func TestLocalArchTrimpathCommandGroups(t *testing.T) {
 func TestRejectUnboundedOrAmbiguousScope(t *testing.T) {
 	t.Parallel()
 	for _, scope := range []string{"", "-race", "../other", "/tmp/pkg", "example.com/remote", "./pkg/../../other"} {
-		if _, err := commandFor("test", scope, 2, false); err == nil {
+		if _, err := commandFor("test", scope, 2, 2, false); err == nil {
 			t.Errorf("accepted scope %q", scope)
 		}
 	}
-	if _, err := commandFor("unknown", "./...", 2, false); err == nil {
+	if _, err := commandFor("unknown", "./...", 2, 2, false); err == nil {
 		t.Fatal("accepted unknown operation")
 	}
 }
 
 func TestFreshExecutionIsExplicit(t *testing.T) {
 	t.Parallel()
-	cmd, err := commandFor("test", "./...", 2, true)
+	cmd, err := commandFor("test", "./...", 2, 2, true)
 	if err != nil || !strings.Contains(strings.Join(cmd, " "), "-count=1") {
 		t.Fatalf("fresh command = %v, %v", cmd, err)
 	}
