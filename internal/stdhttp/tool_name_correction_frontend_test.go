@@ -29,21 +29,143 @@ func TestToolNameCorrection_frontendReceivesOnlyCorrectedCall(t *testing.T) {
 		validName    = "get_weather"
 	)
 
-	var attempts atomic.Int32
-	var mu sync.Mutex
-	var requestBodies [][]byte
+	s := startCorrectionStack(t, func(attempt int32) openaichat.Response {
+		if attempt == 1 {
+			return openaichat.Response{SSE: chatToolCallSSE("b1", "call_b1", inventedName, `{"q":"x"}`)}
+		}
+		return openaichat.Response{SSE: chatToolCallSSE("b2", "call_b2", validName, `{"location":"NYC"}`)}
+	})
+
+	body := `{"model":"invented:model-a","stream":true,"messages":[{"role":"user","content":"weather?"}],` +
+		`"tools":[{"type":"function","function":{"name":"get_weather","description":"weather lookup",` +
+		`"parameters":{"type":"object","properties":{"location":{"type":"string"}}}}}]}`
+	status, raw := postChatCompletion(t, s.harness, body)
+	if status != http.StatusOK {
+		t.Fatalf("client status = %d, body = %s", status, raw)
+	}
+
+	// The scripted backend answered B1 and then the hidden correction request,
+	// which must carry the correction message that quotes the invented name.
+	if got := s.attempts.Load(); got != 2 {
+		t.Fatalf("backend attempts = %d, want 2; wire = %s", got, raw)
+	}
+	bodies := s.requestBodies()
+	if len(bodies) != 2 || !strings.Contains(string(bodies[1]), inventedName) {
+		t.Fatalf("follow-up request must carry the correction message quoting %q; bodies = %d",
+			inventedName, len(bodies))
+	}
+
+	calls, finishes := chatWireToolCalls(t, raw)
+	if len(calls) != 1 || calls[0].name != validName || calls[0].args != `{"location":"NYC"}` {
+		t.Fatalf("client tool calls = %+v, want only %s; wire = %s", calls, validName, raw)
+	}
+	if finishes != 1 {
+		t.Fatalf("client finish reasons = %d, want 1; wire = %s", finishes, raw)
+	}
+	if strings.Contains(string(raw), inventedName) {
+		t.Fatalf("client wire must never contain the invented name %q: %s", inventedName, raw)
+	}
+}
+
+// Spec: tool-name-correction history rail for chat-completions clients. The
+// client's history already called invented_tool, so a repeat is the only case
+// the client has seen: the backend is called once and the call is delivered
+// unchanged, never corrected.
+func TestToolNameCorrection_frontendLegacyHistoryRepeatDeliversUnchanged(t *testing.T) {
+	t.Parallel()
+
+	const inventedName = "invented_tool"
+
+	s := startCorrectionStack(t, func(int32) openaichat.Response {
+		return openaichat.Response{SSE: chatToolCallSSE("b1", "call_b1", inventedName, `{"q":"y"}`)}
+	})
+
+	body := `{"model":"invented:model-a","stream":true,"messages":[` +
+		`{"role":"user","content":"weather?"},` +
+		`{"role":"assistant","content":null,"tool_calls":[{"id":"call_h1","type":"function","function":{"name":"invented_tool","arguments":"{\"q\":\"x\"}"}}]},` +
+		`{"role":"tool","tool_call_id":"call_h1","content":"ok"},` +
+		`{"role":"user","content":"again?"}],` +
+		`"tools":[{"type":"function","function":{"name":"get_weather","description":"weather lookup",` +
+		`"parameters":{"type":"object","properties":{"location":{"type":"string"}}}}}]}`
+	status, raw := postChatCompletion(t, s.harness, body)
+	if status != http.StatusOK {
+		t.Fatalf("client status = %d, body = %s", status, raw)
+	}
+	if got := s.attempts.Load(); got != 1 {
+		t.Fatalf("backend attempts = %d, want 1 (a repeated call is never corrected); wire = %s", got, raw)
+	}
+	calls, finishes := chatWireToolCalls(t, raw)
+	if len(calls) != 1 || calls[0].name != inventedName || calls[0].args != `{"q":"y"}` {
+		t.Fatalf("client tool calls = %+v, want %s delivered unchanged; wire = %s", calls, inventedName, raw)
+	}
+	if finishes != 1 {
+		t.Fatalf("client finish reasons = %d, want 1; wire = %s", finishes, raw)
+	}
+}
+
+// Spec: tool-name-correction history rail for the deprecated function_call
+// field. The client's history already called invented_tool through function_call,
+// so a repeat must be delivered unchanged, with the backend called once.
+func TestToolNameCorrection_frontendLegacyFunctionCallHistoryRepeatDeliversUnchanged(t *testing.T) {
+	t.Parallel()
+
+	const inventedName = "invented_tool"
+
+	s := startCorrectionStack(t, func(int32) openaichat.Response {
+		return openaichat.Response{SSE: chatToolCallSSE("b1", "call_b1", inventedName, `{"q":"y"}`)}
+	})
+
+	body := `{"model":"invented:model-a","stream":true,"messages":[` +
+		`{"role":"user","content":"weather?"},` +
+		`{"role":"assistant","content":null,"function_call":{"name":"invented_tool","arguments":"{\"q\":\"x\"}"}},` +
+		`{"role":"user","content":"again?"}],` +
+		`"tools":[{"type":"function","function":{"name":"get_weather","description":"weather lookup",` +
+		`"parameters":{"type":"object","properties":{"location":{"type":"string"}}}}}]}`
+	status, raw := postChatCompletion(t, s.harness, body)
+	if status != http.StatusOK {
+		t.Fatalf("client status = %d, body = %s", status, raw)
+	}
+	if got := s.attempts.Load(); got != 1 {
+		t.Fatalf("backend attempts = %d, want 1 (a repeated call is never corrected); wire = %s", got, raw)
+	}
+	calls, finishes := chatWireToolCalls(t, raw)
+	if len(calls) != 1 || calls[0].name != inventedName || calls[0].args != `{"q":"y"}` {
+		t.Fatalf("client tool calls = %+v, want %s delivered unchanged; wire = %s", calls, inventedName, raw)
+	}
+	if finishes != 1 {
+		t.Fatalf("client finish reasons = %d, want 1; wire = %s", finishes, raw)
+	}
+}
+
+// correctionStack is a dogfood frontend in front of a scripted chat-completions
+// backend whose responder sees the 1-based attempt number.
+type correctionStack struct {
+	harness  dogfoodHarness
+	attempts atomic.Int32
+	mu       sync.Mutex
+	bodies   [][]byte
+}
+
+func (s *correctionStack) requestBodies() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.bodies
+}
+
+// startCorrectionStack starts the standard harness with the tool-name-correction
+// feature enabled (one correction per turn) in front of a scripted backend.
+func startCorrectionStack(t *testing.T, respond func(attempt int32) openaichat.Response) *correctionStack {
+	t.Helper()
+	s := &correctionStack{}
 	backend := httptest.NewServer(openaichat.NewHandler(openaichat.Config{
 		AllowMissingBearer: true,
 		OnRequestBody: func(body []byte) {
-			mu.Lock()
-			requestBodies = append(requestBodies, append([]byte(nil), body...))
-			mu.Unlock()
+			s.mu.Lock()
+			s.bodies = append(s.bodies, append([]byte(nil), body...))
+			s.mu.Unlock()
 		},
 		Responder: func(openaichat.Request) openaichat.Response {
-			if attempts.Add(1) == 1 {
-				return openaichat.Response{SSE: chatToolCallSSE("b1", "call_b1", inventedName, `{"q":"x"}`)}
-			}
-			return openaichat.Response{SSE: chatToolCallSSE("b2", "call_b2", validName, `{"location":"NYC"}`)}
+			return respond(s.attempts.Add(1))
 		},
 	}))
 	t.Cleanup(backend.Close)
@@ -87,11 +209,14 @@ plugins:
 `, backend.URL), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := startDogfoodHarness(t, configPath)
+	s.harness = startDogfoodHarness(t, configPath)
+	return s
+}
 
-	body := `{"model":"invented:model-a","stream":true,"messages":[{"role":"user","content":"weather?"}],` +
-		`"tools":[{"type":"function","function":{"name":"get_weather","description":"weather lookup",` +
-		`"parameters":{"type":"object","properties":{"location":{"type":"string"}}}}}]}`
+// postChatCompletion sends one streamed chat-completions request through the
+// frontend and returns the status and the full client wire.
+func postChatCompletion(t *testing.T, h dogfoodHarness, body string) (int, []byte) {
+	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.baseURL+"/v1/chat/completions", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -106,33 +231,7 @@ plugins:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("client status = %d, body = %s", resp.StatusCode, raw)
-	}
-
-	// The scripted backend answered B1 and then the hidden correction request,
-	// which must carry the correction message that quotes the invented name.
-	if got := attempts.Load(); got != 2 {
-		t.Fatalf("backend attempts = %d, want 2; wire = %s", got, raw)
-	}
-	mu.Lock()
-	bodies := requestBodies
-	mu.Unlock()
-	if len(bodies) != 2 || !strings.Contains(string(bodies[1]), inventedName) {
-		t.Fatalf("follow-up request must carry the correction message quoting %q; bodies = %d",
-			inventedName, len(bodies))
-	}
-
-	calls, finishes := chatWireToolCalls(t, raw)
-	if len(calls) != 1 || calls[0].name != validName || calls[0].args != `{"location":"NYC"}` {
-		t.Fatalf("client tool calls = %+v, want only %s; wire = %s", calls, validName, raw)
-	}
-	if finishes != 1 {
-		t.Fatalf("client finish reasons = %d, want 1; wire = %s", finishes, raw)
-	}
-	if strings.Contains(string(raw), inventedName) {
-		t.Fatalf("client wire must never contain the invented name %q: %s", inventedName, raw)
-	}
+	return resp.StatusCode, raw
 }
 
 // chatToolCallSSE scripts one streamed chat-completions tool call: the name

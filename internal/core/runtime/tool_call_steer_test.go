@@ -88,7 +88,7 @@ func steerFixtureEvents(id, callName string) []aipapi.Event {
 
 // steerDriveCall feeds one completed call through the assembler and returns the
 // drain lifecycle plus the held/err answer of its finished event.
-func steerDriveCall(t *testing.T, a *toolCallAssembler, id, callName string, gate func(string, toolcall.SteerRequest) bool) ([]aipapi.Event, bool, error) {
+func steerDriveCall(t *testing.T, a *toolCallAssembler, id, callName string, gate func(string, string, toolcall.SteerRequest) bool) ([]aipapi.Event, bool, error) {
 	t.Helper()
 	ctx := context.Background()
 	meta := toolcall.Meta{}
@@ -127,10 +127,10 @@ func TestToolCallAssembler_SteerOutcomeReleasesPassBaselineLifecycle(t *testing.
 
 	for _, tc := range []struct {
 		name string
-		gate func(string, toolcall.SteerRequest) bool
+		gate func(string, string, toolcall.SteerRequest) bool
 	}{
-		{name: "accepted", gate: func(string, toolcall.SteerRequest) bool { return true }},
-		{name: "declined", gate: func(string, toolcall.SteerRequest) bool { return false }},
+		{name: "accepted", gate: func(string, string, toolcall.SteerRequest) bool { return true }},
+		{name: "declined", gate: func(string, string, toolcall.SteerRequest) bool { return false }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -178,14 +178,14 @@ func TestToolCallAssembler_SteerAcceptanceMarksAttemptOnly(t *testing.T) {
 			t.Parallel()
 			attempt := newAttemptSession(attemptSessionInput{})
 			gateCalls := 0
-			var gate func(string, toolcall.SteerRequest) bool
+			var gate func(string, string, toolcall.SteerRequest) bool
 			if tc.installGate {
-				gate = func(name string, req toolcall.SteerRequest) bool {
+				gate = func(name, trigger string, req toolcall.SteerRequest) bool {
 					gateCalls++
 					if !tc.gateAccepts {
 						return false
 					}
-					attempt.markWithholding(name, req.Instruction)
+					attempt.markWithholding(name, trigger, req.Instruction)
 					return true
 				}
 			}
@@ -213,7 +213,7 @@ func TestToolCallAssembler_SteerGateSeesRewrittenName(t *testing.T) {
 	}}
 	steer := &steerFin{id: "steer", order: 20, result: steerResult()}
 	var gateName string
-	gate := func(name string, _ toolcall.SteerRequest) bool {
+	gate := func(name, _ string, _ toolcall.SteerRequest) bool {
 		gateName = name
 		return false
 	}
@@ -226,6 +226,27 @@ func TestToolCallAssembler_SteerGateSeesRewrittenName(t *testing.T) {
 	}
 	if steer.calls != 1 {
 		t.Fatalf("steer finalizer calls = %d, want 1", steer.calls)
+	}
+}
+
+func TestToolCallAssembler_SteerGatePassesFinalizerReason(t *testing.T) {
+	t.Parallel()
+	steer := &steerFin{id: "steer", order: 10, result: toolcall.Result{
+		Action:     toolcall.ActionSteer,
+		Steer:      steerRequest(),
+		ReasonCode: steerTriggerPowerShellHeredoc,
+	}}
+	var gotTrigger string
+	gate := func(_, trigger string, _ toolcall.SteerRequest) bool {
+		gotTrigger = trigger
+		return false
+	}
+	a := newToolCallAssembler([]toolcall.Finalizer{steer}, 0, steerCatalog())
+	if _, held, err := steerDriveCall(t, a, "c1", steerToolName, gate); err != nil || !held {
+		t.Fatalf("finished: held=%v err=%v", held, err)
+	}
+	if gotTrigger != steerTriggerPowerShellHeredoc {
+		t.Fatalf("gate trigger = %q, want the finalizer's ReasonCode %q", gotTrigger, steerTriggerPowerShellHeredoc)
 	}
 }
 
@@ -265,7 +286,7 @@ func TestToolCallAssembler_UnusableSteerTakesFallback(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			gateCalls := 0
-			gate := func(string, toolcall.SteerRequest) bool {
+			gate := func(string, string, toolcall.SteerRequest) bool {
 				gateCalls++
 				return true
 			}
@@ -286,7 +307,7 @@ func TestToolCallAssembler_UnusableSteerTakesFallback(t *testing.T) {
 
 func TestToolCallAssembler_SteerRequirementBookkeepingMatchesPass(t *testing.T) {
 	t.Parallel()
-	accept := func(string, toolcall.SteerRequest) bool { return true }
+	accept := func(string, string, toolcall.SteerRequest) bool { return true }
 
 	t.Run("pass carrying a request leaves the requirement undecided", func(t *testing.T) {
 		t.Parallel()

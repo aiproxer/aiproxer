@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aiproxer/aiproxer/internal/qa/kirospec"
 	"github.com/aiproxer/aiproxer/internal/testkit/gitscope"
 )
 
-const maxDirtyGoFiles = 100
+const maxDirtyGoFiles = kirospec.MaxChangedGoFiles
 
 // largeChangeOverrideEnv is the maintainer-only change-size override that
 // tools/changesize and the commit hooks honor; this budget honors it too.

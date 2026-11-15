@@ -99,10 +99,14 @@ type Scope struct {
 	Packages []string `json:"packages,omitempty"`
 	Base     string   `json:"base,omitempty"`
 	Jobs     int      `json:"jobs"`
-	Repeat   int      `json:"repeat"`
-	Fresh    bool     `json:"fresh"`
-	PlanOnly bool     `json:"plan_only"`
-	Full     bool     `json:"full"`
+	Parallel int      `json:"parallel"`
+	// ModuleJobs is set only for changed-scope plans that run independent
+	// modules concurrently; one is the sequential default.
+	ModuleJobs int  `json:"module_jobs,omitempty"`
+	Repeat     int  `json:"repeat"`
+	Fresh      bool `json:"fresh"`
+	PlanOnly   bool `json:"plan_only"`
+	Full       bool `json:"full"`
 }
 
 // Environment records the toolchain that produced the result. A cache, race or

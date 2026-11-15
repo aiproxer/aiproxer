@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/aiproxer/aiproxer/internal/core/execbackend"
 	"github.com/aiproxer/aiproxer/internal/core/routing"
@@ -181,6 +182,62 @@ func TestProviderCounterCountCall_CarriesCallerPayload(t *testing.T) {
 	}
 	if len(inv.Tools) != 1 || inv.Tools[0].Name != "weather" {
 		t.Fatalf("tools lost: %+v", inv.Tools)
+	}
+}
+
+// TestProviderCounterCountCall_RespectsCallerDeadline pins the counting budget
+// contract: the accounting service already applies accounting.count_timeout, so
+// the adapter metadata timeout may only bound direct callers without a deadline.
+func TestProviderCounterCountCall_RespectsCallerDeadline(t *testing.T) {
+	t.Parallel()
+
+	capture := &capturingCounterSession{}
+	br := adapter.Build(capture, backendplugin.ResolvedProfile{
+		Capabilities:        backendplugin.CapabilitySummary{Streaming: true},
+		SupportsCountTokens: true,
+	}, adapter.Options{InstanceID: "count-deadline", MetadataTimeout: 5 * time.Second})
+	t.Cleanup(func() { _ = br.Cleanup() })
+	counter := br.Backend.ProviderCounter
+	call := countPayloadCall()
+
+	count := func(ctx context.Context) {
+		t.Helper()
+		if _, err := counter.CountCall(ctx, accountingapp.CountCallInput{
+			Backend: "fake", Model: "fake-model", CallID: call.ID, Call: call,
+		}); err != nil {
+			t.Fatalf("CountCall: %v", err)
+		}
+	}
+
+	// A longer caller deadline is forwarded unchanged.
+	parent, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	wantDeadline, _ := parent.Deadline()
+	count(parent)
+	if !capture.hasDeadline || !capture.deadline.Equal(wantDeadline) {
+		t.Fatalf("count deadline = %v (present=%v), want exactly caller deadline %v", capture.deadline, capture.hasDeadline, wantDeadline)
+	}
+
+	// A deadline-free caller still gets the bounded metadata fallback.
+	before := time.Now()
+	count(context.Background())
+	if !capture.hasDeadline {
+		t.Fatal("deadline-free caller received no metadata fallback deadline")
+	}
+	if earliest := before.Add(5*time.Second - time.Second); capture.deadline.Before(earliest) {
+		t.Fatalf("fallback deadline %v earlier than %v", capture.deadline, earliest)
+	}
+	if latest := time.Now().Add(5*time.Second + time.Second); capture.deadline.After(latest) {
+		t.Fatalf("fallback deadline %v later than %v", capture.deadline, latest)
+	}
+
+	// A shorter caller deadline is not lengthened.
+	shortParent, shortCancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer shortCancel()
+	shortDeadline, _ := shortParent.Deadline()
+	count(shortParent)
+	if !capture.hasDeadline || !capture.deadline.Equal(shortDeadline) {
+		t.Fatalf("count deadline = %v, want exactly shorter caller deadline %v", capture.deadline, shortDeadline)
 	}
 }
 
@@ -609,13 +666,16 @@ func (minimalSession) Close(context.Context) error               { return nil }
 // the connector boundary, so a payload that never leaves the adapter is visible.
 type capturingCounterSession struct {
 	minimalSession
-	request backendplugin.CountTokensRequest
-	calls   int
+	request     backendplugin.CountTokensRequest
+	calls       int
+	deadline    time.Time
+	hasDeadline bool
 }
 
-func (s *capturingCounterSession) CountTokens(_ context.Context, req backendplugin.CountTokensRequest) (backendplugin.CountTokensResponse, error) {
+func (s *capturingCounterSession) CountTokens(ctx context.Context, req backendplugin.CountTokensRequest) (backendplugin.CountTokensResponse, error) {
 	s.request = req
 	s.calls++
+	s.deadline, s.hasDeadline = ctx.Deadline()
 	n := int64(len(req.Invocation.Messages))
 	return backendplugin.CountTokensResponse{
 		InputTokens: &n,

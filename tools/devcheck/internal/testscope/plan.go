@@ -4,6 +4,7 @@ package testscope
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -105,11 +106,33 @@ func selectChanges(ctx context.Context, root string, plan Plan, modules []string
 		}
 		selected, err := selectModule(root, module, names, graph)
 		if err != nil {
+			var unresolved unresolvedInputError
+			if errors.As(err, &unresolved) {
+				plan.Modules = append(plan.Modules, Module{
+					Directory: module,
+					Packages:  []string{"./..."},
+					Reasons: []string{
+						fmt.Sprintf("%v; running the owning module's full default tests", unresolved),
+					},
+				})
+				continue
+			}
 			return fullPlan(plan, modules, err.Error())
 		}
 		plan.Modules = append(plan.Modules, selected)
 	}
 	return plan
+}
+
+// unresolvedInputError marks an input that no package in the owning module
+// claims. It is module-local: the caller runs that module's full default
+// tests instead of falling back to the complete repository inventory.
+type unresolvedInputError struct {
+	Path string
+}
+
+func (e unresolvedInputError) Error() string {
+	return fmt.Sprintf("unresolved input or deleted package: %q", e.Path)
 }
 
 func selectModule(root, module string, names []string, graph []listedPackage) (Module, error) {
@@ -118,7 +141,7 @@ func selectModule(root, module string, names []string, graph []listedPackage) (M
 	for _, name := range names {
 		pkg, prod, found := inputOwner(root, name, graph)
 		if !found {
-			return Module{}, fmt.Errorf("unresolved input or deleted package: %q", name)
+			return Module{}, unresolvedInputError{Path: name}
 		}
 		kind := "test input"
 		if prod {

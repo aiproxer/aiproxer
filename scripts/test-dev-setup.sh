@@ -10,6 +10,9 @@ export TMPDIR="$fixture/tmp" AIP_DEV_TMPDIR="$fixture/tmp"
 mkdir -p "$HOME" "$TMPDIR" "$fixture/bin" "$fixture/repo/scripts/hooks"
 cp "$source_dir/"{dev-setup.sh,dev-host-policy.sh,go-dev-guard.sh,setup-hooks.sh,install-hooks.sh,check-worktree-layout.sh,require-ext4-tmpdir.sh} "$fixture/repo/scripts/"
 cp "$source_dir/hooks/"{pre-commit,commit-msg,pre-push} "$fixture/repo/scripts/hooks/"
+# The pre-push hook sources the task-branch prefix rule from the repository root,
+# so the fixture carries the shipped rule file the installed hook needs.
+cp "$source_dir/task-branch-prefix.sh" "$fixture/repo/scripts/"
 printf 'module example\n\ngo 1.26.6\n\ntoolchain go1.26.10\n' > "$fixture/repo/go.mod"
 export TEST_REPO="$fixture/repo" TEST_GIT_CONFIG="$fixture/hooks-path"
 cat > "$fixture/bin/git" <<'SH'
@@ -56,6 +59,23 @@ cmp "$fixture/repo/scripts/go-dev-guard.sh" "$HOME/.local/bin/go"
 cmp "$fixture/repo/scripts/dev-host-policy.sh" "$HOME/.local/lib/aip/dev-host-policy.sh"
 [[ $(cat "$TEST_GIT_CONFIG") == scripts/hooks && $(cat "$AIP_DEV_HOST_POLICY_FILE") == development ]]
 [[ -x "$fixture/repo/scripts/hooks/pre-commit" && -x "$fixture/repo/scripts/hooks/commit-msg" && -x "$fixture/repo/scripts/hooks/pre-push" ]]
+# The installed pre-push hook must still be able to apply the rule it sources:
+# creating a remote branch outside the task prefixes is refused with the shipped
+# prefixes named. A hook that cannot source the rule fails differently, without
+# the message below, so the grep proves the file the fixture copies is the one
+# the hook reads.
+prefix_sha=1111111111111111111111111111111111111111
+zero_sha=0000000000000000000000000000000000000000
+if printf 'refs/heads/chore/fixture %s refs/heads/chore/fixture %s\n' "$prefix_sha" "$zero_sha" |
+	bash "$fixture/repo/scripts/hooks/pre-push" origin > "$fixture/prefix" 2>&1; then
+	echo 'FAIL: the installed pre-push hook allowed a new unprefixed remote branch' >&2
+	exit 1
+fi
+if ! grep -q 'must start with fix/, feat/, spec/, or docs/' "$fixture/prefix"; then
+	echo 'FAIL: the installed pre-push hook did not apply the task-branch prefix rule it sources' >&2
+	sed 's/^/  /' "$fixture/prefix" >&2
+	exit 1
+fi
 bash "$setup" --apply > "$fixture/reapply"
 # A host that stands in for remote CI keeps that policy; re-applying the setup
 # must preserve it instead of refusing to run.

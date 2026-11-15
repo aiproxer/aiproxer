@@ -24,18 +24,46 @@ func isCompilerInput(name string) bool {
 	}
 }
 
+// isDocumentation reports prose that no Go package consumes. Module-local
+// READMEs, agent instructions, licenses and changelogs are prose wherever they
+// live; any docs directory is prose at any depth. Files under testdata are
+// fixtures even when their names look like documentation.
 func isDocumentation(name string) bool {
+	segments := strings.Split(name, "/")
+	for _, segment := range segments {
+		if segment == "testdata" {
+			return false
+		}
+	}
 	base := path.Base(name)
-	if name == "AGENTS.md" || name == "README.md" || name == "LICENSE" || (strings.HasPrefix(name, "README.") && strings.HasSuffix(name, ".md")) || (strings.HasPrefix(name, "CHANGELOG") && strings.HasSuffix(name, ".md")) {
+	if base == "AGENTS.md" || base == "LICENSE" || base == "README" || base == "CHANGELOG" {
 		return true
 	}
-	if strings.HasPrefix(name, "docs/") || strings.HasPrefix(name, ".kiro/steering/") || strings.HasPrefix(name, ".kiro/specs/") || strings.HasPrefix(name, ".agents/skills/") {
-		switch path.Ext(base) {
-		case ".md", ".markdown", ".rst", ".adoc":
+	if (strings.HasPrefix(base, "README") || strings.HasPrefix(base, "CHANGELOG") || strings.HasPrefix(base, "LICENSE")) && isDocExtension(base) {
+		return true
+	}
+	if hasPathSegment(segments, "docs") || strings.HasPrefix(name, ".kiro/steering/") || strings.HasPrefix(name, ".kiro/specs/") || strings.HasPrefix(name, ".agents/skills/") {
+		return isDocExtension(base)
+	}
+	return false
+}
+
+func hasPathSegment(segments []string, want string) bool {
+	for _, segment := range segments {
+		if segment == want {
 			return true
 		}
 	}
 	return false
+}
+
+func isDocExtension(name string) bool {
+	switch path.Ext(name) {
+	case ".md", ".markdown", ".rst", ".adoc":
+		return true
+	default:
+		return false
+	}
 }
 
 func requiresFullTests(name string) bool {

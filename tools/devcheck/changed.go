@@ -8,17 +8,18 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aiproxer/aiproxer/tools/devcheck/internal/testscope"
 )
 
 type testPlanOptions struct {
-	jobs, repeat   int
-	fresh, dry     bool
-	quarantine     []quarantineEntry
-	recorder       *evidenceRecorder
-	automationOnly bool
+	jobs, parallel, moduleJobs, repeat int
+	fresh, dry                         bool
+	quarantine                         []quarantineEntry
+	recorder                           *evidenceRecorder
+	automationOnly                     bool
 }
 
 func validateChangedScope(task, module, packages string) error {
@@ -38,24 +39,93 @@ func runTestPlan(ctx context.Context, root string, plan testscope.Plan, opts tes
 		}
 		return nil
 	}
-	return repeatTestModules(plan.Modules, opts.repeat, diagnostics, func(module testscope.Module, iteration int) error {
-		return runTestModule(ctx, root, module, opts, iteration, output, diagnostics)
+	if opts.moduleJobs > 1 && len(plan.Modules) > 1 {
+		output = &lockedWriter{w: output}
+		diagnostics = &lockedWriter{w: diagnostics}
+	}
+	return repeatTestModules(ctx, plan.Modules, opts.repeat, opts.moduleJobs, diagnostics, func(runCtx context.Context, module testscope.Module, iteration int) error {
+		return runTestModule(runCtx, root, module, opts, iteration, output, diagnostics)
 	})
 }
 
-func repeatTestModules(modules []testscope.Module, repeat int, diagnostics io.Writer, runModule func(testscope.Module, int) error) error {
+func repeatTestModules(ctx context.Context, modules []testscope.Module, repeat, moduleJobs int, diagnostics io.Writer, runModule func(context.Context, testscope.Module, int) error) error {
 	for n := 1; n <= repeat; n++ {
 		start := time.Now()
-		for _, module := range modules {
-			if err := runModule(module, n); err != nil {
-				return err
-			}
+		if err := runModulesBounded(ctx, modules, moduleJobs, func(runCtx context.Context, module testscope.Module) error {
+			return runModule(runCtx, module, n)
+		}); err != nil {
+			return err
 		}
 		if _, err := fmt.Fprintf(diagnostics, "[%d/%d] execution_elapsed=%.3fs\n", n, repeat, time.Since(start).Seconds()); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// runModulesBounded runs up to limit modules at once. The first failure
+// cancels the remaining work and is returned after every started module has
+// stopped, so a later repeat never starts against a failed plan.
+func runModulesBounded(ctx context.Context, modules []testscope.Module, limit int, run func(context.Context, testscope.Module) error) error {
+	if limit > len(modules) {
+		limit = len(modules)
+	}
+	if limit <= 1 {
+		for _, module := range modules {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := run(ctx, module); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	sem := make(chan struct{}, limit)
+	var wg sync.WaitGroup
+	var firstErr error
+	var mu sync.Mutex
+launch:
+	for _, module := range modules {
+		select {
+		case sem <- struct{}{}:
+		case <-runCtx.Done():
+			break launch
+		}
+		wg.Add(1)
+		go func(module testscope.Module) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if err := run(runCtx, module); err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				cancel()
+			}
+		}(module)
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return firstErr
+	}
+	return ctx.Err()
+}
+
+// lockedWriter serializes writes from concurrently running modules so one
+// module's JSON events or diagnostics cannot split another's line.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }
 
 func reportTestPlan(plan testscope.Plan, dry bool, diagnostics io.Writer) error {
@@ -89,7 +159,7 @@ func runTestModule(ctx context.Context, root string, module testscope.Module, op
 	if err != nil {
 		return err
 	}
-	command, err := commandFor("test", strings.Join(module.Packages, " "), opts.jobs, opts.fresh)
+	command, err := commandFor("test", strings.Join(module.Packages, " "), opts.jobs, opts.parallel, opts.fresh)
 	if err != nil {
 		return err
 	}

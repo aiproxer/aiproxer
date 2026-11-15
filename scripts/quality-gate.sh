@@ -25,19 +25,43 @@ if ! grep -qE '\.go$' <<< "$staged_files"; then
 		# lifecycle contract, and no Go test would notice. Always validate the
 		# cheap spec/ownership contracts here rather than letting a
 		# docs-only commit bypass every gate.
-		if grep -qE '^\.kiro/specs/' <<< "$staged_files"; then
+		#
+		# Policy prose has the same problem: a bad Make target, path, link,
+		# anchor or Dependabot ignore breaks the agent instructions and no Go
+		# test covers those documents in a policy-only commit. The path
+		# classes come from CI's own classifier so local and remote scope
+		# cannot drift; Makefile edits count because policy docs quote its
+		# targets.
+		source "$(dirname "${BASH_SOURCE[0]}")/ci-scope.sh"
+		spec_staged=false
+		policy_staged=false
+		while IFS= read -r path; do
+			[[ -n "$path" ]] || continue
+			if is_kiro_spec_path "$path"; then
+				spec_staged=true
+			elif is_agent_policy_path "$path" || [[ "$path" == "Makefile" ]]; then
+				policy_staged=true
+			fi
+		done <<< "$staged_files"
+		if [[ "$spec_staged" == true ]]; then
 			echo "No staged Go files; validating Kiro spec and ownership contracts."
 			echo ""
 			# go run is not a heavy Go-guard command, so this never queues for a slot.
-			go run ./tools/kiro/kirocheck
+			go run ./tools/kiro/kirospec-check
 			# speccheck only certifies the specs it registers; skip it otherwise.
 			speccheck_specs="$(sed -nE 's/.*\{name: "([^"]+)".*/\1/p' tools/kiro/speccheck/*_test.go | paste -sd'|' -)"
 			if grep -qE "^tools/kiro/speccheck/|^\.kiro/specs/(archive/)?(${speccheck_specs:-^})/" <<< "$staged_files"; then
 				go test -count=1 ./tools/kiro/speccheck/
 			fi
-			exit 0
 		fi
-		echo "No staged Go files or module metadata detected; skipping quality gate checks."
+		if [[ "$policy_staged" == true ]]; then
+			echo "No staged Go files; validating agent policy documents."
+			echo ""
+			go run ./tools/kiro/kirocheck
+		fi
+		if [[ "$spec_staged" == false && "$policy_staged" == false ]]; then
+			echo "No staged Go files or module metadata detected; skipping quality gate checks."
+		fi
 		exit 0
 	fi
 fi

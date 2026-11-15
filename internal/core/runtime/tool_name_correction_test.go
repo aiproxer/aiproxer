@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"slices"
 	"strings"
@@ -88,15 +89,19 @@ func TestToolNameCorrection_RailsDeclineInOrder(t *testing.T) {
 	}
 	history := func(h *correctionHarness) { h.facts.ingressCall = correctionIngress() }
 
+	unsupported := func(h *correctionHarness) { h.terminal.supportsContinuation = false }
+	const heredoc = steerTriggerPowerShellHeredoc
 	cases := []struct {
 		name           string
 		setup          func(h *correctionHarness)
 		used           int64
 		allowReasoning bool
+		trigger        string
 		wantAccept     bool
 		wantReason     string
+		wantTrigger    string
 	}{
-		{name: "accept", wantAccept: true, wantReason: "unknown_tool_name"},
+		{name: "accept", wantAccept: true, wantReason: "unknown_tool_name", wantTrigger: "unknown_tool_name"},
 		{name: "budget spent", setup: func(h *correctionHarness) { h.terminal.acceptToolCorrection() }, used: 1, wantReason: "budget_spent"},
 		{
 			name:  "budget spent wins",
@@ -106,14 +111,23 @@ func TestToolNameCorrection_RailsDeclineInOrder(t *testing.T) {
 		{name: "visible output", setup: visible, wantReason: "visible_output"},
 		{name: "visible output wins over reasoning", setup: func(h *correctionHarness) { reasoning(h); visible(h) }, wantReason: "visible_output"},
 		{name: "reasoning output", setup: reasoning, wantReason: "reasoning_output"},
-		{name: "reasoning allowed", setup: reasoning, allowReasoning: true, wantAccept: true, wantReason: "unknown_tool_name"},
+		{name: "reasoning allowed", setup: reasoning, allowReasoning: true, wantAccept: true, wantReason: "unknown_tool_name", wantTrigger: "unknown_tool_name"},
 		{name: "history repeat", setup: history, wantReason: "history_repeat"},
 		{name: "history repeat wins over continuation", setup: func(h *correctionHarness) { history(h); h.terminal.supportsContinuation = false }, wantReason: "history_repeat"},
-		{name: "unsupported protocol", setup: func(h *correctionHarness) { h.terminal.supportsContinuation = false }, wantReason: "continuation_unsupported"},
+		{name: "unsupported protocol", setup: unsupported, wantReason: "continuation_unsupported"},
 		{name: "interleaved thinker", setup: func(h *correctionHarness) { h.terminal.setInterleavedThinker() }, wantReason: "continuation_unsupported"},
 		{name: "completion gates present", setup: func(h *correctionHarness) { h.p.runtimeSnapshot = correctionGatesSnapshot() }, wantReason: "continuation_unsupported"},
 		{name: "steering writer unavailable", setup: func(h *correctionHarness) { h.terminal.steeringWriterFactory = nil }, wantReason: "steering_unavailable"},
 		{name: "conversation reader unavailable", setup: func(h *correctionHarness) { h.terminal.conversationReader = nil }, wantReason: "steering_unavailable"},
+
+		// powershell_heredoc: only the ingress-history rail is skipped.
+		{name: "heredoc accepted over same-name history", setup: history, trigger: heredoc, wantAccept: true, wantReason: heredoc, wantTrigger: heredoc},
+		{name: "heredoc budget spent", setup: func(h *correctionHarness) { h.terminal.acceptToolCorrection() }, trigger: heredoc, used: 1, wantReason: "budget_spent", wantTrigger: heredoc},
+		{name: "heredoc visible output", setup: visible, trigger: heredoc, wantReason: "visible_output", wantTrigger: heredoc},
+		{name: "heredoc reasoning output", setup: reasoning, trigger: heredoc, wantReason: "reasoning_output", wantTrigger: heredoc},
+		{name: "heredoc unsupported protocol", setup: unsupported, trigger: heredoc, wantReason: "continuation_unsupported", wantTrigger: heredoc},
+		{name: "heredoc unsupported protocol wins over same-name history", setup: func(h *correctionHarness) { history(h); unsupported(h) }, trigger: heredoc, wantReason: "continuation_unsupported", wantTrigger: heredoc},
+		{name: "heredoc steering unavailable", setup: func(h *correctionHarness) { h.terminal.conversationReader = nil }, trigger: heredoc, wantReason: "steering_unavailable", wantTrigger: heredoc},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -124,7 +138,7 @@ func TestToolNameCorrection_RailsDeclineInOrder(t *testing.T) {
 			}
 			req := correctionReq()
 			req.AllowAfterReasoning = tc.allowReasoning
-			accepted := h.p.toolNameCorrectionGate(context.Background(), h.facts, h.terminal, h.attempt, "c1")(correctionName, req)
+			accepted := h.p.toolNameCorrectionGate(context.Background(), h.facts, h.terminal, h.attempt, "c1")(correctionName, tc.trigger, req)
 
 			wantUsed := tc.used
 			if tc.wantAccept {
@@ -142,11 +156,94 @@ func TestToolNameCorrection_RailsDeclineInOrder(t *testing.T) {
 			if !strings.Contains(record, "msg=tool_name_correction") || !strings.Contains(record, "outcome="+wantOutcome) || !strings.Contains(record, "reason="+tc.wantReason) {
 				t.Fatalf("record = %q, want outcome=%s reason=%s", record, wantOutcome, tc.wantReason)
 			}
+			wantTrigger := tc.wantTrigger
+			if wantTrigger == "" {
+				wantTrigger = "unknown_tool_name"
+			}
+			if !strings.Contains(record, "trigger="+wantTrigger) {
+				t.Fatalf("record = %q, want trigger=%s on every record", record, wantTrigger)
+			}
 			if !strings.Contains(record, "tool_name_hash="+correctionHash) ||
 				!strings.Contains(record, "trace_id="+correctionTraceID) ||
 				!strings.Contains(record, "b_leg_id="+correctionBLegID) ||
 				strings.Contains(record, correctionName) {
 				t.Fatalf("record lacks the hash/lineage or carries the raw name: %q", record)
+			}
+		})
+	}
+}
+
+// TestToolNameCorrection_SecondSteerOnWithholdingAttemptDeclines pins the double
+// steer guard: once an attempt is withholding, a second accepted steer must not
+// overwrite the first one's name, instruction, or trigger, even when its own
+// budget would still allow it.
+func TestToolNameCorrection_SecondSteerOnWithholdingAttemptDeclines(t *testing.T) {
+	t.Parallel()
+	h := newCorrectionHarness()
+	gate := h.p.toolNameCorrectionGate(context.Background(), h.facts, h.terminal, h.attempt, "c1")
+	if !gate(correctionName, "", correctionReq()) {
+		t.Fatal("the first steer must be accepted")
+	}
+	const secondName, secondInstruction = "second_invented_tool", "SECOND-INSTRUCTION"
+	second := toolcall.SteerRequest{Instruction: secondInstruction, TurnBudget: 2}
+	if gate(secondName, steerTriggerPowerShellHeredoc, second) {
+		t.Fatal("a second steer on an already-withholding attempt must be declined")
+	}
+	// The default budget of 1 is also spent here, so this decline must come from
+	// the already-withholding rail rather than the budget rail.
+	if gate(secondName, steerTriggerPowerShellHeredoc, correctionReq()) {
+		t.Fatal("a second steer must be declined on an already-withholding attempt")
+	}
+	name, instruction, trigger := h.attempt.withheldSteer()
+	if name != correctionName || instruction != correctionReq().Instruction || trigger != "unknown_tool_name" {
+		t.Fatalf("withheld steer = (%q, %q, %q), want the first steer intact", name, instruction, trigger)
+	}
+	if got := h.terminal.toolCorrectionsAccepted(); got != 1 {
+		t.Fatalf("accepted corrections = %d, want 1", got)
+	}
+	record := h.logs.String()
+	if got := strings.Count(record, "reason=already_withholding"); got != 2 {
+		t.Fatalf("already_withholding records = %d, want 2 in %q", got, record)
+	}
+	if strings.Contains(record, "reason=budget_spent") {
+		t.Fatalf("the already-withholding rail must be evaluated before the budget rail: %q", record)
+	}
+	if strings.Contains(record, secondName) || strings.Contains(record, secondInstruction) {
+		t.Fatalf("the declined steer leaked its raw name or instruction: %q", record)
+	}
+}
+
+// TestToolNameCorrection_TriggerIsBounded pins the trigger normalization: only
+// the known heredoc trigger is kept, and every other value (including empty and
+// raw text) is logged and withheld as unknown_tool_name.
+func TestToolNameCorrection_TriggerIsBounded(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		trigger string
+		want    string
+	}{
+		{name: "empty", trigger: "", want: "unknown_tool_name"},
+		{name: "unknown tool name", trigger: "unknown_tool_name", want: "unknown_tool_name"},
+		{name: "heredoc", trigger: steerTriggerPowerShellHeredoc, want: steerTriggerPowerShellHeredoc},
+		{name: "raw text is not logged", trigger: "rm -rf RAW-COMMAND-TEXT", want: "unknown_tool_name"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			h := newCorrectionHarness()
+			if !h.p.toolNameCorrectionGate(context.Background(), h.facts, h.terminal, h.attempt, "c1")(correctionName, tc.trigger, correctionReq()) {
+				t.Fatal("the steer must be accepted")
+			}
+			if _, _, trigger := h.attempt.withheldSteer(); trigger != tc.want {
+				t.Fatalf("withheld trigger = %q, want %q", trigger, tc.want)
+			}
+			record := h.logs.String()
+			if !strings.Contains(record, "trigger="+tc.want) || !strings.Contains(record, "reason="+tc.want) {
+				t.Fatalf("record = %q, want trigger and accepted reason %s", record, tc.want)
+			}
+			if tc.trigger != "" && tc.trigger != tc.want && strings.Contains(record, tc.trigger) {
+				t.Fatalf("record carries the raw trigger: %q", record)
 			}
 		})
 	}
@@ -231,7 +328,7 @@ func TestToolNameCorrection_TurnScopeAndAttemptLocality(t *testing.T) {
 		t.Parallel()
 		h := newCorrectionHarness()
 		decide := func(attempt *attemptSession) bool {
-			return h.p.toolNameCorrectionGate(context.Background(), h.facts, h.terminal, attempt, "c1")(correctionName, correctionReq())
+			return h.p.toolNameCorrectionGate(context.Background(), h.facts, h.terminal, attempt, "c1")(correctionName, "", correctionReq())
 		}
 		if !decide(h.attempt) {
 			t.Fatal("first correction must be accepted")
@@ -249,7 +346,7 @@ func TestToolNameCorrection_TurnScopeAndAttemptLocality(t *testing.T) {
 			t.Fatal("fixture must record visible output on the replaced attempt")
 		}
 		p := newResponsePipeline()
-		if !p.toolNameCorrectionGate(context.Background(), correctionFacts(), steerableTerminal(), &attemptSession{}, "c1")(correctionName, correctionReq()) {
+		if !p.toolNameCorrectionGate(context.Background(), correctionFacts(), steerableTerminal(), &attemptSession{}, "c1")(correctionName, "", correctionReq()) {
 			t.Fatal("a replacement attempt must start without the replaced attempt's produced output")
 		}
 	})
@@ -434,6 +531,48 @@ func TestToolNameCorrection_FinalizerSeesBackendTools(t *testing.T) {
 			known := slices.Contains(probe.catalog, tc.callName)
 			if known != tc.wantKnown {
 				t.Fatalf("catalog %v contains %q = %v, want known=%v: finalizer must see backend-bound tools", probe.catalog, tc.callName, known, tc.wantKnown)
+			}
+		})
+	}
+}
+
+// Chat-completions clients carry prior tool calls as PartJSON parts on assistant
+// messages (message authority), not as ItemKindToolCall items. The history-repeat
+// rail must see them, or it lets a repeated invented call be corrected.
+func TestToolNameCorrection_LegacyHistoryRepeat(t *testing.T) {
+	t.Parallel()
+	// legacyHistory builds the message-authority shape the openai-legacy frontend
+	// produces for an assistant tool_calls entry: ToolCallID and ToolName set,
+	// Content holding the arguments JSON.
+	legacyHistory := func(name string) aipapi.Call {
+		return aipapi.Call{Messages: []aipapi.Message{
+			{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("weather?")}},
+			{Role: aipapi.RoleAssistant, Parts: []aipapi.Part{{
+				Kind:       aipapi.PartJSON,
+				ToolCallID: "call_h1",
+				ToolName:   name,
+				Content:    json.RawMessage(`{"q":"x"}`),
+			}}},
+			{Role: aipapi.RoleTool, Parts: []aipapi.Part{{Kind: aipapi.PartToolResult, ToolCallID: "call_h1", Text: "ok"}}},
+			{Role: aipapi.RoleUser, Parts: []aipapi.Part{aipapi.TextPart("again?")}},
+		}}
+	}
+	cases := []struct {
+		name       string
+		ingress    aipapi.Call
+		wantReason string
+	}{
+		{name: "prior call repeats the invented name", ingress: legacyHistory(correctionName), wantReason: toolNameCorrectionReasonHistoryRepeat},
+		{name: "prior call names a different tool", ingress: legacyHistory("get_weather"), wantReason: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			h := newCorrectionHarness()
+			h.facts.ingressCall = tc.ingress
+			got := h.p.admitToolCorrection(context.Background(), h.facts, h.terminal, h.attempt, "c1", correctionName, toolcall.ReasonUnknownToolName, correctionReq())
+			if got != tc.wantReason {
+				t.Fatalf("admitToolCorrection reason = %q, want %q", got, tc.wantReason)
 			}
 		})
 	}

@@ -17,7 +17,8 @@ type Budget struct {
 	Tasks    int // leaf checkboxes in tasks.md
 }
 
-// SliceBudget mirrors the Budgets table in .kiro/steering/delivery.md.
+// SliceBudget is the Spec row of the Budgets table in
+// .kiro/steering/delivery.md; ValidatePolicyDocs keeps that row equal to it.
 var SliceBudget = Budget{Areas: 5, Criteria: 25, Design: 300, Tasks: 12}
 
 // grandfathered holds active specs that predate the budget check. Their

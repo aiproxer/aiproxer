@@ -407,6 +407,35 @@ func TestDecodeChat_assistantFunctionCallLegacy(t *testing.T) {
 	}
 }
 
+// The deprecated function_call field names a prior call that the client made.
+// The decoded part must carry the function name as ToolName so name-keyed
+// consumers see it, and it has no wire id, so ToolCallID stays empty.
+func TestDecodeChat_assistantFunctionCallNamesPart(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{
+  "model": "gpt-4o-mini",
+  "messages": [{
+    "role": "assistant",
+    "content": null,
+    "function_call": {"name": "legacy_fn", "arguments": "{\"q\":\"x\"}"}
+  }]
+}`)
+	d, err := openailegacy.DecodeChatRequest(body, openailegacy.DecodeOptions{RouteSelector: "stub:gpt-4o-mini"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := d.Call.Messages[0].Parts
+	if len(parts) != 1 || parts[0].Kind != aipapi.PartJSON {
+		t.Fatalf("parts = %+v, want one PartJSON", parts)
+	}
+	if parts[0].ToolName != "legacy_fn" {
+		t.Fatalf("ToolName = %q, want %q", parts[0].ToolName, "legacy_fn")
+	}
+	if parts[0].ToolCallID != "" {
+		t.Fatalf("ToolCallID = %q, want empty (function_call has no wire id)", parts[0].ToolCallID)
+	}
+}
+
 func TestDecodeChat_toolRoleMessage(t *testing.T) {
 	t.Parallel()
 	body := []byte(`{

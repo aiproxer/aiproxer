@@ -13,6 +13,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/plugins/features/modelsystemprompt"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/partsnoop"
 	pathvirtualizationconfig "github.com/aiproxer/aiproxer/internal/plugins/features/pathvirtualization/config"
+	"github.com/aiproxer/aiproxer/internal/plugins/features/powershellheredoc"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/prerequestpolicy"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/proxymemory"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/reasoningpreservation"
@@ -149,6 +150,7 @@ func StandardBundle() Bundle {
 			{ID: toolreactornoop.ID, Factory: featureToolReactorNoop},
 			{ID: toolcallrepair.ID, Factory: featureToolCallRepair},
 			{ID: toolnamecorrection.ID, Factory: featureToolNameCorrection},
+			{ID: powershellheredoc.ID, Factory: featurePowerShellHeredoc},
 			{ID: pathvirtualizationconfig.ID, Factory: featurePathVirtualization},
 			{ID: refsubmit.ID, Factory: featureRefSubmit},
 			{ID: refparts.ID, Factory: featureRefParts},

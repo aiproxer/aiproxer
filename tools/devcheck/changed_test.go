@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aiproxer/aiproxer/tools/devcheck/internal/testscope"
 )
@@ -43,6 +45,32 @@ func TestPlanOnlyDoesNotExecuteOrValidateTestModules(t *testing.T) {
 	}
 }
 
+func TestBoundedModuleConcurrency(t *testing.T) {
+	t.Parallel()
+	modules := []testscope.Module{{Directory: "one"}, {Directory: "two"}}
+	started := make(chan struct{}, len(modules))
+	release := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		done <- repeatTestModules(t.Context(), modules, 1, len(modules), io.Discard, func(_ context.Context, _ testscope.Module, _ int) error {
+			started <- struct{}{}
+			<-release
+			return nil
+		})
+	}()
+	for range modules {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("modules did not start concurrently")
+		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSelectedExecutionRepeatAndFailure(t *testing.T) {
 	t.Parallel()
 	for _, failure := range []bool{false, true} {
@@ -50,7 +78,7 @@ func TestSelectedExecutionRepeatAndFailure(t *testing.T) {
 			modules := []testscope.Module{{Directory: ".", Packages: []string{"./one"}}}
 			var diagnostics strings.Builder
 			calls := 0
-			err := repeatTestModules(modules, 2, &diagnostics, func(module testscope.Module, iteration int) error {
+			err := repeatTestModules(t.Context(), modules, 2, 1, &diagnostics, func(_ context.Context, module testscope.Module, iteration int) error {
 				calls++
 				if iteration != calls || module.Directory != "." || len(module.Packages) != 1 || module.Packages[0] != "./one" {
 					t.Fatalf("changed repeat scope: module=%+v iteration=%d", module, iteration)

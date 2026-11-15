@@ -23,6 +23,7 @@ import (
 	"github.com/aiproxer/aiproxer/internal/infra/proxymemorystore"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/modelsystemprompt"
 	"github.com/aiproxer/aiproxer/internal/plugins/features/proxymemory"
+	"github.com/aiproxer/aiproxer/internal/testkit/sqlitefixture"
 	"github.com/aiproxer/aiproxer/pkg/aipapi"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk"
 	"github.com/aiproxer/aiproxer/pkg/aipsdk/auxiliary"
@@ -43,7 +44,9 @@ import (
 func openProxyMemoryBunDB(t *testing.T) *bun.DB {
 	t.Helper()
 	path := filepath.ToSlash(filepath.Join(t.TempDir(), "proxy_memory.db"))
-	sqlDB, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_pragma=busy_timeout(5000)")
+	dsn, err := sqlitefixture.FileDSN(path)
+	require.NoError(t, err)
+	sqlDB, err := sql.Open("sqlite", dsn)
 	require.NoError(t, err)
 	bunDB, err := db.NewBunDB(sqlDB, db.DialectSQLite)
 	require.NoError(t, err)

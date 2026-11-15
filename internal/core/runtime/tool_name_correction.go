@@ -31,7 +31,10 @@ const (
 	toolNameCorrectionLogMessage = "tool_name_correction"
 
 	// Decline reason codes, in evaluation order: when several rails apply, the
-	// first one is the recorded reason.
+	// first one is the recorded reason. already_withholding comes first so a
+	// second accepted steer on the same attempt can never overwrite the first
+	// one's name, instruction, or trigger, even when turn budget remains.
+	toolNameCorrectionReasonAlreadyWithholding      = "already_withholding"
 	toolNameCorrectionReasonBudgetSpent             = "budget_spent"
 	toolNameCorrectionReasonVisibleOutput           = "visible_output"
 	toolNameCorrectionReasonReasoningOutput         = "reasoning_output"
@@ -70,6 +73,12 @@ const (
 	toolNameCorrectionReasonFollowupFailed = "followup_failed"
 )
 
+// steerTriggerPowerShellHeredoc is the steer trigger the powershell-heredoc
+// finalizer reports as its result ReasonCode. Core keeps the literal instead of
+// importing the feature plugin. Only this trigger relaxes the ingress-history
+// rail; every other rail applies to it unchanged.
+const steerTriggerPowerShellHeredoc = "powershell_heredoc"
+
 // errToolCorrectionNotPublished is the correction failure policy's bounded
 // pre-publication failure: the correction overlay was deactivated and the
 // request terminal was deliberately left open, so the receive loop still owns
@@ -80,7 +89,7 @@ var errToolCorrectionNotPublished = errors.New("runtime: tool name correction no
 // or nil for every event the assembler can never consult it for: only a
 // completed tool call finalizes and asks about correction, so the receive hot
 // path builds a gate only for EventToolCallFinished.
-func (p *responsePipeline) toolNameCorrectionGateForEvent(ctx context.Context, facts recvTurnFacts, terminal *turnTerminal, attempt *attemptSession, ev aipapi.Event) func(name string, req toolcall.SteerRequest) bool {
+func (p *responsePipeline) toolNameCorrectionGateForEvent(ctx context.Context, facts recvTurnFacts, terminal *turnTerminal, attempt *attemptSession, ev aipapi.Event) func(name, triggerReason string, req toolcall.SteerRequest) bool {
 	if ev.Kind != aipapi.EventToolCallFinished {
 		return nil
 	}
@@ -97,28 +106,41 @@ func (p *responsePipeline) toolNameCorrectionGateForEvent(ctx context.Context, f
 // decidedCallID names the call this event finalizes, so the produced-output
 // facts can exclude that call's own lifecycle. It is normalized here exactly
 // as the tool-call assembler normalizes a call ID.
-func (p *responsePipeline) toolNameCorrectionGate(ctx context.Context, facts recvTurnFacts, terminal *turnTerminal, attempt *attemptSession, decidedCallID string) func(name string, req toolcall.SteerRequest) bool {
+func (p *responsePipeline) toolNameCorrectionGate(ctx context.Context, facts recvTurnFacts, terminal *turnTerminal, attempt *attemptSession, decidedCallID string) func(name, triggerReason string, req toolcall.SteerRequest) bool {
 	decidedCallID = strings.TrimSpace(decidedCallID)
-	return func(name string, req toolcall.SteerRequest) bool {
-		if reason := p.admitToolCorrection(ctx, facts, terminal, attempt, decidedCallID, name, req); reason != "" {
-			p.logToolNameCorrection(ctx, facts, attempt, name, toolNameCorrectionOutcomeDelivered, reason)
+	return func(name, triggerReason string, req toolcall.SteerRequest) bool {
+		trigger := normalizeSteerTrigger(triggerReason)
+		if reason := p.admitToolCorrection(ctx, facts, terminal, attempt, decidedCallID, name, trigger, req); reason != "" {
+			p.logToolNameCorrection(ctx, facts, attempt, name, trigger, toolNameCorrectionOutcomeDelivered, reason)
 			return false
 		}
 		terminal.acceptToolCorrection()
-		attempt.markWithholding(name, req.Instruction)
-		// The slice has exactly one bounded detection reason, and the
-		// finalizer's own reason code travels with its Result, not with the
-		// steer request the gate receives.
-		p.logToolNameCorrection(ctx, facts, attempt, name, toolNameCorrectionOutcomeCorrected, toolcall.ReasonUnknownToolName)
+		attempt.markWithholding(name, trigger, req.Instruction)
+		p.logToolNameCorrection(ctx, facts, attempt, name, trigger, toolNameCorrectionOutcomeCorrected, trigger)
 		return true
 	}
+}
+
+// normalizeSteerTrigger maps a finalizer's steer reason to the bounded trigger
+// set that admission, withholding, and every decision record use. Only the
+// powershell_heredoc trigger is kept as is; any other value, including empty or
+// raw text, becomes unknown_tool_name, so no unbounded finalizer string reaches
+// a log attribute.
+func normalizeSteerTrigger(reason string) string {
+	if reason == steerTriggerPowerShellHeredoc {
+		return reason
+	}
+	return toolcall.ReasonUnknownToolName
 }
 
 // admitToolCorrection evaluates the correction rails in their documented order
 // and returns the bounded decline reason, or "" when the correction is
 // admitted. It never consumes budget and never marks the attempt: only
 // acceptance does that, and only after every rail passed.
-func (p *responsePipeline) admitToolCorrection(ctx context.Context, facts recvTurnFacts, terminal *turnTerminal, attempt *attemptSession, decidedCallID, name string, req toolcall.SteerRequest) string {
+func (p *responsePipeline) admitToolCorrection(ctx context.Context, facts recvTurnFacts, terminal *turnTerminal, attempt *attemptSession, decidedCallID, name, trigger string, req toolcall.SteerRequest) string {
+	if attempt.isWithholding() {
+		return toolNameCorrectionReasonAlreadyWithholding
+	}
 	if terminal.toolCorrectionsAccepted() >= int64(req.TurnBudget) {
 		return toolNameCorrectionReasonBudgetSpent
 	}
@@ -128,7 +150,12 @@ func (p *responsePipeline) admitToolCorrection(ctx context.Context, facts recvTu
 	if attempt.producedReasoningOutput() && !req.AllowAfterReasoning {
 		return toolNameCorrectionReasonReasoningOutput
 	}
-	if toolNameInIngressHistory(facts.ingressCall, name) {
+	// The ingress-history rail stops a tool name the client has already seen
+	// from being replayed as a hidden correction. A powershell_heredoc call is a
+	// known shell tool used again with an invalid command, which is exactly what
+	// the feature exists to correct, so only that trigger skips this rail. Every
+	// other rail still applies to it.
+	if trigger != steerTriggerPowerShellHeredoc && toolNameInIngressHistory(facts.ingressCall, name) {
 		return toolNameCorrectionReasonHistoryRepeat
 	}
 	if terminal == nil || !terminal.supportsContinuation || terminal.isInterleavedThinker() || len(p.completionGatesFromContext(ctx)) > 0 {
@@ -143,6 +170,11 @@ func (p *responsePipeline) admitToolCorrection(ctx context.Context, facts recvTu
 // toolNameInIngressHistory reports whether the client's original request already
 // contains a tool call with exactly this name. A repeat means the client has
 // seen this call before, so delivering it unchanged is the only safe outcome.
+//
+// Item-authority calls carry prior calls as ItemKindToolCall items. Message-
+// authority calls (chat-completions) carry them as PartJSON parts with ToolName
+// on assistant messages, the shape the frontends write and
+// aipapi.ProjectLegacyToOrderedItems reads back as tool calls.
 func toolNameInIngressHistory(ingress aipapi.Call, name string) bool {
 	if name == "" {
 		return false
@@ -150,6 +182,19 @@ func toolNameInIngressHistory(ingress aipapi.Call, name string) bool {
 	for _, item := range aipapi.NormalizedItems(ingress) {
 		if item.Kind == aipapi.ItemKindToolCall && item.ToolCall != nil && item.ToolCall.Name == name {
 			return true
+		}
+	}
+	if ingress.HasItemAuthority() {
+		return false
+	}
+	for _, msg := range ingress.Messages {
+		if msg.Role != aipapi.RoleAssistant {
+			continue
+		}
+		for _, p := range msg.Parts {
+			if p.Kind == aipapi.PartJSON && p.ToolName == name {
+				return true
+			}
 		}
 	}
 	return false
@@ -167,11 +212,13 @@ func toolNameInIngressHistory(ingress aipapi.Call, name string) bool {
 // replays them on the normal routes; the drain's dispatch rebuilds the same
 // preparation a fresh event gets, and the event value itself is unchanged.
 // name is the steered call's effective name, kept only so the outcome record
-// that ends the withhold can hash it; instruction is the accepted steer
-// request's instruction, kept only so the follow-up continuation can carry it.
-// Neither is ever recorded raw.
+// that ends the withhold can hash it; trigger is the bounded steer trigger the
+// outcome record carries; instruction is the accepted steer request's
+// instruction, kept only so the follow-up continuation can carry it. None of
+// them is ever recorded raw.
 type withheldQueue struct {
 	name         string
+	trigger      string
 	instruction  string
 	events       []aipapi.Event
 	payloadBytes int
@@ -205,22 +252,22 @@ func (a *attemptSession) enqueueWithheld(ev aipapi.Event) bool {
 // assembler output still queued, and the finish tail still comes after the held
 // events. The drain dispatches every released event through
 // dispatchClientFacingEvent exactly once, so recording, gates, and the finish
-// authority all run on the normal routes. It returns the steered name the
-// withhold was accepted for, so the caller can record the outcome that ended
-// it, or "" when nothing was withheld.
-func releaseWithheld(attempt *attemptSession, tail ...aipapi.Event) string {
+// authority all run on the normal routes. It returns the steered name and the
+// bounded trigger the withhold was accepted for, so the caller can record the
+// outcome that ended it, or empty strings when nothing was withheld.
+func releaseWithheld(attempt *attemptSession, tail ...aipapi.Event) (name, trigger string) {
 	if attempt == nil {
-		return ""
+		return "", ""
 	}
 	attempt.withholdMu.Lock()
-	events, name := attempt.withheld.events, attempt.withheld.name
+	events, name, trigger := attempt.withheld.events, attempt.withheld.name, attempt.withheld.trigger
 	attempt.withheld = withheldQueue{}
 	attempt.withholdMu.Unlock()
 	if assembler := attempt.toolCallAssembler(); assembler != nil {
 		assembler.prepend(append(events, tail...)...)
 	}
 	attempt.withholding.Store(false)
-	return name
+	return name, trigger
 }
 
 // divertWithheld routes one event that would otherwise be dispatched for a
@@ -238,8 +285,8 @@ func (p *responsePipeline) divertWithheld(ctx context.Context, facts recvTurnFac
 	if attempt.enqueueWithheld(ev) {
 		return true
 	}
-	name := releaseWithheld(attempt, ev)
-	p.logToolNameCorrection(ctx, facts, attempt, name, toolNameCorrectionOutcomeDelivered, toolNameCorrectionReasonWithholdOverflow)
+	name, trigger := releaseWithheld(attempt, ev)
+	p.logToolNameCorrection(ctx, facts, attempt, name, trigger, toolNameCorrectionOutcomeDelivered, toolNameCorrectionReasonWithholdOverflow)
 	return true
 }
 
@@ -261,7 +308,7 @@ func runToolCorrection(ctx context.Context, t *turnTerminal, s *retryRecvStream,
 	if s == nil || attempt == nil {
 		return nil
 	}
-	name, instruction := attempt.withheldSteer()
+	name, instruction, trigger := attempt.withheldSteer()
 	intent := terminaldecision.ContinuationIntent{
 		TrajectoryRef: strings.TrimSpace(attempt.bleg.BLegID),
 		Instruction:   instruction,
@@ -291,15 +338,15 @@ func runToolCorrection(ctx context.Context, t *turnTerminal, s *retryRecvStream,
 		return err
 	}
 	releaseWithheld(attempt, finish)
-	s.responsePipeline.logToolNameCorrection(ctx, s.facts, attempt, name, toolNameCorrectionOutcomeDelivered, toolNameCorrectionReasonFollowupFailed)
+	s.responsePipeline.logToolNameCorrection(ctx, s.facts, attempt, name, trigger, toolNameCorrectionOutcomeDelivered, toolNameCorrectionReasonFollowupFailed)
 	return nil
 }
 
 // logToolNameCorrection emits this feature's one bounded decision record. The
-// record carries lineage, the bounded outcome and reason, and a SHA-256 prefix
-// of the tool name; the raw name, arguments, and instruction text never reach
-// it (requirements 5.1, 5.2).
-func (p *responsePipeline) logToolNameCorrection(ctx context.Context, facts recvTurnFacts, attempt *attemptSession, name, outcome, reason string) {
+// record carries lineage, the bounded trigger, outcome and reason, and a SHA-256
+// prefix of the tool name; the raw name, arguments, and instruction text never
+// reach it (requirements 5.1, 5.2).
+func (p *responsePipeline) logToolNameCorrection(ctx context.Context, facts recvTurnFacts, attempt *attemptSession, name, trigger, outcome, reason string) {
 	if p == nil || p.log == nil {
 		return
 	}
@@ -311,6 +358,7 @@ func (p *responsePipeline) logToolNameCorrection(ctx context.Context, facts recv
 		slog.String("trace_id", facts.traceID),
 		slog.String("b_leg_id", bLegID),
 		slog.String("tool_name_hash", HashOpaqueIDForLog(name)),
+		slog.String("trigger", normalizeSteerTrigger(trigger)),
 		slog.String("outcome", outcome),
 		slog.String("reason", reason),
 	)

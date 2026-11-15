@@ -193,8 +193,8 @@ default. Verify each committed slice independently at its frozen base. Passing
 a slice-base gate does not certify the combined feature or permit an oversized
 PR against main; rerun against the real intended PR base before publication.
 
-The existing 100-Go-file hard limit is reported independently of approximate
-delivery signals (~40 files, ~1500 added non-test Go lines, ~2x test additions).
+The existing 100-Go-file hard limit is reported independently of the approximate
+delivery signals for changed files, added production lines and test proportionality.
 Report generation does not enforce those advisory numbers, authorize overrides,
 prove dependencies, or certify an independent build. Review the signals under
 `.kiro/steering/delivery.md`, verify each slice independently, and require an
@@ -245,7 +245,8 @@ as three shards (`heavy`: the few slow packages; `rest` and `rest-2`: everything
 `scripts/ci-suite-shard.sh` assigns every package to exactly one) so no single runner compiles and runs
 every package. `AIP_PRECOMMIT_FULL=1 git commit` (or
 `make precommit-full`) runs the old complete local gate. `scripts/hooks/pre-push`
-re-checks release cleanliness and change size.
+re-checks release cleanliness, change size, and the task-branch prefix when a
+push creates a new remote branch (`scripts/task-branch-prefix.sh`).
 
 For a new branch or rewritten history (force-push after rebase/amend), the
 pre-push size gate measures against the declared stack base: `AIP_CHANGE_SIZE_BASE`
@@ -272,6 +273,21 @@ installed, and CI preflight installs the pinned tool and runs it on every PR tha
 touches `.github/workflows` regardless. The cheap goroutine and regex guardrails
 remain repository-wide. Standalone quality checks and full pre-commit mode retain
 their previous scope.
+
+A commit with no staged Go source and no `go.mod`/`go.sum` change still validates
+the repository's own contracts instead of skipping the gate. `scripts/quality-gate.sh`
+classifies the staged paths with `scripts/ci-scope.sh`, so local and CI agree on
+what counts as policy: a staged Kiro spec path (`.kiro/specs/*`) runs
+`go run ./tools/kiro/kirospec-check` (plus `go test ./tools/kiro/speccheck/` when
+a registered spec or the checker itself is staged), while a staged policy path —
+`.kiro` steering, `AGENTS.md`, `CLAUDE.md`, the skill catalog roots, `docs/*`,
+`.github/dependabot.yml` and the README/CHANGELOG/LICENSE files — runs
+`go run ./tools/kiro/kirocheck`, which validates the paths, links and anchors,
+Make targets, budgets and history hygiene the documents cite. `Makefile` counts as
+policy because policy documents quote its targets. A commit that stages both
+classes runs both checks, and one that stages neither class skips the policy
+gate. Staged `Makefile`, `scripts/`, `.github/workflows/` and `.githooks/` paths
+also run `go run ./tools/devcheck -task=contracts -scope=changed -base=HEAD -automation-only`.
 
 Measured against `eef98f56` on Linux `agent-dev`, Go 1.26.6, golangci-lint
 2.14.0, a two-CPU quota, stable shared caches, and the normal host Go guard:
@@ -452,7 +468,7 @@ confirming none of them works in the selected worktree; confirmed occupants
 still refuse. Process inspection is cooperative, not a sandbox
 or proof against writers without visible working-directory ownership.
 
-`make worktree-create WORKTREE_BRANCH=fix-short-description` plans the worktree at
+`make worktree-create WORKTREE_BRANCH=fix/short-description` plans the worktree at
 the validated location. Add `WORKTREE_APPLY=1` to create it and `WORKTREE_BASE=<ref>` to branch from something other
 than `origin/main`, or `SETUP=1` to run `make dev-doctor` in the new worktree.
 
@@ -626,30 +642,37 @@ change does not remove it from selection. The command does not fetch; update
 remote-tracking refs separately when needed. `DEV_BASE=<ref>` overrides the
 comparison reference. Use `DEV_PLAN=1` to inspect the plan without executing
 tests, `DEV_FULL=1` to run complete default tests in every maintained module,
-and `DEV_FRESH=1` for deliberate fresh execution. `DEV_JOBS` and `DEV_REPEAT`
-retain their existing meanings; the plan is built once per invocation.
+and `DEV_FRESH=1` for deliberate fresh execution. `DEV_REPEAT` retains its
+existing meaning. `DEV_PACKAGES` and `DEV_PARALLEL` default to the declared
+`AIP_TEST_PACKAGES` and `AIP_TEST_PARALLEL` budgets, falling back to
+`DEV_JOBS`; `DEV_MODULE_JOBS` bounds concurrent modules. The plan is built once
+per invocation.
 
 Production changes select their owning package, transitive production consumers,
 and consumers that import affected production code only in tests. Test-only
 changes select their owning package. Test edges do not propagate production
 impact. Every default test in each selected package runs; individual test names
 are not filtered. Package-owned embedded inputs and `testdata` are included.
-An ordinary connector change stays within its independent module, with
-`GOWORK=off` for discovery and execution.
+Known prose-only documentation — `README`, `AGENTS.md`, `LICENSE`, `CHANGELOG`
+and any `docs/` directory at any depth — selects no tests; documentation under
+`testdata/` remains a fixture. An ordinary connector change stays within its
+independent module, with `GOWORK=off` for discovery and execution.
 
 Shared SDK, connector-support, testkit, configuration and build/dependency policy
 changes trigger complete default tests across the maintained module inventory:
 the root, connectors, connector-support and the four external fixture modules
-used by the module-check scripts. Unmapped inputs, unresolved deleted packages,
-missing default-base information and failed package discovery also fall back
-to that full run. An invalid explicitly supplied base is an error. Known
-prose-only documentation changes and a clean branch select no tests.
+used by the module-check scripts. An input that no package in the owning module
+claims, including a deleted package, runs that module's complete default tests
+instead of every module. Missing default-base information and failed package
+discovery still fall back to the full inventory. An invalid explicitly supplied
+base is an error. A clean branch selects no tests.
 
 The report shows the comparison revision, changed-file count, selected modules
 and packages, selection reasons and fallback reason. Planning and execution
 times are reported separately, followed by package pass/cache/failure counts.
-Modules execute sequentially with bounded package concurrency. Test failures
-and invalid telemetry fail the command.
+Modules execute sequentially by default with bounded package concurrency;
+`DEV_MODULE_JOBS=<n>` runs up to n independent modules concurrently, each with
+its own package budget. Test failures and invalid telemetry fail the command.
 
 Automatic selection cannot be combined with `PKGS` or a non-default `MODULE`;
 use `make dev-test` for manual scope. Selection follows the current host's Go
@@ -678,8 +701,9 @@ packages without tests. Windows Job Object accounting measured 12.66 versus
 690.55 CPU seconds, including descendant processes. Selection itself took
 about 3.1 seconds. This is one matched comparison of a CLI-only edit, not a
 guaranteed speedup for shared/core changes or a comparison against all nested
-module suites. Invoking through `make` also compiles/starts the runner via
-`go run`, using the normal Go build cache.
+module suites. Invoking through `make` builds the runner into a per-worktree cache
+(`AIP_DEVCHECK_CACHE`, default under the user cache) and executes that binary;
+repeated invocations reuse it instead of paying the `go run` link cost.
 
 The selector's deterministic policy, ownership and dependency tests run in the
 default suite. Its real Git/Go process-boundary fixtures use `//go:build integration`;
@@ -747,8 +771,12 @@ local review aid, not a replacement for the mandatory `make lint` gate.
 `AIP_TEST_PACKAGES` optionally sets Go package-process concurrency (`-p`),
 independently of `AIP_TEST_PARALLEL` (`-parallel`, within each test binary). On local Linux
 `agent-dev`, suite Make targets and Bash quality/hook entry points default to one package
-process, `GOMAXPROCS=2`, and two parallel tests per binary. Scoped `dev-test`
-commands use `DEV_JOBS` for both package jobs and test parallelism (default 1). The installed
+process, `GOMAXPROCS=2`, and two parallel tests per binary. Scoped `dev-test` and
+`dev-test-changed` commands use the declared `AIP_TEST_PACKAGES` and
+`AIP_TEST_PARALLEL` budgets when set and fall back to `DEV_JOBS` for both
+(default 1); `DEV_PACKAGES` and `DEV_PARALLEL` override them independently.
+`devcheck` also accepts `-jobs` and `-parallel` directly; `-parallel=0` follows
+`-jobs`. The installed
 `go-dev-guard.sh` also defaults direct Go commands to `-p=1` and `GOMAXPROCS=2`,
 preserving persisted `GOENV` flags and explicit budgets. Local Go and Bash gate
 processes use an absolute niceness floor of 10; an inherited value of 10 or
@@ -867,7 +895,8 @@ make dev-test-changed DEV_EVIDENCE=~/scratch-ci/verification.json
 The manifest names the tested revision (`head`, `branch`, `merge_in_progress`)
 and its dirty identity (`dirty`, `dirty_path_count`, `dirty_go_files`, and a
 `dirty_digest` over the porcelain payload *and* the bytes of the dirty files),
-the requested scope (kind, module, packages, base, jobs, repeat), the toolchain
+the requested scope (kind, module, packages, base, jobs, parallel, module_jobs,
+repeat), the toolchain
 (`go_version`, `lint_version`, `goos`, `goarch`, `gomaxprocs`), and one step per
 command with its exit code, duration, test counters, and log path.
 

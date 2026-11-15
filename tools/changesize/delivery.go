@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/aiproxer/aiproxer/internal/archtest/tools/changesurface"
+	"github.com/aiproxer/aiproxer/internal/qa/kirospec"
 )
 
 type lineChanges struct {
@@ -104,14 +105,15 @@ func writeDeliveryReport(repo, base, head, consumer string, output io.Writer) er
 	r.HardLimit.Exceeded = r.GoFiles > DefaultLimit
 	r.Surfaces = changesurface.Build(append(slices.Clone(r.Paths), r.PreviousPaths...))
 	r.Pending = []string{"Build/test each slice independently at its intended base; this report runs neither.", "Review dependencies and first-consumer semantics; path categories and declarations do not prove them."}
-	if r.Files > 40 {
-		r.Advisory = append(r.Advisory, "More than ~40 changed files; split the slice.")
+	budget := kirospec.PRBudget
+	if r.Files > budget.Files {
+		r.Advisory = append(r.Advisory, fmt.Sprintf("More than ~%d changed files; split the slice.", budget.Files))
 	}
-	if r.Production.Added > 1500 {
-		r.Advisory = append(r.Advisory, "More than ~1500 added non-test Go lines; split the slice.")
+	if r.Production.Added > budget.ProductionLines {
+		r.Advisory = append(r.Advisory, fmt.Sprintf("More than ~%d added non-test Go lines; split the slice.", budget.ProductionLines))
 	}
-	if r.Tests.Added > 5*r.Production.Added {
-		r.Advisory = append(r.Advisory, "Test additions exceed ~5x production additions; review proportionality (test-only slices need judgment).")
+	if r.Tests.Added > budget.TestRatio*r.Production.Added {
+		r.Advisory = append(r.Advisory, fmt.Sprintf("Test additions exceed ~%dx production additions; review proportionality (test-only slices need judgment).", budget.TestRatio))
 	}
 	if consumer == "" {
 		r.Pending = append(r.Pending, "For a substrate, declare its immediate real consumer with --consumer.")

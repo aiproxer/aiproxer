@@ -61,6 +61,7 @@ func TestSpecBundle_standardBundleIDInventory(t *testing.T) {
 		"model-system-prompt",
 		"parts-noop",
 		"path_virtualization",
+		"powershell-heredoc-steering",
 		"pre-request-policy",
 		"proxy-memory",
 		"reasoning-output-preservation",

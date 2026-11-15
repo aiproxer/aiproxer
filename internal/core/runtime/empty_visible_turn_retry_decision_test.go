@@ -180,7 +180,7 @@ func TestEmptyVisibleTurnRetryDecision_RailsInDeclaredOrder(t *testing.T) {
 			require.False(t, f.stream.terminal.releasedClientFrameLatched(), "fixture must commit without latching the local seam")
 		}},
 		{"withholding", "withholding", func(_ *testing.T, f *emptyVisibleTurnRetryDecisionFixture) {
-			f.attempt.markWithholding("lookup_customer", "instruction")
+			f.attempt.markWithholding("lookup_customer", "unknown_tool_name", "instruction")
 		}},
 		{"hidden_thinker", "hidden_thinker", func(_ *testing.T, f *emptyVisibleTurnRetryDecisionFixture) {
 			f.stream.terminal.setInterleavedThinker()
@@ -229,7 +229,7 @@ func TestEmptyVisibleTurnRetryDecision_RailsInDeclaredOrder(t *testing.T) {
 			t.Helper()
 			f.stream.terminal.claimCorrectiveRetry()
 			f.stream.terminal.noteReleasedClientFrame(aipapi.Event{Kind: aipapi.EventResponseStarted})
-			f.attempt.markWithholding("lookup_customer", "instruction")
+			f.attempt.markWithholding("lookup_customer", "unknown_tool_name", "instruction")
 			f.stream.terminal.setInterleavedThinker()
 			f.stream.facts.wirePayload = &wireAttemptPayload{}
 			f.attempt.cand.IsParallel = true
@@ -308,7 +308,7 @@ func TestEmptyVisibleTurnRetryDecision_CandidacyPrecedesRails(t *testing.T) {
 func TestEmptyVisibleTurnRetryDecision_RecordCarriesLineageOutcomeReasonOnly(t *testing.T) {
 	t.Parallel()
 	f := newEmptyVisibleTurnRetryDecisionFixture(t, true)
-	f.attempt.markWithholding("lookup_customer", "SECRET-INSTRUCTION-TEXT")
+	f.attempt.markWithholding("lookup_customer", "unknown_tool_name", "SECRET-INSTRUCTION-TEXT")
 	require.False(t, f.decide(t), "a withholding turn must decline")
 	emptyVisibleTurnRetryDecisionAssertRecord(t, f, "withholding")
 	records := emptyVisibleTurnRetryDecisionRecords(t, f.logs)

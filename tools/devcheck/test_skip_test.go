@@ -133,7 +133,7 @@ func TestParent(t *testing.T) {
 		t.Fatalf("combinedTestSkipPattern() = %q, %v; want %q", pattern, err, wantPattern)
 	}
 
-	command, err := commandFor("test", ".", 1, true)
+	command, err := commandFor("test", ".", 1, 1, true)
 	if err != nil {
 		t.Fatal(err)
 	}

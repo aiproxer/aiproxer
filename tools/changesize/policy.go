@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"strings"
+
+	"github.com/aiproxer/aiproxer/internal/qa/kirospec"
 )
 
 const (
-	DefaultLimit      = 100
+	DefaultLimit      = kirospec.MaxChangedGoFiles
 	OverrideEnv       = "AIP_ALLOW_LARGE_CHANGE"
 	OverrideGitConfig = "aip.allowLargeChange"
 )

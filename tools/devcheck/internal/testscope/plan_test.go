@@ -21,19 +21,26 @@ func TestPlanInputsAndFallbacks(t *testing.T) {
 		packages   []string
 		module     string
 		full       bool
+		moduleWide bool
 	}{
-		{"cli", "cmd/app/main.go", []string{"./cmd/app"}, ".", false},
-		{"production", "base/base.go", []string{"./base", "./consumer"}, ".", false},
-		{"fixture", "base/testdata/input.json", []string{"./base"}, ".", false},
-		{"docs", "docs/guide.md", nil, "", false},
-		{"connector", "connectors/one/one_test.go", []string{"."}, "connectors/one", false},
-		{"unknown", "assets/unknown.txt", nil, "", true},
-		{"shared SDK", "pkg/aipapi/shared.go", nil, "", true},
-		{"shared testkit", "internal/testkit/helper.go", nil, "", true},
-		{"policy", "Makefile", nil, "", true},
-		{"shared support", "connector-support/acp/helper.go", nil, "", true},
-		{"dependency", "connectors/one/go.mod", nil, "", true},
-		{"broken graph", "base/broken.go", nil, "", true},
+		{"cli", "cmd/app/main.go", []string{"./cmd/app"}, ".", false, false},
+		{"production", "base/base.go", []string{"./base", "./consumer"}, ".", false, false},
+		{"fixture", "base/testdata/input.json", []string{"./base"}, ".", false, false},
+		{"docs", "docs/guide.md", nil, "", false, false},
+		{"module readme", "connectors/one/README.md", nil, "", false, false},
+		{"module agents", "connectors/one/AGENTS.md", nil, "", false, false},
+		{"module docs", "connectors/one/docs/guide.md", nil, "", false, false},
+		{"nested docs", "internal/foo/docs/guide.md", nil, "", false, false},
+		{"testdata readme is a fixture", "connectors/one/testdata/README.md", []string{"."}, "connectors/one", false, false},
+		{"connector", "connectors/one/one_test.go", []string{"."}, "connectors/one", false, false},
+		{"unknown", "assets/unknown.txt", []string{"./..."}, ".", false, true},
+		{"unknown connector input", "connectors/one/certification/fixture.json", []string{"./..."}, "connectors/one", false, true},
+		{"shared SDK", "pkg/aipapi/shared.go", nil, "", true, false},
+		{"shared testkit", "internal/testkit/helper.go", nil, "", true, false},
+		{"policy", "Makefile", nil, "", true, false},
+		{"shared support", "connector-support/acp/helper.go", nil, "", true, false},
+		{"dependency", "connectors/one/go.mod", nil, "", true, false},
+		{"broken graph", "base/broken.go", nil, "", true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			list := func(_ context.Context, _, module string) ([]listedPackage, error) {
@@ -49,6 +56,12 @@ func TestPlanInputsAndFallbacks(t *testing.T) {
 			if tc.full {
 				if plan.Fallback == "" || len(plan.Modules) != 2 || plan.Modules[0].Packages[0] != "./..." {
 					t.Fatalf("expected full root and connector fallback: %+v", plan)
+				}
+				return
+			}
+			if tc.moduleWide {
+				if plan.Fallback != "" || len(plan.Modules) != 1 || plan.Modules[0].Directory != tc.module || !reflect.DeepEqual(plan.Modules[0].Packages, []string{"./..."}) {
+					t.Fatalf("expected module-wide fallback in %s: %+v", tc.module, plan)
 				}
 				return
 			}

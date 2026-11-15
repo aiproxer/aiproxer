@@ -42,6 +42,17 @@ func main() {
 	}
 }
 
+// envPositiveInt reads an optional positive integer budget from the
+// environment. Unset, empty, malformed and non-positive values report zero so
+// the caller can apply its own default.
+func envPositiveInt(name string) int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(name)))
+	if err != nil || value < 1 {
+		return 0
+	}
+	return value
+}
+
 // run returns the check verdict. Its named result is read by the deferred
 // manifest writer, so every return after the recorder exists lands in the
 // verification manifest, including the failure paths.
@@ -52,6 +63,8 @@ func run(ctx context.Context) (err error) {
 	var skipTest explicitTestSkipFlag
 	flag.Var(&skipTest, "skip-test", "skip one exact top-level Test in an explicit task=test run")
 	jobs := flag.Int("jobs", min(4, runtime.GOMAXPROCS(0)), "Go package and analyzer concurrency")
+	parallel := flag.Int("parallel", envPositiveInt("AIP_TEST_PARALLEL"), "Go test -parallel budget per test binary; 0 follows -jobs")
+	moduleJobs := flag.Int("module-jobs", 1, "maximum concurrently running modules in a changed-scope test plan")
 	fresh := flag.Bool("fresh", false, "disable test result reuse for a deliberate fresh execution")
 	repeat := flag.Int("repeat", 1, "repeat identical checks to distinguish warm reuse from execution cost")
 	scope := flag.String("scope", "explicit", "explicit or changed local test scope")
@@ -71,8 +84,11 @@ func run(ctx context.Context) (err error) {
 	if (*outputMode != "stream" && *outputMode != "summary") || (*outputMode == "summary" && *evidencePath == "") {
 		return errors.New("output must be stream or summary; summary requires -evidence so detailed logs are retained")
 	}
-	if flag.NArg() != 0 || *jobs < 1 || *repeat < 1 || *timeout <= 0 {
-		return errors.New("jobs/repeat/timeout must be positive; use named flags for scope")
+	if flag.NArg() != 0 || *jobs < 1 || *parallel < 0 || *moduleJobs < 1 || *repeat < 1 || *timeout <= 0 {
+		return errors.New("jobs/module-jobs/repeat/timeout must be positive, parallel must be non-negative; use named flags for scope")
+	}
+	if *parallel == 0 {
+		*parallel = *jobs
 	}
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
@@ -95,15 +111,17 @@ func run(ctx context.Context) (err error) {
 		recorderEvidence = ""
 	}
 	recorder := newEvidenceRecorder(ctx, recorderEvidence, *task, evidence.Scope{
-		Kind:     *scope,
-		Module:   *module,
-		Packages: strings.Fields(*packages),
-		Base:     *base,
-		Jobs:     *jobs,
-		Repeat:   *repeat,
-		Fresh:    *fresh,
-		PlanOnly: *planOnly,
-		Full:     *full,
+		Kind:       *scope,
+		Module:     *module,
+		Packages:   strings.Fields(*packages),
+		Base:       *base,
+		Jobs:       *jobs,
+		Parallel:   *parallel,
+		ModuleJobs: *moduleJobs,
+		Repeat:     *repeat,
+		Fresh:      *fresh,
+		PlanOnly:   *planOnly,
+		Full:       *full,
 	}, root)
 	if recorder != nil {
 		recorder.quiet, recorder.report = *outputMode == "summary", os.Stderr
@@ -140,7 +158,7 @@ func run(ctx context.Context) (err error) {
 		if *module != "." || *packages != "" || *scope != "changed" || *full {
 			return errors.New("contracts requires scope=changed with no explicit MODULE/PKGS/full override")
 		}
-		return runContractCheck(ctx, root, *base, testPlanOptions{jobs: *jobs, repeat: *repeat, fresh: *fresh, dry: *planOnly, recorder: recorder, automationOnly: *automationOnly}, os.Stdout, os.Stderr)
+		return runContractCheck(ctx, root, *base, testPlanOptions{jobs: *jobs, parallel: *parallel, repeat: *repeat, fresh: *fresh, dry: *planOnly, recorder: recorder, automationOnly: *automationOnly}, os.Stdout, os.Stderr)
 	}
 	quarantine, err := loadQuarantine(root)
 	if err != nil {
@@ -177,7 +195,7 @@ func run(ctx context.Context) (err error) {
 			return planErr
 		}
 		fmt.Fprintf(os.Stderr, "planning_elapsed=%.3fs\n", time.Since(start).Seconds())
-		return runTestPlan(ctx, root, plan, testPlanOptions{jobs: *jobs, repeat: *repeat, fresh: *fresh, dry: *planOnly, quarantine: quarantine, recorder: recorder}, os.Stdout, os.Stderr)
+		return runTestPlan(ctx, root, plan, testPlanOptions{jobs: *jobs, parallel: *parallel, moduleJobs: *moduleJobs, repeat: *repeat, fresh: *fresh, dry: *planOnly, quarantine: quarantine, recorder: recorder}, os.Stdout, os.Stderr)
 	}
 	if *scope != "explicit" || *base != "" || *planOnly || *full {
 		return errors.New("base/plan/full require -scope=changed; scope must be explicit or changed")
@@ -195,6 +213,7 @@ func run(ctx context.Context) (err error) {
 		*module,
 		*packages,
 		*jobs,
+		*parallel,
 		*fresh,
 		os.Getenv("AIP_LOCAL_ARCH_TRIMPATH") == "1",
 	)
@@ -265,7 +284,7 @@ func stepStats(test bool, stats testStats) *evidence.Stats {
 	return &evidence.Stats{Passed: stats.Passed, Cached: stats.Cached, Failed: stats.Failed, Skipped: stats.Skipped}
 }
 
-func commandFor(task, scope string, jobs int, fresh bool) ([]string, error) {
+func commandFor(task, scope string, jobs, parallel int, fresh bool) ([]string, error) {
 	packages := strings.Fields(scope)
 	if len(packages) == 0 {
 		return nil, errors.New("explicit scope required: set PKGS='./path/to/package/...' (use ./... deliberately for the full module)")
@@ -273,10 +292,13 @@ func commandFor(task, scope string, jobs int, fresh bool) ([]string, error) {
 	if err := scopeplan.ValidatePackages(packages); err != nil {
 		return nil, err
 	}
+	if parallel < 1 {
+		parallel = jobs
+	}
 	var command []string
 	switch task {
 	case "test":
-		command = []string{"go", "test", "-mod=readonly", "-p=" + strconv.Itoa(jobs), "-parallel=" + strconv.Itoa(jobs), "-timeout=10m", "-json"}
+		command = []string{"go", "test", "-mod=readonly", "-p=" + strconv.Itoa(jobs), "-parallel=" + strconv.Itoa(parallel), "-timeout=10m", "-json"}
 		if fresh {
 			command = append(command, "-count=1")
 		}
@@ -293,9 +315,9 @@ func commandFor(task, scope string, jobs int, fresh bool) ([]string, error) {
 	return append(command, packages...), nil
 }
 
-func commandGroupsFor(task, module, scope string, jobs int, fresh, localArchTrimpath bool) ([][]string, error) {
+func commandGroupsFor(task, module, scope string, jobs, parallel int, fresh, localArchTrimpath bool) ([][]string, error) {
 	if !localArchTrimpath || filepath.Clean(module) != "." || (task != "test" && task != "build") {
-		command, err := commandFor(task, scope, jobs, fresh)
+		command, err := commandFor(task, scope, jobs, parallel, fresh)
 		if err != nil {
 			return nil, err
 		}
@@ -304,7 +326,7 @@ func commandGroupsFor(task, module, scope string, jobs int, fresh, localArchTrim
 
 	packages := strings.Fields(scope)
 	if len(packages) == 0 {
-		command, err := commandFor(task, scope, jobs, fresh)
+		command, err := commandFor(task, scope, jobs, parallel, fresh)
 		if err != nil {
 			return nil, err
 		}
@@ -314,7 +336,7 @@ func commandGroupsFor(task, module, scope string, jobs int, fresh, localArchTrim
 	// make the broad command use a different compiler cache variant.
 	for _, packagePattern := range packages {
 		if packagePattern == "./..." || packagePattern == "./internal/..." {
-			command, err := commandFor(task, scope, jobs, fresh)
+			command, err := commandFor(task, scope, jobs, parallel, fresh)
 			if err != nil {
 				return nil, err
 			}
@@ -330,7 +352,7 @@ func commandGroupsFor(task, module, scope string, jobs int, fresh, localArchTrim
 		}
 	}
 	if len(archPackages) == 0 {
-		command, err := commandFor(task, scope, jobs, fresh)
+		command, err := commandFor(task, scope, jobs, parallel, fresh)
 		if err != nil {
 			return nil, err
 		}
@@ -350,7 +372,7 @@ func commandGroupsFor(task, module, scope string, jobs int, fresh, localArchTrim
 		if len(group.packages) == 0 {
 			continue
 		}
-		command, err := commandFor(task, strings.Join(group.packages, " "), jobs, fresh)
+		command, err := commandFor(task, strings.Join(group.packages, " "), jobs, parallel, fresh)
 		if err != nil {
 			return nil, err
 		}
